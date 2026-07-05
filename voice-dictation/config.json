@@ -1,0 +1,27 @@
+{
+  "audio": {
+    "device": "USB 2.0 Camera",
+    "sample_rate": 16000
+  },
+  "ptt": {
+    "button": "middle"
+  },
+  "profiles": {
+    "dev": {
+      "model": "small.en",
+      "device": "cpu",
+      "prompt_file": "prompts/dev.txt"
+    },
+    "radio": {
+      "model": "base.en",
+      "device": "cpu",
+      "prompt_file": "prompts/radio.txt"
+    },
+    "general": {
+      "model": "small.en",
+      "device": "cpu",
+      "prompt": ""
+    }
+  },
+  "default_profile": "dev"
+}
