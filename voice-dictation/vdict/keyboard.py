@@ -9,42 +9,69 @@ Responsibilities:
 """
 
 import threading
-from pynput import mouse
+from pynput import mouse, keyboard
+
+# Mouse button names accepted in config.json -> pynput button enum.
+# "side" maps to x2 (commonly the "forward" side button on a mouse) since
+# side buttons aren't globally hooked by Windows the way middle-click
+# autoscroll is in browsers/Electron apps.
+_BUTTON_MAP = {
+    "left": mouse.Button.left,
+    "right": mouse.Button.right,
+    "middle": mouse.Button.middle,
+    "side": mouse.Button.x2,
+    "x1": mouse.Button.x1,
+    "x2": mouse.Button.x2,
+}
 
 
 class PTTListener:
-    """Push-to-talk button listener (middle mouse button)"""
-    
+    """Push-to-talk trigger listener (configurable mouse button or keyboard key)"""
+
     def __init__(self, button="middle", debug=False):
         """
         Initialize PTT listener
-        
+
         Args:
-            button: Mouse button to monitor ("middle", "side", etc.)
-            debug: Print debug messages for all mouse events
+            button: Trigger to monitor. Either a mouse button name
+                ("left", "right", "middle", "side", "x1", "x2") or a
+                keyboard key using "key:<name>" (e.g. "key:f13"), where
+                <name> matches a pynput.keyboard.Key member. Useful for
+                gaming-mouse buttons remapped to send a keystroke instead
+                of a native mouse-button signal.
+            debug: Print debug messages for all events
         """
         self.button_name = button
         self.pressed = False
         self.debug = debug
-        
+
         # Threading events for blocking waits
         self.press_event = threading.Event()
         self.release_event = threading.Event()
-        
-        # Map button name to pynput button
-        self.button = mouse.Button.middle if button == "middle" else mouse.Button.middle
-        
-        # Start mouse listener in background thread
-        self.listener = mouse.Listener(on_click=self._on_click)
+
+        if button.startswith("key:"):
+            key_name = button[len("key:"):]
+            self.target_key = getattr(keyboard.Key, key_name, None)
+            if self.target_key is None:
+                raise ValueError(f"Unsupported PTT key: '{key_name}'")
+            self.button = None
+            self.listener = keyboard.Listener(on_press=self._on_key_press, on_release=self._on_key_release)
+        else:
+            self.button = _BUTTON_MAP.get(button)
+            if self.button is None:
+                raise ValueError(f"Unsupported PTT button: '{button}'. Supported: {list(_BUTTON_MAP)}")
+            self.target_key = None
+            self.listener = mouse.Listener(on_click=self._on_click)
+
         self.listener.start()
-        
+
         if self.debug:
             print(f"[DEBUG] PTTListener started, monitoring: {self.button_name}")
-    
+
     def _on_click(self, x, y, button, pressed):
         """
         Internal callback for mouse events (runs in background thread)
-        
+
         Args:
             x, y: Mouse position (unused)
             button: Mouse button that triggered event
@@ -52,7 +79,7 @@ class PTTListener:
         """
         if self.debug:
             print(f"[DEBUG] Mouse event: button={button}, pressed={pressed}, target={self.button}")
-        
+
         if button == self.button:
             self.pressed = pressed
             if pressed:
@@ -65,7 +92,28 @@ class PTTListener:
                     print(f"[DEBUG] Target button RELEASED - setting event")
                 self.release_event.set()
                 self.press_event.clear()
-    
+
+    def _on_key_press(self, key):
+        """Internal callback for keyboard press events (runs in background thread)"""
+        if self.debug:
+            print(f"[DEBUG] Key event: key={key}, target={self.target_key}")
+
+        if key == self.target_key and not self.pressed:
+            self.pressed = True
+            if self.debug:
+                print(f"[DEBUG] Target key PRESSED - setting event")
+            self.press_event.set()
+            self.release_event.clear()
+
+    def _on_key_release(self, key):
+        """Internal callback for keyboard release events (runs in background thread)"""
+        if key == self.target_key:
+            self.pressed = False
+            if self.debug:
+                print(f"[DEBUG] Target key RELEASED - setting event")
+            self.release_event.set()
+            self.press_event.clear()
+
     def wait_for_press(self):
         """
         Block until PTT button is pressed
