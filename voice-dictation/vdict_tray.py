@@ -4,6 +4,7 @@
 import sys
 import subprocess
 import threading
+import traceback
 import queue
 import tkinter as tk
 from tkinter import scrolledtext
@@ -20,6 +21,7 @@ class VoiceDictationTray:
     def __init__(self):
         self.process = None
         self.output_queue = queue.Queue()
+        self._exit_reported = False
         
         # Create output window
         self.window = tk.Tk()
@@ -112,9 +114,24 @@ class VoiceDictationTray:
                 self.text.config(state=tk.DISABLED)
         except queue.Empty:
             pass
-        
-        # Schedule next update
-        self.window.after(100, self._update_output)
+        except Exception as e:
+            print(f"Output update error: {e}")
+
+        try:
+            if self.process and not self._exit_reported:
+                exit_code = self.process.poll()
+                if exit_code is not None:
+                    self._exit_reported = True
+                    self.text.config(state=tk.NORMAL)
+                    self.text.insert(tk.END, f"\n[vdict.py exited with code {exit_code}]\n")
+                    self.text.see(tk.END)
+                    self.text.config(state=tk.DISABLED)
+        except Exception as e:
+            print(f"Exit-check error: {e}")
+        finally:
+            # Always reschedule, even if a widget update failed, so the log
+            # window can't silently freeze forever on one bad update
+            self.window.after(100, self._update_output)
     
     def show_window(self, icon=None, item=None):
         """Show output window"""
@@ -130,7 +147,11 @@ class VoiceDictationTray:
         print("Stopping vdict.py...")
         if self.process:
             self.process.terminate()
-            self.process.wait()
+            try:
+                self.process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+                self.process.wait()
         self.icon.stop()
         try:
             self.window.quit()
@@ -153,12 +174,26 @@ class VoiceDictationTray:
         self.window.mainloop()
 
 
+def _log_startup_crash():
+    """Write an unhandled startup exception to a log file next to this
+    script -- a console-less launch (e.g. Windows startup shortcut) would
+    otherwise swallow the traceback invisibly."""
+    log_path = Path(__file__).parent / "tray_error.log"
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write("\n" + "=" * 60 + "\n")
+        traceback.print_exc(file=f)
+
+
 if __name__ == "__main__":
-    # Single-instance check using Windows mutex
-    mutex = win32event.CreateMutex(None, False, "VoiceDictationTrayMutex")
-    if win32api.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
-        print("Voice Dictation is already running")
-        sys.exit(1)
-    
-    app = VoiceDictationTray()
-    app.run()
+    try:
+        # Single-instance check using Windows mutex
+        mutex = win32event.CreateMutex(None, False, "VoiceDictationTrayMutex")
+        if win32api.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+            print("Voice Dictation is already running")
+            sys.exit(1)
+
+        app = VoiceDictationTray()
+        app.run()
+    except Exception:
+        _log_startup_crash()
+        raise
