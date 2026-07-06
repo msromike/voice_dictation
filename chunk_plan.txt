@@ -1,0 +1,10 @@
+CHUNK PLAN - voice dictation rehome fix
+=========================================
+
+1. Run `python vdict.py` manually, foreground, from the new location -- see
+   what actually happens now.
+2. Diagnose from that output (error -> trace it; runs clean -> suspect the
+   old launcher/scheduled task, not the code).
+3. Fix the real defect found in step 2.
+4. Update install_startup.ps1 / uninstall_startup.ps1 paths for the new
+   location.
