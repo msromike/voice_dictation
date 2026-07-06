@@ -118,6 +118,12 @@ class AudioCapture:
             audio_data = np.concatenate(self.buffer, axis=0)
             # Flatten to 1D array (samples,)
             audio_data = audio_data.flatten()
+
+            # Peak-normalize so a quiet/distant mic signal isn't left near
+            # the noise floor -- boosts effective SNR before transcription
+            peak = np.abs(audio_data).max()
+            if peak > 0:
+                audio_data = audio_data * (0.95 / peak)
         else:
             audio_data = np.array([], dtype=np.float32)
         

@@ -55,8 +55,12 @@ class STTEngine:
         if self.model is None:
             raise RuntimeError("STT model not loaded - call load() first")
         
-        # Transcribe with faster-whisper, bias toward prompt vocabulary
-        segments, info = self.model.transcribe(audio_data, beam_size=5, initial_prompt=initial_prompt)
+        # Transcribe with faster-whisper, bias toward prompt vocabulary.
+        # vad_filter trims non-speech/noise segments before transcribing,
+        # which matters more with a distant mic picking up room noise.
+        segments, info = self.model.transcribe(
+            audio_data, beam_size=5, initial_prompt=initial_prompt, vad_filter=True
+        )
         
         # Concatenate all segments into single string
         text_parts = []
