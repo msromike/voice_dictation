@@ -61,8 +61,13 @@ def main():
             print(f"[{cycle}] Recording...")
             audio.start_capture()
             
-            # Wait for MMB click to stop (press then release)
-            ptt.wait_for_press()
+            # Wait for MMB click to stop (press then release) with 120s timeout
+            pressed = ptt.wait_for_press(timeout_secs=120.0)
+            if not pressed:
+                print(f"[{cycle}] Error: 2-minute time limit reached. Discarding audio.")
+                audio.stop_capture()
+                continue
+                
             ptt.wait_for_release()
             audio_data = audio.stop_capture()
             

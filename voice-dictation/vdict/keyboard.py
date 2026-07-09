@@ -114,15 +114,22 @@ class PTTListener:
             self.release_event.set()
             self.press_event.clear()
 
-    def wait_for_press(self):
+    def wait_for_press(self, timeout_secs=None):
         """
         Block until PTT button is pressed
         
+        Args:
+            timeout_secs: Maximum time to wait in seconds. None for infinite.
+            
         Returns:
-            bool: True when button pressed
+            bool: True if button pressed, False if timed out
         """
+        import time
+        start_time = time.time()
+        
         while not self.press_event.wait(timeout=0.1):
-            pass  # Loop allows KeyboardInterrupt to be raised
+            if timeout_secs is not None and (time.time() - start_time) >= timeout_secs:
+                return False
         return True
     
     def wait_for_release(self):
