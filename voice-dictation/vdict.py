@@ -84,8 +84,10 @@ generate_tone(TONE_START, freq=783.99, duration_ms=80, volume=0.22275)
 generate_tone(TONE_STOP, freq=523.25, duration_ms=90, volume=0.18225)
 generate_double_tone(TONE_TIMEOUT, freq=523.25, tone_duration_ms=90, gap_duration_ms=150, volume=0.18225)
 
-def play_tone(tone_type):
+def play_tone(tone_type, enabled=True):
     """Play the requested tone 100% asynchronously"""
+    if not enabled:
+        return
     if tone_type == "start":
         winsound.PlaySound(TONE_START, winsound.SND_FILENAME | winsound.SND_ASYNC)
     elif tone_type == "stop":
@@ -128,32 +130,50 @@ def main():
     # Get prompt for jargon biasing
     prompt = config['stt'].get('prompt', '')
     
+    # Get PTT mode and audio feedback settings
+    ptt_mode = config.get('ptt', {}).get('mode', 'toggle')
+    audio_feedback = config.get('audio', {}).get('feedback', True)
+    
     print("\033[90mVoice Dictation READY\033[0m")
-    print(f"\033[90mClick {config['ptt']['button'].upper()} MOUSE BUTTON to paste at cursor\033[0m")
+    print(f"\033[90mMode: {ptt_mode.upper()} | Button: {config['ptt']['button'].upper()}\033[0m")
     
     try:
         cycle = 0
         while True:
-            # Wait for MMB click to start (press then release)
+            # Wait for button to be pressed
             ptt.wait_for_press()
-            ptt.wait_for_release()
-            play_tone("start")
+            
+            # If toggle mode, wait for release before starting
+            if ptt_mode == "toggle":
+                ptt.wait_for_release()
+                
+            play_tone("start", enabled=audio_feedback)
             print(f"\033[90m[{cycle}] Recording...\033[0m")
             audio.start_capture()
             
-            # Wait for MMB click to stop (press then release) with 120s timeout
-            pressed = ptt.wait_for_press(timeout_secs=120.0)
-            if not pressed:
-                play_tone("timeout")
-                print(f"\033[90m[{cycle}] Error: Timeout reached.\033[0m")
-                print(f"\033[90m[{cycle}] Closed (Timeout).\033[0m")
-                audio.stop_capture()
+            if ptt_mode == "toggle":
+                # Wait for second click to stop (with timeout)
+                pressed = ptt.wait_for_press(timeout_secs=120.0)
+                if not pressed:
+                    play_tone("timeout", enabled=audio_feedback)
+                    print(f"\033[90m[{cycle}] Error: Timeout reached.\033[0m")
+                    print(f"\033[90m[{cycle}] Closed (Timeout).\033[0m")
+                    audio.stop_capture()
+                    cycle += 1
+                    continue
+                ptt.wait_for_release()
+            else:
+                # Hold mode: stop immediately on release, no timeout
+                ptt.wait_for_release()
+                
+            audio_data = audio.stop_capture()
+            play_tone("stop", enabled=audio_feedback)
+            
+            # Short-circuit on accidental/rapid clicks (< 0.4 seconds) to prevent Whisper thread blocking
+            if len(audio_data) < 6400:
+                print(f"\033[90m[{cycle}] Error: Recording too short (ignored).\033[0m")
                 cycle += 1
                 continue
-                
-            ptt.wait_for_release()
-            audio_data = audio.stop_capture()
-            play_tone("stop")
             
             # Transcribe with prompt for jargon biasing
             text = stt.transcribe(audio_data, initial_prompt=prompt)

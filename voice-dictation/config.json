@@ -1,10 +1,12 @@
 {
   "audio": {
     "device": "USB 2.0 Camera",
-    "sample_rate": 16000
+    "sample_rate": 16000,
+    "feedback": true
   },
   "ptt": {
-    "button": "key:f13"
+    "button": "key:f13",
+    "mode": "hold"
   },
   "keyboard": {
     "preserve_clipboard": true
@@ -26,5 +28,11 @@
       "prompt": ""
     }
   },
-  "default_profile": "dev"
+  "default_profile": "dev",
+  "ui": {
+    "settings_pos": {
+      "x": 1379,
+      "y": 587
+    }
+  }
 }

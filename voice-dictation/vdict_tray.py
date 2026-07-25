@@ -7,13 +7,21 @@ import threading
 import traceback
 import queue
 import tkinter as tk
+from tkinter import scrolledtext, messagebox
+import json
 import re
-from tkinter import scrolledtext
 from pathlib import Path
 from PIL import Image, ImageDraw
 import pystray
 import win32event
 import win32api
+import ctypes
+
+try:
+    # Tell Windows this app handles its own DPI scaling to fix Tkinter blur
+    ctypes.windll.shcore.SetProcessDpiAwareness(1)
+except Exception:
+    pass
 
 
 class VoiceDictationTray:
@@ -24,10 +32,16 @@ class VoiceDictationTray:
         self.output_queue = queue.Queue()
         self._exit_reported = False
         
+        try:
+            self.dpi_scale = ctypes.windll.user32.GetDpiForSystem() / 96.0
+        except Exception:
+            self.dpi_scale = 1.0
+            
         # Create output window
         self.window = tk.Tk()
         self.window.title("Voice Dictation Output")
-        self.window.geometry("900x600")
+        main_w, main_h = int(900 * self.dpi_scale), int(600 * self.dpi_scale)
+        self.window.geometry(f"{main_w}x{main_h}")
         
         # Text area with scrollbar
         self.text = scrolledtext.ScrolledText(
@@ -92,6 +106,7 @@ class VoiceDictationTray:
         # Create menu
         menu = pystray.Menu(
             pystray.MenuItem("Show Output", self.show_window, default=True),
+            pystray.MenuItem("Settings...", self.open_settings),
             pystray.MenuItem("Exit", self.exit_app)
         )
         
@@ -178,6 +193,98 @@ class VoiceDictationTray:
         """Show output window"""
         self.window.deiconify()
         self.window.lift()
+        
+    def open_settings(self, icon=None, item=None):
+        """Open settings dialog to configure PTT mode and audio"""
+        settings_win = tk.Toplevel(self.window)
+        settings_win.title("Settings")
+        settings_win.resizable(False, False)
+        settings_win.attributes("-topmost", True)
+        
+        # Load config
+        config_path = Path(__file__).parent / "config.json"
+        try:
+            with open(config_path, "r") as f:
+                config = json.load(f)
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not load config.json\n{e}")
+            settings_win.destroy()
+            return
+            
+        # Create an inner frame for clean, scaled outer padding
+        main_frame = tk.Frame(settings_win, padx=int(20 * self.dpi_scale), pady=int(10 * self.dpi_scale))
+        main_frame.pack(fill=tk.BOTH, expand=True)
+            
+        # UI Elements
+        tk.Label(main_frame, text="PTT Button Trigger:").pack()
+        button_var = tk.StringVar(value=config.get("ptt", {}).get("button", "key:f13"))
+        tk.Entry(main_frame, textvariable=button_var).pack(pady=(0, int(15 * self.dpi_scale)))
+        
+        tk.Label(main_frame, text="PTT Recording Mode:").pack()
+        mode_var = tk.StringVar(value=config.get("ptt", {}).get("mode", "toggle").capitalize())
+        tk.OptionMenu(main_frame, mode_var, "Toggle", "Hold").pack(pady=(0, int(15 * self.dpi_scale)))
+        
+        audio_var = tk.BooleanVar(value=config.get("audio", {}).get("feedback", True))
+        tk.Checkbutton(main_frame, text="Enable Audio Beeps", variable=audio_var).pack(pady=(0, int(15 * self.dpi_scale)))
+        
+        def _get_pos():
+            geom = settings_win.geometry()
+            match = re.search(r'\+?(-?\d+)\+?(-?\d+)$', geom)
+            if match:
+                return int(match.group(1)), int(match.group(2))
+            return settings_win.winfo_x(), settings_win.winfo_y()
+
+        def save_and_restart():
+            config.setdefault("ptt", {})["button"] = button_var.get()
+            config.setdefault("ptt", {})["mode"] = mode_var.get().lower()
+            config.setdefault("audio", {})["feedback"] = audio_var.get()
+            
+            x, y = _get_pos()
+            config.setdefault("ui", {})["settings_pos"] = {"x": x, "y": y}
+            
+            with open(config_path, "w") as f:
+                json.dump(config, f, indent=2)
+            
+            settings_win.destroy()
+            
+            # Restart subprocess
+            if self.process:
+                self.process.terminate()
+                try:
+                    self.process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    self.process.kill()
+                    self.process.wait()
+            self.start_vdict()
+            
+        def on_close():
+            x, y = _get_pos()
+            config.setdefault("ui", {})["settings_pos"] = {"x": x, "y": y}
+            with open(config_path, "w") as f:
+                json.dump(config, f, indent=2)
+            settings_win.destroy()
+            
+        settings_win.protocol("WM_DELETE_WINDOW", on_close)
+        tk.Button(main_frame, text="Save & Restart", command=save_and_restart).pack(pady=(int(5 * self.dpi_scale), 0))
+        
+        # Force Tkinter to calculate required layout dimensions
+        settings_win.update_idletasks()
+        
+        # Set geometry (remembered or bottom right)
+        saved_pos = config.get("ui", {}).get("settings_pos")
+        if saved_pos:
+            x, y = saved_pos.get("x", 0), saved_pos.get("y", 0)
+        else:
+            # Default to bottom right using auto-calculated dimensions
+            win_width = settings_win.winfo_reqwidth()
+            win_height = settings_win.winfo_reqheight()
+            screen_width = settings_win.winfo_screenwidth()
+            screen_height = settings_win.winfo_screenheight()
+            x = screen_width - win_width - int(20 * self.dpi_scale)
+            y = screen_height - win_height - int(60 * self.dpi_scale) # Account for Windows taskbar
+            
+        # Apply absolute coordinates, allowing window to shrink-wrap width and height naturally
+        settings_win.geometry(f"+{x}+{y}")
     
     def hide_window(self):
         """Hide output window"""
