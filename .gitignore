@@ -1,3 +1,21 @@
-﻿venv/
-voice-dictation/config.json
+# Virtual Environments
+venv/
+.env
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+
+# IDEs and AI Agents
 .vscode/
+.idea/
+.agents/
+.claude/
+.gemini/
+*.code-workspace
+CLAUDE.md
+
+# Project Specific
+voice-dictation/config.json
+voice-dictation/tray_error.log
