@@ -149,8 +149,9 @@ class PTTListener:
 class KeyboardInjector:
     """Text injection at cursor position via clipboard"""
     
-    def __init__(self):
+    def __init__(self, preserve_clipboard=False):
         """Initialize keyboard injector"""
+        self.preserve_clipboard = preserve_clipboard
         try:
             import pyperclip
             import pyautogui
@@ -187,6 +188,8 @@ class KeyboardInjector:
         self.pyperclip.copy(text + " ")
         self.pyautogui.hotkey('ctrl', 'v')
         
-        # Wait for paste to complete, then restore clipboard
+        # Wait for paste to complete, then conditionally restore clipboard
         self.time.sleep(0.05)  # 50ms delay
-        self.pyperclip.copy(old_clipboard)
+        
+        if not self.preserve_clipboard:
+            self.pyperclip.copy(old_clipboard)

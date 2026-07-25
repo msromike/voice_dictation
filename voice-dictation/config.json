@@ -6,6 +6,9 @@
   "ptt": {
     "button": "key:f13"
   },
+  "keyboard": {
+    "preserve_clipboard": true
+  },
   "profiles": {
     "dev": {
       "model": "small.en",

@@ -41,3 +41,8 @@ The following architectural guardrails must be strictly adhered to in order to p
 - NEVER bundle or pipeline chunks on autopilot. You must halt and require an explicit "yes" before beginning the implementation of any new chunk.
 - NEVER retry failing operations automatically after guessing a fix.
 </RULE[anti_reward_hacking]>
+
+<RULE[no_modal_ui]>
+7. No Modal UI Polls
+- NEVER use the `ask_question` tool to pop up a multiple-choice modal list for the user. Always ask questions directly in the chat via plain text.
+</RULE[no_modal_ui]>

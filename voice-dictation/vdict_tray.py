@@ -7,6 +7,7 @@ import threading
 import traceback
 import queue
 import tkinter as tk
+import re
 from tkinter import scrolledtext
 from pathlib import Path
 from PIL import Image, ImageDraw
@@ -36,17 +37,46 @@ class VoiceDictationTray:
             bg="#1e1e1e",
             fg="#d4d4d4"
         )
+        self.text.tag_configure("sys_dim", foreground="#707070") # Map ANSI dim gray
         self.text.pack(fill=tk.BOTH, expand=True)
         self.text.config(state=tk.DISABLED)
         
-        # Handle window close (hide, don't exit)
-        self.window.protocol("WM_DELETE_WINDOW", self.hide_window)
+        # Create context menu for copying text
+        self.context_menu = tk.Menu(self.text, tearoff=0)
+        self.context_menu.add_command(label="Copy", command=self._copy_text)
+        self.text.bind("<Button-3>", self._show_context_menu)
+        
+        # Make the 'X' close button completely inert
+        self.window.protocol("WM_DELETE_WINDOW", lambda: None)
+        
+        # Intercept the '_' minimize button to hide to tray
+        self.window.bind("<Unmap>", self._on_unmap)
         
         # Start hidden
         self.window.withdraw()
         
         self.icon = self.create_tray_icon()
     
+    def _show_context_menu(self, event):
+        """Display the right-click context menu"""
+        # Gray out the Copy button if no text is selected
+        if not self.text.tag_ranges("sel"):
+            self.context_menu.entryconfig("Copy", state=tk.DISABLED)
+        else:
+            self.context_menu.entryconfig("Copy", state=tk.NORMAL)
+            
+        try:
+            self.context_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.context_menu.grab_release()
+
+    def _copy_text(self):
+        """Copy selected text to clipboard"""
+        try:
+            self.text.event_generate("<<Copy>>")
+        except tk.TclError:
+            pass
+
     def create_tray_icon(self):
         """Create system tray icon with microphone image"""
         # Create simple microphone icon
@@ -109,7 +139,18 @@ class VoiceDictationTray:
             while True:
                 line = self.output_queue.get_nowait()
                 self.text.config(state=tk.NORMAL)
-                self.text.insert(tk.END, line + "\n")
+                
+                # Check for our hardcoded ANSI dim code
+                is_dim = "\033[90m" in line
+                
+                # Strip all ANSI codes so they don't print as literal text
+                clean_line = re.sub(r'\033\[[0-9;]*m', '', line)
+                
+                if is_dim:
+                    self.text.insert(tk.END, clean_line + "\n", "sys_dim")
+                else:
+                    self.text.insert(tk.END, clean_line + "\n")
+                    
                 self.text.see(tk.END)
                 self.text.config(state=tk.DISABLED)
         except queue.Empty:
@@ -141,6 +182,11 @@ class VoiceDictationTray:
     def hide_window(self):
         """Hide output window"""
         self.window.withdraw()
+        
+    def _on_unmap(self, event):
+        """Intercept minimize event to hide to tray"""
+        if event.widget == self.window and self.window.state() == 'iconic':
+            self.hide_window()
     
     def exit_app(self, icon=None, item=None):
         """Exit application and kill subprocess"""
