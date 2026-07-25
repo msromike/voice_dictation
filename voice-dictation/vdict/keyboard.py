@@ -53,7 +53,10 @@ class PTTListener:
             key_name = button[len("key:"):]
             self.target_key = getattr(keyboard.Key, key_name, None)
             if self.target_key is None:
-                raise ValueError(f"Unsupported PTT key: '{key_name}'")
+                if len(key_name) == 1:
+                    self.target_key = keyboard.KeyCode.from_char(key_name)
+                else:
+                    raise ValueError(f"Unsupported PTT key: '{key_name}'")
             self.button = None
             self.listener = keyboard.Listener(
                 on_press=self._on_key_press,

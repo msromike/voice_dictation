@@ -3,6 +3,7 @@ pystray
 Pillow
 sounddevice
 numpy
-keyboard
+pynput
+pywin32
 nvidia-cublas-cu12
 nvidia-cudnn-cu12

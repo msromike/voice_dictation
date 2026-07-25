@@ -24,6 +24,31 @@ except Exception:
     pass
 
 
+DEFAULT_CONFIG = {
+    "audio": {
+        "device": "",
+        "sample_rate": 16000,
+        "feedback": True
+    },
+    "ptt": {
+        "button": "key:ctrl_r",
+        "mode": "hold"
+    },
+    "keyboard": {
+        "preserve_clipboard": True
+    },
+    "stt": {
+        "model": "base.en",
+        "device": "cpu",
+        "prompt_file": "prompts/dev.txt"
+    },
+    "ui": {
+        "open_console_on_boot": True,
+        "first_run": True
+    }
+}
+
+
 class VoiceDictationTray:
     """System tray wrapper for vdict.py"""
 
@@ -265,10 +290,8 @@ class VoiceDictationTray:
         try:
             with open(config_path, "r") as f:
                 config = json.load(f)
-        except Exception as e:
-            messagebox.showerror("Error", f"Could not load config.json\n{e}")
-            settings_win.destroy()
-            return
+        except Exception:
+            config = DEFAULT_CONFIG
 
         # Create an inner frame for clean, scaled outer padding
         main_frame = tk.Frame(
@@ -295,16 +318,26 @@ class VoiceDictationTray:
         # 1. PTT Config
         tk.Label(main_frame, text="PTT Button Trigger:").pack()
         button_var = tk.StringVar(
-            value=config.get(
-                "ptt",
-                {}).get(
-                "button",
-                "key:f13"))
-        tk.Entry(
-            main_frame, textvariable=button_var).pack(
-            pady=(
-                0, int(
-                    15 * self.dpi_scale)))
+            value=config.get("ptt", {}).get("button", "key:ctrl_r"))
+            
+        def _format_bind(val):
+            if val.startswith("key:"):
+                return val[4:].replace('_', ' ').title()
+            if val in ["left", "right", "middle"]:
+                return f"Mouse {val.capitalize()}"
+            if val in ["x1", "x2", "side"]:
+                return f"Mouse Side ({val.upper()})"
+            return val.title()
+            
+        button_display_var = tk.StringVar(value=_format_bind(button_var.get()))
+        
+        bind_btn = tk.Button(
+            main_frame, 
+            textvariable=button_display_var, 
+            width=20,
+            command=lambda: self._rebind_key(button_var, button_display_var, bind_btn)
+        )
+        bind_btn.pack(pady=(0, int(15 * self.dpi_scale)))
 
         tk.Label(main_frame, text="PTT Recording Mode:").pack()
         mode_var = tk.StringVar(
@@ -450,6 +483,49 @@ class VoiceDictationTray:
         settings_win.geometry(f"+{x}+{y}")
         settings_win.deiconify()  # Show the window at the correct position
 
+    def _rebind_key(self, btn_var, disp_var, tk_btn):
+        """Temporary keycatcher listener for settings UI"""
+        disp_var.set("Press any key...")
+        tk_btn.config(state="disabled")
+
+        listeners = []
+
+        def _finish_bind(val, disp):
+            btn_var.set(val)
+            disp_var.set(disp)
+            tk_btn.config(state="normal")
+            for lst in listeners:
+                lst.stop()
+
+        def on_k_press(key):
+            try:
+                if hasattr(key, 'name'):
+                    val = f"key:{key.name}"
+                    disp = key.name.replace('_', ' ').title()
+                else:
+                    val = f"key:{key.char}"
+                    disp = key.char.upper()
+                self.window.after(0, lambda: _finish_bind(val, disp))
+                return False
+            except Exception:
+                return False
+
+        def on_m_click(x, y, button, pressed):
+            if pressed:
+                val = button.name
+                disp = f"Mouse {button.name.capitalize()}"
+                if val in ['x1', 'x2']:
+                    disp = f"Mouse Side ({val.upper()})"
+                self.window.after(0, lambda: _finish_bind(val, disp))
+                return False
+
+        from pynput import mouse, keyboard
+        k_listener = keyboard.Listener(on_press=on_k_press)
+        m_listener = mouse.Listener(on_click=on_m_click)
+        listeners.extend([k_listener, m_listener])
+        k_listener.start()
+        m_listener.start()
+
     def hide_window(self):
         """Hide output window"""
         self.window.withdraw()
@@ -484,26 +560,35 @@ class VoiceDictationTray:
 
     def run(self):
         """Run the tray application"""
+        config_path = Path(__file__).parent / "config.json"
+        
+        # Self-healing config generation
+        if not config_path.exists():
+            with open(config_path, "w") as f:
+                json.dump(DEFAULT_CONFIG, f, indent=2)
+
         # Start vdict.py subprocess
         self.start_vdict()
 
         # Check if we should open console on boot
-        config_path = Path(__file__).parent / "config.json"
-        if config_path.exists():
+        try:
             with open(config_path, "r") as f:
                 config = json.load(f)
-            if config.get("ui", {}).get("open_console_on_boot", True):
-                # Open it (will happen every time until user disables it in Settings)
-                self.show_window()
-                
-            if config.get("ui", {}).get("first_run", True):
-                # Pop settings menu on first run as an implicit tutorial
-                self.window.after(500, self.open_settings)
-                
-                # Disable first_run flag
-                config.setdefault("ui", {})["first_run"] = False
-                with open(config_path, "w") as f:
-                    json.dump(config, f, indent=2)
+        except Exception:
+            config = DEFAULT_CONFIG
+            
+        if config.get("ui", {}).get("open_console_on_boot", True):
+            # Open it (will happen every time until user disables it in Settings)
+            self.show_window()
+            
+        if config.get("ui", {}).get("first_run", True):
+            # Pop settings menu on first run as an implicit tutorial
+            self.window.after(500, self.open_settings)
+            
+            # Disable first_run flag
+            config.setdefault("ui", {})["first_run"] = False
+            with open(config_path, "w") as f:
+                json.dump(config, f, indent=2)
 
         # Start periodic output update
         self.window.after(100, self._update_output)
