@@ -23,6 +23,8 @@ import os
 import tempfile
 import winsound
 
+__version__ = "1.0.0"
+
 
 def generate_tone(
         filename,
@@ -165,7 +167,7 @@ def main():
     ptt_mode = config.get('ptt', {}).get('mode', 'toggle')
     audio_feedback = config.get('audio', {}).get('feedback', True)
 
-    print("\033[90mVoice Dictation READY\033[0m")
+    print(f"\033[90mVoice Dictation v{__version__} READY\033[0m")
     print(
         f"\033[90mMode: {
             ptt_mode.upper()} | Button: {

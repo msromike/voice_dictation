@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Voice Dictation - System Tray Wrapper (Chunk 2b: Capture and display output)"""
-
 import sys
+
+__version__ = "1.0.0"
+
 import subprocess
 import threading
 import traceback
@@ -460,6 +462,10 @@ class VoiceDictationTray:
         settings_win.protocol("WM_DELETE_WINDOW", on_close)
         tk.Button(main_frame, text="Save & Restart", command=save_and_restart).pack(
             pady=(int(5 * self.dpi_scale), 0))
+
+        # Version Watermark
+        version_label = tk.Label(main_frame, text=f"v{__version__}", fg="gray", font=("Arial", int(7 * self.dpi_scale)))
+        version_label.pack(side=tk.BOTTOM, anchor="e")
 
         # Force Tkinter to calculate required layout dimensions
         settings_win.update_idletasks()
