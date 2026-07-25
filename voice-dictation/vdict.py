@@ -23,7 +23,13 @@ import os
 import tempfile
 import winsound
 
-def generate_tone(filename, freq=880.0, duration_ms=90, volume=0.3, sample_rate=44100):
+
+def generate_tone(
+        filename,
+        freq=880.0,
+        duration_ms=90,
+        volume=0.3,
+        sample_rate=44100):
     num_samples = int(sample_rate * (duration_ms / 1000.0))
     fade_len = int(sample_rate * 0.01)
 
@@ -42,7 +48,14 @@ def generate_tone(filename, freq=880.0, duration_ms=90, volume=0.3, sample_rate=
             packed_sample = struct.pack("<h", int(sample * volume * 32767.0))
             wav_file.writeframes(packed_sample)
 
-def generate_double_tone(filename, freq=440.0, tone_duration_ms=90, gap_duration_ms=150, volume=0.3, sample_rate=44100):
+
+def generate_double_tone(
+        filename,
+        freq=440.0,
+        tone_duration_ms=90,
+        gap_duration_ms=150,
+        volume=0.3,
+        sample_rate=44100):
     tone_samples = int(sample_rate * (tone_duration_ms / 1000.0))
     gap_samples = int(sample_rate * (gap_duration_ms / 1000.0))
     total_samples = (tone_samples * 2) + gap_samples
@@ -74,6 +87,7 @@ def generate_double_tone(filename, freq=440.0, tone_duration_ms=90, gap_duration
             packed_sample = struct.pack("<h", int(sample * volume * 32767.0))
             wav_file.writeframes(packed_sample)
 
+
 # Generate UI tones to the temp directory on every launch
 TEMP_DIR = tempfile.gettempdir()
 TONE_START = os.path.join(TEMP_DIR, "vdict_start.wav")
@@ -82,75 +96,98 @@ TONE_TIMEOUT = os.path.join(TEMP_DIR, "vdict_timeout.wav")
 
 generate_tone(TONE_START, freq=783.99, duration_ms=80, volume=0.22275)
 generate_tone(TONE_STOP, freq=523.25, duration_ms=90, volume=0.18225)
-generate_double_tone(TONE_TIMEOUT, freq=523.25, tone_duration_ms=90, gap_duration_ms=150, volume=0.18225)
+generate_double_tone(
+    TONE_TIMEOUT,
+    freq=523.25,
+    tone_duration_ms=90,
+    gap_duration_ms=150,
+    volume=0.18225)
+
 
 def play_tone(tone_type, enabled=True):
     """Play the requested tone 100% asynchronously"""
     if not enabled:
         return
     if tone_type == "start":
-        winsound.PlaySound(TONE_START, winsound.SND_FILENAME | winsound.SND_ASYNC)
+        winsound.PlaySound(
+            TONE_START,
+            winsound.SND_FILENAME | winsound.SND_ASYNC)
     elif tone_type == "stop":
-        winsound.PlaySound(TONE_STOP, winsound.SND_FILENAME | winsound.SND_ASYNC)
+        winsound.PlaySound(
+            TONE_STOP,
+            winsound.SND_FILENAME | winsound.SND_ASYNC)
     elif tone_type == "timeout":
-        winsound.PlaySound(TONE_TIMEOUT, winsound.SND_FILENAME | winsound.SND_ASYNC)
-
+        winsound.PlaySound(
+            TONE_TIMEOUT,
+            winsound.SND_FILENAME | winsound.SND_ASYNC)
 
 
 def main():
     """Main daemon loop"""
     # Parse command-line arguments
-    parser = argparse.ArgumentParser(description='Voice Dictation - PTT voice-to-text')
-    parser.add_argument('--profile', type=str, default=None,
-                       help='Configuration profile to use (dev, radio, general)')
+    parser = argparse.ArgumentParser(
+        description='Voice Dictation - PTT voice-to-text')
+    parser.add_argument(
+        '--profile',
+        type=str,
+        default=None,
+        help='Configuration profile to use (dev, radio, general)')
     args = parser.parse_args()
-    
+
     # Load configuration with selected profile
     config = load_config(profile_name=args.profile)
-    
+
     # Initialize components
     audio = AudioCapture(
         sample_rate=config['audio']['sample_rate'],
         required_device=config['audio']['device']
     )
-    
+
     stt = STTEngine(
         model_name=config['stt']['model'],
         device=config['stt']['device']
     )
-    
+
+    print(f"\033[90mLoading {config['stt']['model']} to {config['stt']['device'].upper()}\033[0m")
     stt.load()
-    
+
     keyboard = KeyboardInjector(
-        preserve_clipboard=config.get('keyboard', {}).get('preserve_clipboard', False)
-    )
-    
+        preserve_clipboard=config.get(
+            'keyboard', {}).get(
+            'preserve_clipboard', False))
+
     ptt = PTTListener(button=config['ptt']['button'])
-    
+
     # Get prompt for jargon biasing
     prompt = config['stt'].get('prompt', '')
-    
+
     # Get PTT mode and audio feedback settings
     ptt_mode = config.get('ptt', {}).get('mode', 'toggle')
     audio_feedback = config.get('audio', {}).get('feedback', True)
-    
+
     print("\033[90mVoice Dictation READY\033[0m")
-    print(f"\033[90mMode: {ptt_mode.upper()} | Button: {config['ptt']['button'].upper()}\033[0m")
-    
+    print(
+        f"\033[90mMode: {
+            ptt_mode.upper()} | Button: {
+            config['ptt']['button'].upper()}\033[0m")
+
     try:
         cycle = 0
         while True:
             # Wait for button to be pressed
             ptt.wait_for_press()
-            
+
+            # Fire the GPU primer to wake up CUDA cores while user is talking
+            stt.wake_gpu()
+
             # If toggle mode, wait for release before starting
             if ptt_mode == "toggle":
                 ptt.wait_for_release()
-                
+
             play_tone("start", enabled=audio_feedback)
             print(f"\033[90m[{cycle}] Recording...\033[0m")
             audio.start_capture()
-            
+
             if ptt_mode == "toggle":
                 # Wait for second click to stop (with timeout)
                 pressed = ptt.wait_for_press(timeout_secs=120.0)
@@ -165,28 +202,30 @@ def main():
             else:
                 # Hold mode: stop immediately on release, no timeout
                 ptt.wait_for_release()
-                
+
             audio_data = audio.stop_capture()
             play_tone("stop", enabled=audio_feedback)
-            
-            # Short-circuit on accidental/rapid clicks (< 0.4 seconds) to prevent Whisper thread blocking
+
+            # Short-circuit on accidental/rapid clicks (< 0.4 seconds) to
+            # prevent Whisper thread blocking
             if len(audio_data) < 6400:
-                print(f"\033[90m[{cycle}] Error: Recording too short (ignored).\033[0m")
+                print(
+                    f"\033[90m[{cycle}] Error: Recording too short (ignored).\033[0m")
                 cycle += 1
                 continue
-            
+
             # Transcribe with prompt for jargon biasing
             text = stt.transcribe(audio_data, initial_prompt=prompt)
-            
+
             if text:
                 print(text)
                 keyboard.inject(text)
             else:
                 print(f"\033[90m[{cycle}] Error: No speech detected.\033[0m")
-            
+
             print(f"\033[90m[{cycle}] Closed.\033[0m")
             cycle += 1
-    
+
     except KeyboardInterrupt:
         print("\n\n\033[90mStopped\033[0m")
         ptt.stop()
@@ -194,4 +233,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -18,7 +18,7 @@ import sounddevice as sd
 class AudioCapture:
     """Audio capture engine for PTT voice recording"""
 
-    def __init__(self, sample_rate=16000, required_device="USB 2.0 Camera",
+    def __init__(self, sample_rate=16000, required_device="",
                  retry_attempts=5, retry_delay=1.0):
         """
         Initialize audio capture
@@ -37,15 +37,26 @@ class AudioCapture:
         self.device_id = None
 
         # Find required device by name, retrying to survive transient USB
-        # re-enumeration (e.g. sleep/wake); crash-fast once retries are exhausted
+        # re-enumeration (e.g. sleep/wake); crash-fast once retries are
+        # exhausted
         last_error = None
         for attempt in range(retry_attempts):
             try:
-                devices = sd.query_devices()
-                for idx, device in enumerate(devices):
-                    if required_device in device['name'] and device['max_input_channels'] > 0:
-                        self.device_id = idx
-                        break
+                if required_device:
+                    devices = sd.query_devices()
+                    for idx, device in enumerate(devices):
+                        if required_device in device['name'] and device['max_input_channels'] > 0:
+                            self.device_id = idx
+                            break
+                else:
+                    # Automatically select system default microphone
+                    try:
+                        self.device_id = sd.default.device[0]
+                        # Verify the default device actually exists and has inputs
+                        sd.query_devices(self.device_id, 'input')
+                    except Exception:
+                        self.device_id = None
+                        
                 if self.device_id is not None:
                     break
             except Exception as e:
@@ -55,19 +66,18 @@ class AudioCapture:
                 time.sleep(retry_delay)
 
         if self.device_id is None:
-            if last_error is not None:
-                raise RuntimeError(f"Audio device error: {last_error}") from last_error
-            raise RuntimeError(f"ERROR: Required microphone not found: '{required_device}'\n"
-                               f"       Plug in your headset and restart.")
-    
+            import sys
+            print("\033[91m[ERROR] No audio device detected. Please plug in a microphone and restart the app.\033[0m")
+            sys.exit(2)
+
     def start_capture(self):
         """Start capturing audio from microphone"""
         if self.recording:
             return
-            
+
         self.recording = True
         self.buffer = []
-        
+
         # Create input stream with callback to buffer audio
         self.stream = sd.InputStream(
             device=self.device_id,
@@ -77,11 +87,11 @@ class AudioCapture:
             callback=self._audio_callback
         )
         self.stream.start()
-    
+
     def _audio_callback(self, indata, frames, time, status):
         """
         Internal callback for audio stream (runs in background thread)
-        
+
         Args:
             indata: Audio samples from input device
             frames: Number of frames
@@ -90,29 +100,29 @@ class AudioCapture:
         """
         if status:
             print(f"Audio stream status: {status}")
-        
+
         if self.recording:
             # Append audio data to buffer (copy to prevent memory issues)
             self.buffer.append(indata.copy())
-    
+
     def stop_capture(self):
         """
         Stop capturing and return audio data
-        
+
         Returns:
             np.ndarray: Audio samples as float32 array, shape (samples,)
         """
         if not self.recording:
             return np.array([], dtype=np.float32)
-            
+
         self.recording = False
-        
+
         # Stop and close stream
         if self.stream:
             self.stream.stop()
             self.stream.close()
             self.stream = None
-        
+
         # Concatenate buffered chunks into single array
         if self.buffer:
             audio_data = np.concatenate(self.buffer, axis=0)
@@ -126,9 +136,9 @@ class AudioCapture:
                 audio_data = audio_data * (0.95 / peak)
         else:
             audio_data = np.array([], dtype=np.float32)
-        
+
         return audio_data
-    
+
     def is_recording(self):
         """Check if currently recording"""
         return self.recording

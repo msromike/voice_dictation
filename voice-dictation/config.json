@@ -1,6 +1,6 @@
 {
   "audio": {
-    "device": "USB 2.0 Camera",
+    "device": "",
     "sample_rate": 16000,
     "feedback": true
   },
@@ -11,28 +11,17 @@
   "keyboard": {
     "preserve_clipboard": true
   },
-  "profiles": {
-    "dev": {
-      "model": "small.en",
-      "device": "cpu",
-      "prompt_file": "prompts/dev.txt"
-    },
-    "radio": {
-      "model": "base.en",
-      "device": "cpu",
-      "prompt_file": "prompts/radio.txt"
-    },
-    "general": {
-      "model": "small.en",
-      "device": "cpu",
-      "prompt": ""
-    }
+  "stt": {
+    "model": "base.en",
+    "device": "cpu",
+    "prompt_file": "prompts/dev.txt"
   },
-  "default_profile": "dev",
   "ui": {
+    "open_console_on_boot": true,
+    "first_run": false,
     "settings_pos": {
-      "x": 1379,
-      "y": 587
+      "x": 2471,
+      "y": 929
     }
   }
 }

@@ -1,0 +1,8 @@
+faster-whisper
+pystray
+Pillow
+sounddevice
+numpy
+keyboard
+nvidia-cublas-cu12
+nvidia-cudnn-cu12

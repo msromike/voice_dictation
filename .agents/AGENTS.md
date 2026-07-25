@@ -46,3 +46,10 @@ The following architectural guardrails must be strictly adhered to in order to p
 7. No Modal UI Polls
 - NEVER use the `ask_question` tool to pop up a multiple-choice modal list for the user. Always ask questions directly in the chat via plain text.
 </RULE[no_modal_ui]>
+
+<RULE[powershell_syntax]>
+8. PowerShell Syntax Restrictions
+- NEVER use `&&` or `||` in PowerShell commands, as Windows PowerShell 5.1 does not support them and it will cause syntax errors.
+- Use `;` to sequence commands, or use `if ($?) { ... }` for conditional execution.
+- NEVER try to build complex multi-line files using chained `echo` commands in the terminal; always use the `write_to_file` tool.
+</RULE[powershell_syntax]>

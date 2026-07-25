@@ -55,18 +55,24 @@ class PTTListener:
             if self.target_key is None:
                 raise ValueError(f"Unsupported PTT key: '{key_name}'")
             self.button = None
-            self.listener = keyboard.Listener(on_press=self._on_key_press, on_release=self._on_key_release)
+            self.listener = keyboard.Listener(
+                on_press=self._on_key_press,
+                on_release=self._on_key_release)
         else:
             self.button = _BUTTON_MAP.get(button)
             if self.button is None:
-                raise ValueError(f"Unsupported PTT button: '{button}'. Supported: {list(_BUTTON_MAP)}")
+                raise ValueError(
+                    f"Unsupported PTT button: '{button}'. Supported: {
+                        list(_BUTTON_MAP)}")
             self.target_key = None
             self.listener = mouse.Listener(on_click=self._on_click)
 
         self.listener.start()
 
         if self.debug:
-            print(f"[DEBUG] PTTListener started, monitoring: {self.button_name}")
+            print(
+                f"[DEBUG] PTTListener started, monitoring: {
+                    self.button_name}")
 
     def _on_click(self, x, y, button, pressed):
         """
@@ -78,7 +84,9 @@ class PTTListener:
             pressed: True if pressed, False if released
         """
         if self.debug:
-            print(f"[DEBUG] Mouse event: button={button}, pressed={pressed}, target={self.button}")
+            print(
+                f"[DEBUG] Mouse event: button={button}, pressed={pressed}, target={
+                    self.button}")
 
         if button == self.button:
             self.pressed = pressed
@@ -117,30 +125,31 @@ class PTTListener:
     def wait_for_press(self, timeout_secs=None):
         """
         Block until PTT button is pressed
-        
+
         Args:
             timeout_secs: Maximum time to wait in seconds. None for infinite.
-            
+
         Returns:
             bool: True if button pressed, False if timed out
         """
         import time
         start_time = time.time()
-        
+
         while not self.press_event.wait(timeout=0.1):
-            if timeout_secs is not None and (time.time() - start_time) >= timeout_secs:
+            if timeout_secs is not None and (
+                    time.time() - start_time) >= timeout_secs:
                 return False
         return True
-    
+
     def wait_for_release(self):
         """Block until PTT button is released"""
         while not self.release_event.wait(timeout=0.1):
             pass  # Loop allows KeyboardInterrupt to be raised
-    
+
     def is_pressed(self):
         """Check if PTT button is currently pressed"""
         return self.pressed
-    
+
     def stop(self):
         """Stop mouse listener (cleanup)"""
         self.listener.stop()
@@ -148,7 +157,7 @@ class PTTListener:
 
 class KeyboardInjector:
     """Text injection at cursor position via clipboard"""
-    
+
     def __init__(self, preserve_clipboard=False):
         """Initialize keyboard injector"""
         self.preserve_clipboard = preserve_clipboard
@@ -160,36 +169,37 @@ class KeyboardInjector:
             self.pyautogui = pyautogui
             self.time = time
         except ImportError as e:
-            raise RuntimeError(f"Missing dependency: {e}. Install: pip install pyperclip pyautogui")
-    
+            raise RuntimeError(
+                f"Missing dependency: {e}. Install: pip install pyperclip pyautogui")
+
     def inject(self, text):
         """
         Inject text at current cursor position
-        
+
         Uses clipboard method with save/restore:
         1. Save current clipboard
         2. Put text in clipboard
         3. Paste (Ctrl+V)
         4. Restore original clipboard after delay
-        
+
         Args:
             text: Text to paste at cursor (space is appended for separation)
         """
         if not text or not text.strip():
             return  # Skip empty text
-        
+
         # Save current clipboard
         try:
             old_clipboard = self.pyperclip.paste()
-        except:
+        except BaseException:
             old_clipboard = ""  # Clipboard empty or inaccessible
-        
+
         # Add space after text for separation, then paste
         self.pyperclip.copy(text + " ")
         self.pyautogui.hotkey('ctrl', 'v')
-        
+
         # Wait for paste to complete, then conditionally restore clipboard
         self.time.sleep(0.05)  # 50ms delay
-        
+
         if not self.preserve_clipboard:
             self.pyperclip.copy(old_clipboard)
