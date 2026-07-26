@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Enforce the two-line comment cap from ADR-010. No stock linter rule does this."""
+"""Enforce the two-line comment cap from CLAUDE.md. No stock linter rule does this."""
 import ast
 import sys
 from pathlib import Path
@@ -69,7 +69,8 @@ def main():
 
     # A single-file run is hook feedback; stay silent when it is clean.
     if not argv:
-        print(f"\n{violations} violation(s), cap {MAX_LINES} lines (ADR-010)")
+        print(f"\n{violations} violation(s), cap {MAX_LINES} lines "
+              f"(CLAUDE.md ## Comments)")
     return 1 if violations else 0
 
 

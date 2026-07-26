@@ -9,7 +9,6 @@ item
 # Tk calls this hook itself when a callback raises. We assign, Tk reads.
 _.report_callback_exception
 
-# DANGEROUS TO "FIX". The mutex handle must stay referenced for the life of the
-# process. Drop the reference and it is garbage-collected, the mutex releases,
-# and single-instance detection silently stops working.
+# DANGEROUS TO "FIX". The mutex handle must stay referenced for the process
+# lifetime, or it is collected, the mutex releases, and single-instance dies.
 mutex

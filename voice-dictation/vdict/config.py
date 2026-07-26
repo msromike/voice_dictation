@@ -1,12 +1,4 @@
-"""
-Module: config.py
-Purpose: Configuration management
-
-Responsibilities:
-  - Load config.json
-  - Read vocabulary.txt and convert it to a recognizer hint string
-  - Return merged configuration
-"""
+"""Loads config.json and vocabulary.txt. There are no key-level fallbacks."""
 
 import json
 from pathlib import Path
@@ -20,17 +12,8 @@ EXIT_NO_MICROPHONE = 2
 
 
 def load_config():
-    """
-    Load configuration
-
-    vdict_tray.py creates config.json from config.default.json before this
-    process starts, so every key is expected to be present. A missing or
-    malformed key raises rather than falling back to a value the user never
-    chose -- a silent default is harder to diagnose than a loud failure.
-
-    Returns:
-        dict: Configuration, with stt['prompt'] resolved from vocabulary.txt
-    """
+    """Return config.json with stt['prompt'] resolved from vocabulary.txt.
+    Every key is required. The tray seeds config.json before this process starts."""
     config_path = Path(__file__).parent.parent / "config.json"
 
     if not config_path.exists():
@@ -47,16 +30,8 @@ def load_config():
 
 
 def _load_vocabulary():
-    """
-    Load recognizer hint terms from vocabulary.txt
-
-    One term per line. Lines starting with '#' are comments and are skipped,
-    which is what lets the shipped file document itself without those example
-    words biasing the recognizer.
-
-    Returns:
-        str: Comma-separated term string ("" when the file has no live terms)
-    """
+    """Return vocabulary.txt as a comma-separated hint string, "" when it has no terms.
+    One term per line. '#' lines are skipped, so the shipped file can document itself."""
     if not VOCABULARY_PATH.exists():
         raise RuntimeError(
             f"Vocabulary file not found: {VOCABULARY_PATH}. Restore it from "

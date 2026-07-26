@@ -1,13 +1,4 @@
-"""
-Module: audio.py
-Purpose: Audio capture with PTT (push-to-talk) support
-
-Responsibilities:
-  - Capture audio from default microphone
-  - Start/stop recording on demand
-  - Buffer audio during PTT hold
-  - Return audio data as numpy array
-"""
+"""Audio capture from the configured microphone, buffered while PTT is held."""
 
 import time
 
@@ -22,32 +13,21 @@ class AudioCapture:
     # decision across two functions.
     def __init__(self, sample_rate=16000, required_device="",  # noqa: C901
                  retry_attempts=5, retry_delay=1.0):
-        """
-        Initialize audio capture
-
-        Args:
-            sample_rate: Audio sample rate (Whisper expects 16kHz)
-            required_device: Substring to match in device name (hardcoded for user's headset)
-            retry_attempts: Times to re-query devices before giving up (survives
-                USB re-enumeration races on sleep/wake)
-            retry_delay: Seconds to wait between retry attempts
-        """
+        """Resolve the configured input device. Opens no stream.
+        Whisper requires sample_rate=16000. required_device matches a name substring."""
         self.sample_rate = sample_rate
         self.recording = False
         self.buffer = []
         self.stream = None
         self.device_id = None
 
-        # Find required device by name, retrying to survive transient USB
-        # re-enumeration (e.g. sleep/wake); crash-fast once retries are
-        # exhausted
+        # Retry to survive transient USB re-enumeration on sleep/wake.
+        # Crash-fast once retries are exhausted.
         last_error = None
         for attempt in range(retry_attempts):
             try:
-                # Resolve against WASAPI only. PortAudio lists every mic once
-                # per Windows backend, and the tray's device dropdown
-                # enumerates WASAPI -- matching the same backend here keeps
-                # both sides naming the same device.
+                # Resolve against WASAPI only. PortAudio lists each mic once per
+                # backend, and the tray's device dropdown enumerates WASAPI.
                 wasapi = next(
                     (i for i, api in enumerate(sd.query_hostapis())
                      if api['name'] == 'Windows WASAPI'), None)
@@ -93,14 +73,8 @@ class AudioCapture:
         self.recording = True
         self.buffer = []
 
-        # Create input stream with callback to buffer audio.
-        #
-        # auto_convert enables the Windows audio engine's resampler. WASAPI
-        # shared mode otherwise accepts only the device's native rate (48kHz
-        # on typical hardware), while Whisper's mel filterbank is defined
-        # against 16kHz and cannot take anything else. MME performed this same
-        # conversion implicitly; doing it through WASAPI just makes it
-        # explicit, and on a lower-latency backend.
+        # auto_convert enables the Windows resampler. WASAPI shared mode accepts
+        # only the device's native rate; Whisper's mel filterbank requires 16kHz.
         self.stream = sd.InputStream(
             device=self.device_id,
             samplerate=self.sample_rate,
@@ -112,15 +86,7 @@ class AudioCapture:
         self.stream.start()
 
     def _audio_callback(self, indata, frames, time, status):
-        """
-        Internal callback for audio stream (runs in background thread)
-
-        Args:
-            indata: Audio samples from input device
-            frames: Number of frames
-            time: Timestamp info
-            status: Stream status flags
-        """
+        """Buffer incoming samples. Runs on the sounddevice background thread."""
         if status:
             print(f"Audio stream status: {status}")
 
@@ -129,12 +95,8 @@ class AudioCapture:
             self.buffer.append(indata.copy())
 
     def stop_capture(self):
-        """
-        Stop capturing and return audio data
-
-        Returns:
-            np.ndarray: Audio samples as float32 array, shape (samples,)
-        """
+        """Stop the stream and return buffered audio, peak-normalized.
+        Returns a float32 ndarray of shape (samples,), empty if not recording."""
         if not self.recording:
             return np.array([], dtype=np.float32)
 

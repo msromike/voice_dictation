@@ -229,10 +229,6 @@ system CUDA install, which is why `setup.bat` can pull them in with pip. On GPU,
 pressing the button also fires a silent dummy transcription to wake the card up
 while you are still talking, so the first word is not slower than the rest.
 
-Settings live in `voice-dictation\config.json`, created on first run from
-`config.default.json`. Everything in it has a control in the Settings window, so
-there is no reason to edit it by hand.
-
 ## Windows only, for now
 
 Windows by design rather than by accident. Audio goes through WASAPI, the

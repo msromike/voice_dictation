@@ -1,20 +1,10 @@
-"""
-Module: keyboard.py
-Purpose: Keyboard event injection and PTT button monitoring
-
-Responsibilities:
-  - Listen for middle mouse button (or other PTT trigger)
-  - Inject transcribed text at cursor position
-  - Platform-specific keyboard/mouse event handling
-"""
+"""PTT trigger monitoring and text injection at the cursor."""
 
 import threading
 from pynput import mouse, keyboard
 
 # Mouse button names accepted in config.json -> pynput button enum.
-# "side" maps to x2 (commonly the "forward" side button on a mouse) since
-# side buttons aren't globally hooked by Windows the way middle-click
-# autoscroll is in browsers/Electron apps.
+# "side" maps to x2; unlike middle-click, browsers and Electron do not hook it.
 _BUTTON_MAP = {
     "left": mouse.Button.left,
     "right": mouse.Button.right,
@@ -29,18 +19,8 @@ class PTTListener:
     """Push-to-talk trigger listener (configurable mouse button or keyboard key)"""
 
     def __init__(self, button="middle", debug=False):
-        """
-        Initialize PTT listener
-
-        Args:
-            button: Trigger to monitor. Either a mouse button name
-                ("left", "right", "middle", "side", "x1", "x2") or a
-                keyboard key using "key:<name>" (e.g. "key:f13"), where
-                <name> matches a pynput.keyboard.Key member. Useful for
-                gaming-mouse buttons remapped to send a keystroke instead
-                of a native mouse-button signal.
-            debug: Print debug messages for all events
-        """
+        """Start listening for the PTT trigger.
+        button is a mouse name from _BUTTON_MAP, or "key:<name>" for a pynput Key."""
         self.button_name = button
         self.pressed = False
         self.debug = debug
@@ -76,14 +56,7 @@ class PTTListener:
             print(f"[DEBUG] PTTListener started, monitoring: {self.button_name}")
 
     def _on_click(self, x, y, button, pressed):
-        """
-        Internal callback for mouse events (runs in background thread)
-
-        Args:
-            x, y: Mouse position (unused)
-            button: Mouse button that triggered event
-            pressed: True if pressed, False if released
-        """
+        """Internal callback for mouse events. Runs on the pynput background thread."""
         if self.debug:
             print(f"[DEBUG] Mouse event: button={button}, "
                   f"pressed={pressed}, target={self.button}")
@@ -123,15 +96,8 @@ class PTTListener:
             self.press_event.clear()
 
     def wait_for_press(self, timeout_secs=None):
-        """
-        Block until PTT button is pressed
-
-        Args:
-            timeout_secs: Maximum time to wait in seconds. None for infinite.
-
-        Returns:
-            bool: True if button pressed, False if timed out
-        """
+        """Block until the PTT trigger is pressed, returning True.
+        Returns False if timeout_secs elapses; None waits forever."""
         import time
         start_time = time.time()
 
@@ -170,18 +136,8 @@ class KeyboardInjector:
                 f"Install: pip install pyperclip pyautogui") from e
 
     def inject(self, text):
-        """
-        Inject text at current cursor position
-
-        Uses clipboard method with save/restore:
-        1. Save current clipboard
-        2. Put text in clipboard
-        3. Paste (Ctrl+V)
-        4. Restore original clipboard after delay
-
-        Args:
-            text: Text to paste at cursor (space is appended for separation)
-        """
+        """Paste text at the cursor via the clipboard, appending a trailing space.
+        Restores the previous clipboard unless preserve_clipboard is set."""
         if not text or not text.strip():
             return  # Skip empty text
 

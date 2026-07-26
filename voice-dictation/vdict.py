@@ -1,12 +1,5 @@
-"""
-Voice Dictation Daemon - System-wide PTT voice-to-text
-
-Background daemon that listens for the configured PTT trigger, captures audio,
-transcribes via Whisper, and injects the text at the cursor.
-
-Launched by vdict_tray.py, which writes config.json before starting this
-process. Running it directly requires config.json to already exist.
-"""
+"""PTT daemon: captures audio on the configured trigger, transcribes, injects at cursor.
+Launched by vdict_tray.py, which writes config.json first. Requires it to exist."""
 
 import sys
 
