@@ -16,7 +16,10 @@ __pycache__/
 *.code-workspace
 CLAUDE.md
 pyrightconfig.json
+.github/copilot-instructions.md
+.github/instructions/
+.docs/
 
 # Project Specific
 voice-dictation/config.json
-voice-dictation/tray_error.log
+logs/

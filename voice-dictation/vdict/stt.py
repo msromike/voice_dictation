@@ -7,11 +7,14 @@ Responsibilities:
   - Transcribe audio to text
   - Handle CPU/GPU device selection
 
-Performance (tested):
-  - CPU: 200-300ms per 1-3 second phrase (FASTER for short clips)
-  - GPU: 175-340ms (context swap overhead kills it for short clips)
+Performance:
+  - GPU (CUDA): effectively instant on short dictation phrases at any model
+    size, including large-v3.
+  - CPU: keep to tiny.en / base.en / small.en. Larger models are too slow to
+    be usable for push-to-talk.
 
-Design Decision: Default to CPU for PTT use case
+Default is CPU so the app runs without CUDA. The Settings dialog enables the
+GPU option only when a CUDA device is actually detected.
 """
 
 from faster_whisper import WhisperModel
@@ -51,13 +54,15 @@ class STTEngine:
     def load(self):
         """Load Whisper model into memory (crash-fast on external boundary)"""
         try:
-            # Deterministic check for local cache to signal UI
-            from huggingface_hub import snapshot_download
-            from huggingface_hub.errors import LocalEntryNotFoundError
-            try:
-                repo_id = f"Systran/faster-whisper-{self.model_name}"
-                snapshot_download(repo_id=repo_id, local_files_only=True)
-            except LocalEntryNotFoundError:
+            # Deterministic check for local cache, so the tray can warn about
+            # a slow first boot. Probe for the weights file specifically:
+            # faster-whisper caches only the handful of files it needs, and
+            # huggingface_hub treats that partial snapshot as absent -- a
+            # whole-snapshot check reports every cached model as missing and
+            # prints this banner on every single launch.
+            from huggingface_hub import try_to_load_from_cache
+            repo_id = f"Systran/faster-whisper-{self.model_name}"
+            if not isinstance(try_to_load_from_cache(repo_id, "model.bin"), str):
                 print(f"[SYSTEM] INITIATING DOWNLOAD: {self.model_name}")
 
             # CPU requires float32. CUDA runs fastest on float16.
@@ -118,9 +123,4 @@ class STTEngine:
         for segment in segments:
             text_parts.append(segment.text)
 
-        result = "".join(text_parts).strip()
-        return result
-        # text = " ".join([segment.text for segment in segments])
-        # return text.strip()
-
-        return ""  # Stub
+        return "".join(text_parts).strip()

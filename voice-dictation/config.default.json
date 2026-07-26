@@ -1,0 +1,25 @@
+{
+  "audio": {
+    "device": "",
+    "sample_rate": 16000,
+    "feedback": true
+  },
+  "ptt": {
+    "button": "middle",
+    "mode": "hold"
+  },
+  "keyboard": {
+    "preserve_clipboard": true
+  },
+  "stt": {
+    "model": "base.en",
+    "device": "cpu"
+  },
+  "ui": {
+    "open_console_on_boot": true,
+    "first_run": true,
+    "settings_pos": null,
+    "console_geometry": null,
+    "console_font_size": 12
+  }
+}

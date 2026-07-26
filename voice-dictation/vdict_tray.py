@@ -8,8 +8,12 @@ import subprocess
 import threading
 import traceback
 import queue
+import shutil
+import os
 import tkinter as tk
-from tkinter import scrolledtext, messagebox
+from tkinter import scrolledtext, messagebox, filedialog
+from datetime import datetime
+import webbrowser
 import json
 import re
 from pathlib import Path
@@ -19,6 +23,10 @@ import win32event
 import win32api
 import ctypes
 
+# Safe to import at module level only because vdict/__init__.py is bare and
+# config.py pulls in nothing heavier than json and pathlib. Keep it that way.
+from vdict.config import VOCABULARY_PATH
+
 try:
     # Tell Windows this app handles its own DPI scaling to fix Tkinter blur
     ctypes.windll.shcore.SetProcessDpiAwareness(1)
@@ -26,29 +34,105 @@ except Exception:
     pass
 
 
-DEFAULT_CONFIG = {
-    "audio": {
-        "device": "",
-        "sample_rate": 16000,
-        "feedback": True
-    },
-    "ptt": {
-        "button": "key:ctrl_r",
-        "mode": "hold"
-    },
-    "keyboard": {
-        "preserve_clipboard": True
-    },
-    "stt": {
-        "model": "base.en",
-        "device": "cpu",
-        "prompt_file": "prompts/dev.txt"
-    },
-    "ui": {
-        "open_console_on_boot": True,
-        "first_run": True
-    }
-}
+CONFIG_PATH = Path(__file__).parent / "config.json"
+CONFIG_TEMPLATE_PATH = Path(__file__).parent / "config.default.json"
+
+# Repo root, beside vocabulary.txt. Created at import so the log is writable
+# before anything can fail.
+LOG_DIR = Path(__file__).parent.parent / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+ERROR_LOG_PATH = LOG_DIR / "tray_error.log"
+
+# Single source for the project URL -- it appears in the console banner, the
+# About box, and the Help menu.
+PROJECT_URL = "https://github.com/msromike/voice_dictation"
+
+# Console text size, in points. Tk scales points by screen DPI on its own, so
+# these are not multiplied by dpi_scale anywhere.
+CONSOLE_FONT_DEFAULT = 12
+CONSOLE_FONT_MIN = 7
+CONSOLE_FONT_MAX = 32
+
+
+def load_settings():
+    """
+    Read config.json, seeding it from the shipped template on first run.
+
+    Defaults live in config.default.json and nowhere else -- there are no
+    key-level fallbacks anywhere in this app. To reset to defaults, delete
+    config.json and relaunch.
+
+    A config.json that will not parse at all (truncated by a crash, or
+    hand-edited into invalid JSON) is replaced with the template rather than
+    blocking startup. Nothing tries to infer what the user meant -- the file
+    is reset wholesale and the reason is reported to the console.
+
+    Returns:
+        tuple: (config dict, reset reason string or None)
+    """
+    if not CONFIG_PATH.exists():
+        if not CONFIG_TEMPLATE_PATH.exists():
+            raise RuntimeError(
+                f"Missing {CONFIG_TEMPLATE_PATH.name} -- the install is "
+                f"incomplete. Re-clone the repository or restore that file.")
+        shutil.copyfile(CONFIG_TEMPLATE_PATH, CONFIG_PATH)
+
+    try:
+        with open(CONFIG_PATH, "r") as f:
+            return json.load(f), None
+    except json.JSONDecodeError as exc:
+        shutil.copyfile(CONFIG_TEMPLATE_PATH, CONFIG_PATH)
+        with open(CONFIG_PATH, "r") as f:
+            return json.load(f), str(exc)
+
+
+def save_settings(config):
+    """Write config.json back to disk"""
+    with open(CONFIG_PATH, "w") as f:
+        json.dump(config, f, indent=2)
+
+
+def _log_error(context, exc):
+    """
+    Append a caught exception to tray_error.log.
+
+    For failures that must not be reported to the console window -- notably
+    errors raised from inside the console update handler, where writing the
+    report through the thing that just failed would loop.
+    """
+    with open(ERROR_LOG_PATH, "a", encoding="utf-8") as f:
+        f.write("\n" + "=" * 60 + "\n")
+        f.write("%s: %s: %s\n" % (context, type(exc).__name__, exc))
+        traceback.print_exc(file=f)
+
+
+def _geometry_origin(geometry):
+    """
+    Pull (x, y) out of a Tk geometry string such as "900x600+120+80".
+
+    Returns None when the string has no origin, which is what Tk produces
+    before a window has been placed.
+    """
+    match = re.search(r'([+-]\d+)([+-]\d+)$', geometry)
+    if not match:
+        return None
+    return int(match.group(1)), int(match.group(2))
+
+
+def _is_on_screen(x, y):
+    """
+    True when (x, y) lands on the desktop spanning every attached monitor.
+
+    A position saved on a display that has since been unplugged -- or before a
+    resolution change -- would otherwise put a window where the user can
+    neither see nor reach it. The margin keeps the title bar grabbable rather
+    than flush against an edge.
+    """
+    metric = ctypes.windll.user32.GetSystemMetrics
+    virtual_x, virtual_y = metric(76), metric(77)
+    virtual_w, virtual_h = metric(78), metric(79)
+    return (virtual_x <= x <= virtual_x + virtual_w - 100
+            and virtual_y <= y <= virtual_y + virtual_h - 60)
 
 
 class VoiceDictationTray:
@@ -70,11 +154,16 @@ class VoiceDictationTray:
         main_w, main_h = int(900 * self.dpi_scale), int(600 * self.dpi_scale)
         self.window.geometry(f"{main_w}x{main_h}")
 
-        # Text area with scrollbar
+        # Text area with scrollbar. Monospace is not negotiable -- the daemon
+        # prints aligned [n] counters and the loading animation appends dots
+        # that only line up with a consistent advance width.
+        self._build_menu()
+
+        self.console_font_size = CONSOLE_FONT_DEFAULT
         self.text = scrolledtext.ScrolledText(
             self.window,
             wrap=tk.WORD,
-            font=("Consolas", 12),
+            font=("Consolas", self.console_font_size),
             bg="#1e1e1e",
             fg="#d4d4d4"
         )
@@ -94,10 +183,202 @@ class VoiceDictationTray:
         # Intercept the '_' minimize button to hide to tray
         self.window.bind("<Unmap>", self._on_unmap)
 
+        # Track geometry as it changes rather than reading it at hide time: a
+        # minimized window reports its icon position, and minimizing is the
+        # main way this window gets hidden.
+        self._last_geometry = None
+        self.window.bind("<Configure>", self._remember_geometry)
+
+        # Ctrl+scroll to zoom, Ctrl+0 to reset -- the convention every editor,
+        # terminal, and browser already uses. Bound to the window rather than
+        # the text widget, which is disabled and so never takes focus.
+        self.window.bind("<Control-MouseWheel>", self._zoom_console)
+        self.window.bind("<Control-Key-0>", self._reset_console_font)
+
+        # Tk's accelerator= only draws the shortcut text on the menu item; the
+        # key itself has to be bound separately or the label is a lie.
+        self.window.bind("<Control-Key-c>", lambda e: self._copy_text())
+        self.window.bind("<Control-Key-a>", lambda e: self._select_all())
+        self.window.bind("<Control-Key-plus>", lambda e: self._zoom_step(1))
+        self.window.bind("<Control-Key-equal>", lambda e: self._zoom_step(1))
+        self.window.bind("<Control-Key-minus>", lambda e: self._zoom_step(-1))
+        self.window.bind("<F1>", self._open_docs)
+
         # Start hidden
         self.window.withdraw()
 
         self.icon = self.create_tray_icon()
+
+        # Tkinter swallows exceptions raised inside callbacks and routes them
+        # here; the default implementation prints to stderr, which goes
+        # nowhere under pythonw.exe. Without this hook a failure in the
+        # Settings dialog means the user clicks "Settings..." and simply
+        # nothing happens -- the worst possible outcome for config reads that
+        # are deliberately fallback-free.
+        self.window.report_callback_exception = self._report_callback_exception
+
+    def _report_callback_exception(self, exc_type, exc_value, exc_tb):
+        """Log a Tkinter callback error and raise a toast about it"""
+        with open(ERROR_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write("\n" + "=" * 60 + "\n")
+            traceback.print_exception(exc_type, exc_value, exc_tb, file=f)
+
+        summary = f"{exc_type.__name__}: {exc_value}"
+        if len(summary) > 120:
+            summary = summary[:117] + "..."
+
+        # Toasts get truncated and are suppressed under Focus Assist, so the
+        # log above is the durable half -- this just tells them to go look.
+        try:
+            self.icon.notify(
+                f"{summary}\n\nDetails written to logs\\tray_error.log",
+                "Voice Dictation error")
+        except Exception:
+            pass
+
+    def _build_menu(self):
+        """
+        CUA-style menu bar.
+
+        Settings sits under File rather than a Tools menu -- a one-item Tools
+        menu is worse than the older convention. Mnemonics are chosen so no
+        two items in the same menu share a letter.
+        """
+        menubar = tk.Menu(self.window)
+
+        file_menu = tk.Menu(menubar, tearoff=0)
+        # "Save As" takes A rather than S, the convention when Settings
+        # already owns S in the same menu.
+        file_menu.add_command(label="Save As...", underline=5,
+                              command=self._save_log_as)
+        file_menu.add_command(label="Vocabulary...", underline=0,
+                              command=self._open_vocabulary)
+        file_menu.add_separator()
+        file_menu.add_command(label="Settings...", underline=0,
+                              command=self.open_settings)
+        file_menu.add_command(label="Hide to Tray", underline=0,
+                              command=self.hide_window)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", underline=1, command=self.exit_app)
+        menubar.add_cascade(label="File", underline=0, menu=file_menu)
+
+        edit_menu = tk.Menu(menubar, tearoff=0)
+        edit_menu.add_command(label="Copy", underline=0, accelerator="Ctrl+C",
+                              command=self._copy_text)
+        edit_menu.add_command(label="Select All", underline=0,
+                              accelerator="Ctrl+A", command=self._select_all)
+        edit_menu.add_command(label="Copy All", underline=5,
+                              command=self._copy_all)
+        edit_menu.add_separator()
+        edit_menu.add_command(label="Clear", underline=1,
+                              command=self._clear_console)
+        menubar.add_cascade(label="Edit", underline=0, menu=edit_menu)
+
+        view_menu = tk.Menu(menubar, tearoff=0)
+        view_menu.add_command(label="Zoom In", underline=5,
+                              accelerator="Ctrl++",
+                              command=lambda: self._zoom_step(1))
+        view_menu.add_command(label="Zoom Out", underline=5,
+                              accelerator="Ctrl+-",
+                              command=lambda: self._zoom_step(-1))
+        view_menu.add_command(label="Reset Zoom", underline=0,
+                              accelerator="Ctrl+0",
+                              command=self._reset_console_font)
+        menubar.add_cascade(label="View", underline=0, menu=view_menu)
+
+        # postcommand fires each time Help opens, so Error Log reflects
+        # whether a log actually exists right now.
+        help_menu = tk.Menu(menubar, tearoff=0,
+                            postcommand=self._sync_help_menu)
+        help_menu.add_command(label="Documentation", underline=0,
+                              accelerator="F1", command=self._open_docs)
+        help_menu.add_command(label="Error Log", underline=0,
+                              command=self._open_error_log)
+        help_menu.add_separator()
+        help_menu.add_command(label="About", underline=0,
+                              command=self._show_about)
+        menubar.add_cascade(label="Help", underline=0, menu=help_menu)
+        self._help_menu = help_menu
+
+        self.window.config(menu=menubar)
+
+    def _sync_help_menu(self):
+        """
+        Grey out Error Log when no log exists.
+
+        A disabled item answers the question directly -- there have been no
+        errors -- which is better than opening an empty file or an apology
+        dialog.
+        """
+        self._help_menu.entryconfig(
+            "Error Log",
+            state=tk.NORMAL if ERROR_LOG_PATH.exists() else tk.DISABLED)
+
+    def _open_error_log(self):
+        """Open the error log in the default text editor"""
+        os.startfile(ERROR_LOG_PATH)
+
+    def _open_docs(self, event=None):
+        """
+        Open the project page in the default browser.
+
+        Deliberately not the local README.md: .md usually has no registered
+        handler on Windows, so it opens as raw markdown -- tables, image
+        syntax, and the demo video all reduced to literal text. The rendered
+        page is the useful artifact.
+        """
+        webbrowser.open(PROJECT_URL)
+        return "break"
+
+    def _open_vocabulary(self):
+        """Open vocabulary.txt in the user's default .txt handler"""
+        os.startfile(VOCABULARY_PATH)
+
+    def _save_log_as(self):
+        """
+        Write the console log to a text file.
+
+        UTF-8 because transcripts contain curly quotes, em-dashes, and
+        accented words -- ASCII would raise on write. The date stamp is in
+        the default name because saved logs otherwise pile up namelessly.
+        """
+        path = filedialog.asksaveasfilename(
+            parent=self.window,
+            title="Save Console Log",
+            defaultextension=".txt",
+            initialfile="voice_dictation_log_%s.txt"
+                        % datetime.now().strftime("%Y-%m-%d"),
+            filetypes=[("Text files", "*.txt"), ("All files", "*.*")])
+        if not path:
+            return  # User cancelled the dialog
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(self.text.get("1.0", tk.END).rstrip("\n") + "\n")
+
+    def _select_all(self):
+        """Select the entire log"""
+        self.text.tag_add(tk.SEL, "1.0", tk.END)
+        return "break"
+
+    def _copy_all(self):
+        """Copy the entire log to the clipboard"""
+        self.window.clipboard_clear()
+        self.window.clipboard_append(self.text.get("1.0", tk.END).rstrip("\n"))
+
+    def _clear_console(self):
+        """Empty the log"""
+        self.text.config(state=tk.NORMAL)
+        self.text.delete("1.0", tk.END)
+        self.text.config(state=tk.DISABLED)
+
+    def _show_about(self):
+        """About dialog"""
+        messagebox.showinfo(
+            "About Voice Dictation",
+            f"Voice Dictation v{__version__}\n\n"
+            f"Offline push-to-talk speech to text.\n"
+            f"{PROJECT_URL}\n\n"
+            f"MIT License",
+            parent=self.window)
 
     def _show_context_menu(self, event):
         """Display the right-click context menu"""
@@ -152,9 +433,12 @@ class VoiceDictationTray:
         vdict_path = Path(__file__).parent / "vdict.py"
 
         # Disable Python output buffering for immediate capture
-        import os
         env = os.environ.copy()
         env['PYTHONUNBUFFERED'] = '1'
+
+        # Clear the previous run's exit report, or a daemon that dies again
+        # after Save & Restart would fail silently.
+        self._exit_reported = False
 
         self.process = subprocess.Popen(
             [sys.executable, str(vdict_path)],
@@ -165,21 +449,22 @@ class VoiceDictationTray:
             bufsize=1,
             env=env
         )
-        print(f"Started vdict.py (PID: {self.process.pid})")
-        
         # Inject welcome banner into the console output queue
         banner = [
             "\033[97m============================================================",
             " Welcome to Voice Dictation",
-            " github.com/msromike/voice_dictation | MIT License",
-            "============================================================",
-            " Settings, console access, and app controls live in your ",
-            " system tray (microphone icon in the bottom right corner).",
+            f" {PROJECT_URL} | MIT License",
             "============================================================\033[0m",
             ""
         ]
         for line in banner:
             self.output_queue.put(line)
+
+        # Into the console, not stdout, which pythonw discards. Knowing which
+        # process is the daemon is exactly what you want when the process tree
+        # looks wrong.
+        self.output_queue.put(
+            f"\033[90mStarted vdict.py (PID: {self.process.pid})\033[0m")
 
         self.notified_slow_boot = False
 
@@ -224,7 +509,11 @@ class VoiceDictationTray:
                             "First-time setup: Downloading AI model. This may take a minute...",
                             "Downloading Model")
                             
-                elif "Voice Dictation READY" in clean_line:
+                # Matched without the version, which sits between the two
+                # words ("Voice Dictation v1.0.0 READY"). Testing for the bare
+                # word READY would be too loose -- transcribed speech flows
+                # through this same stream.
+                elif "Voice Dictation v" in clean_line and "READY" in clean_line:
                     if getattr(self, 'is_loading_model', False):
                         # Close the dotted line
                         self.text.insert(tk.END, "\n")
@@ -235,6 +524,15 @@ class VoiceDictationTray:
                             self.icon.notify(
                                 "Model download complete. Voice Dictation is ready!", "Ready")
                         self.notified_slow_boot = False
+
+                # The "Loading ..." line is deliberately left unterminated so
+                # _animate_dots can append to it, so close that run before
+                # writing anything else or the next line lands mid-dots. The
+                # flag stays set here, letting the animation continue on the
+                # fresh line; only the READY branch above clears it.
+                if (getattr(self, 'is_loading_model', False)
+                        and not clean_line.startswith("Loading ")):
+                    self.text.insert(tk.END, "\n")
 
                 if is_dim:
                     if clean_line.startswith("Loading "):
@@ -251,7 +549,7 @@ class VoiceDictationTray:
         except queue.Empty:
             pass
         except Exception as e:
-            print(f"Output update error: {e}")
+            _log_error("Output update error", e)
 
         try:
             if self.process and not getattr(self, '_exit_reported', False):
@@ -259,8 +557,19 @@ class VoiceDictationTray:
                 if exit_code is not None:
                     self._exit_reported = True
                     if exit_code == 2:
-                        messagebox.showerror("No Microphone Detected", "Voice Dictation could not find a valid microphone.\n\nPlease plug in a microphone and restart the app.", parent=self.window)
-                        self._force_quit()
+                        # A missing microphone is a configuration problem, not
+                        # a fatal one. Killing the tray here would remove the
+                        # only surface for choosing a different device, so the
+                        # user would be locked out by the very error we are
+                        # reporting. Open Settings and explain instead.
+                        self.open_settings()
+                        messagebox.showerror(
+                            "No Microphone Detected",
+                            "Voice Dictation could not find the configured "
+                            "microphone.\n\nPick a different one in the "
+                            "Settings window and click Save & Restart, or "
+                            "reconnect the device and click Save & Restart.",
+                            parent=self.settings_win)
                         return
                     self.text.config(state=tk.NORMAL)
                     self.text.insert(
@@ -268,7 +577,7 @@ class VoiceDictationTray:
                     self.text.see(tk.END)
                     self.text.config(state=tk.DISABLED)
         except Exception as e:
-            print(f"Exit-check error: {e}")
+            _log_error("Exit-check error", e)
         finally:
             # Always reschedule, even if a widget update failed, so the log
             # window can't silently freeze forever on one bad update
@@ -281,19 +590,25 @@ class VoiceDictationTray:
 
     def open_settings(self, icon=None, item=None):
         """Open settings dialog to configure PTT mode and audio"""
+        # Several independent paths reach this -- the tray menu, the first-run
+        # tutorial, and missing-microphone recovery -- so never stack windows.
+        existing = getattr(self, "settings_win", None)
+        if existing is not None:
+            try:
+                if existing.winfo_exists():
+                    existing.lift()
+                    return
+            except tk.TclError:
+                pass  # Widget already torn down; fall through and rebuild
+
         settings_win = tk.Toplevel(self.window)
+        self.settings_win = settings_win
         settings_win.withdraw()  # Hide immediately to prevent position flash
         settings_win.title("Settings")
         settings_win.resizable(False, False)
         settings_win.attributes("-topmost", True)
 
-        # Load config
-        config_path = Path(__file__).parent / "config.json"
-        try:
-            with open(config_path, "r") as f:
-                config = json.load(f)
-        except Exception:
-            config = DEFAULT_CONFIG
+        config, _ = load_settings()
 
         # Create an inner frame for clean, scaled outer padding
         main_frame = tk.Frame(
@@ -317,10 +632,44 @@ class VoiceDictationTray:
         separator = ttk.Separator(main_frame, orient='horizontal')
         separator.pack(fill='x', pady=(0, int(15 * self.dpi_scale)))
 
-        # 1. PTT Config
+        # 1. Microphone
+        import sounddevice as sd
+
+        DEFAULT_MIC_LABEL = "System Default"
+
+        # Enumerate WASAPI only. PortAudio exposes every mic once per Windows
+        # backend (MME, DirectSound, WASAPI, WDM-KS); the legacy backends also
+        # add default-device aliases ("Microsoft Sound Mapper - Input",
+        # "Primary Sound Capture Driver") and truncate names to 31 chars.
+        # WASAPI has neither problem, so this is one clean entry per device
+        # using the same name Windows Sound Settings shows.
+        wasapi = next((i for i, api in enumerate(sd.query_hostapis())
+                       if api['name'] == 'Windows WASAPI'), None)
+        if wasapi is None:
+            raise RuntimeError(
+                "Windows WASAPI audio backend not available. The sounddevice "
+                "install is incomplete -- rerun setup.bat.")
+
+        mic_names = [dev['name'] for dev in sd.query_devices()
+                     if dev['hostapi'] == wasapi
+                     and dev['max_input_channels'] > 0]
+
+        saved_mic = config["audio"]["device"]
+        # Keep a configured-but-currently-absent device (unplugged headset) in
+        # the list rather than silently snapping to something else.
+        if saved_mic and saved_mic not in mic_names:
+            mic_names.append(saved_mic)
+
+        tk.Label(main_frame, text="Microphone:").pack()
+        mic_var = tk.StringVar(
+            value=saved_mic if saved_mic else DEFAULT_MIC_LABEL)
+        tk.OptionMenu(
+            main_frame, mic_var, DEFAULT_MIC_LABEL, *mic_names).pack(
+            pady=(0, int(15 * self.dpi_scale)))
+
+        # 2. PTT Config
         tk.Label(main_frame, text="PTT Button Trigger:").pack()
-        button_var = tk.StringVar(
-            value=config.get("ptt", {}).get("button", "key:ctrl_r"))
+        button_var = tk.StringVar(value=config["ptt"]["button"])
             
         def _format_bind(val):
             if val.startswith("key:"):
@@ -342,22 +691,16 @@ class VoiceDictationTray:
         bind_btn.pack(pady=(0, int(15 * self.dpi_scale)))
 
         tk.Label(main_frame, text="PTT Recording Mode:").pack()
-        mode_var = tk.StringVar(
-            value=config.get(
-                "ptt", {}).get(
-                "mode", "toggle").capitalize())
+        mode_var = tk.StringVar(value=config["ptt"]["mode"].capitalize())
         tk.OptionMenu(
             main_frame, mode_var, "Toggle", "Hold").pack(
             pady=(
                 0, int(
                     15 * self.dpi_scale)))
 
-        # 2. AI Model & Compute
+        # 3. AI Model & Compute
         tk.Label(main_frame, text="AI Model Size:").pack()
-        ai_model_var = tk.StringVar(
-            value=config.get(
-                "stt", {}).get(
-                "model", "small.en"))
+        ai_model_var = tk.StringVar(value=config["stt"]["model"])
         tk.OptionMenu(main_frame,
                       ai_model_var,
                       "tiny.en",
@@ -393,8 +736,7 @@ class VoiceDictationTray:
         tk.Label(main_frame, text="Compute Device:").pack()
         device_mapping = {"cpu": "CPU", "cuda": "GPU (CUDA)"}
         reverse_device_mapping = {"CPU": "cpu", "GPU (CUDA)": "cuda"}
-        current_dev = config.get("stt", {}).get("device", "cpu")
-        device_var = tk.StringVar(value=device_mapping.get(current_dev, "CPU"))
+        device_var = tk.StringVar(value=device_mapping[config["stt"]["device"]])
 
         dev_menu = tk.OptionMenu(main_frame, device_var, "CPU", "GPU (CUDA)")
         if not has_cuda:
@@ -404,16 +746,14 @@ class VoiceDictationTray:
                 device_var.set("CPU")
         dev_menu.pack(pady=(0, int(15 * self.dpi_scale)))
 
-        # 3. Audio Beeps
-        audio_var = tk.BooleanVar(
-            value=config.get("audio", {}).get("feedback", True))
+        # 4. Audio Beeps
+        audio_var = tk.BooleanVar(value=config["audio"]["feedback"])
         tk.Checkbutton(
             main_frame, text="Enable Audio Beeps", variable=audio_var).pack(
             pady=(0, int(15 * self.dpi_scale)))
             
-        # 4. Open Console on Boot
-        open_console_var = tk.BooleanVar(
-            value=config.get("ui", {}).get("open_console_on_boot", True))
+        # 5. Open Console on Boot
+        open_console_var = tk.BooleanVar(value=config["ui"]["open_console_on_boot"])
         tk.Checkbutton(
             main_frame, text="Show Console on Startup", variable=open_console_var).pack(
             pady=(0, int(15 * self.dpi_scale)))
@@ -426,37 +766,27 @@ class VoiceDictationTray:
             return settings_win.winfo_x(), settings_win.winfo_y()
 
         def save_and_restart():
-            config.setdefault("ptt", {})["button"] = button_var.get()
-            config.setdefault("ptt", {})["mode"] = mode_var.get().lower()
-            config.setdefault("audio", {})["feedback"] = audio_var.get()
-            config.setdefault("stt", {})["model"] = ai_model_var.get()
-            config.setdefault("stt", {})["device"] = reverse_device_mapping.get(
-                device_var.get(), "cpu")
+            mic = mic_var.get()
+            config["audio"]["device"] = "" if mic == DEFAULT_MIC_LABEL else mic
+            config["ptt"]["button"] = button_var.get()
+            config["ptt"]["mode"] = mode_var.get().lower()
+            config["audio"]["feedback"] = audio_var.get()
+            config["stt"]["model"] = ai_model_var.get()
+            config["stt"]["device"] = reverse_device_mapping[device_var.get()]
 
             x, y = _get_pos()
-            config.setdefault("ui", {})["settings_pos"] = {"x": x, "y": y}
-            config.setdefault("ui", {})["open_console_on_boot"] = open_console_var.get()
+            config["ui"]["settings_pos"] = {"x": x, "y": y}
+            config["ui"]["open_console_on_boot"] = open_console_var.get()
 
-            with open(config_path, "w") as f:
-                json.dump(config, f, indent=2)
+            save_settings(config)
 
             settings_win.destroy()
-
-            # Restart subprocess
-            if self.process:
-                self.process.terminate()
-                try:
-                    self.process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    self.process.kill()
-                    self.process.wait()
-            self.start_vdict()
+            self.restart_daemon()
 
         def on_close():
             x, y = _get_pos()
-            config.setdefault("ui", {})["settings_pos"] = {"x": x, "y": y}
-            with open(config_path, "w") as f:
-                json.dump(config, f, indent=2)
+            config["ui"]["settings_pos"] = {"x": x, "y": y}
+            save_settings(config)
             settings_win.destroy()
 
         settings_win.protocol("WM_DELETE_WINDOW", on_close)
@@ -464,16 +794,22 @@ class VoiceDictationTray:
             pady=(int(5 * self.dpi_scale), 0))
 
         # Version Watermark
-        version_label = tk.Label(main_frame, text=f"v{__version__}", fg="gray", font=("Arial", int(7 * self.dpi_scale)))
+        # No dpi_scale here: Tk already scales point sizes by screen DPI, so
+        # multiplying again rendered this watermark at body-text size.
+        version_label = tk.Label(main_frame, text=f"v{__version__}", fg="gray", font=("Arial", 7))
         version_label.pack(side=tk.BOTTOM, anchor="e")
 
         # Force Tkinter to calculate required layout dimensions
         settings_win.update_idletasks()
 
         # Set geometry (remembered or bottom right)
-        saved_pos = config.get("ui", {}).get("settings_pos")
-        if saved_pos:
-            x, y = saved_pos.get("x", 0), saved_pos.get("y", 0)
+        # Same guard as the console: fall back to the default corner if the
+        # remembered spot is no longer on any attached display. This dialog is
+        # opened automatically on first run and on microphone failure, so an
+        # off-screen one would strand the user with no way to fix either.
+        saved_pos = config["ui"]["settings_pos"]
+        if saved_pos and _is_on_screen(saved_pos["x"], saved_pos["y"]):
+            x, y = saved_pos["x"], saved_pos["y"]
         else:
             # Default to bottom right using auto-calculated dimensions
             win_width = settings_win.winfo_reqwidth()
@@ -532,8 +868,48 @@ class VoiceDictationTray:
         k_listener.start()
         m_listener.start()
 
+    def _remember_geometry(self, event):
+        """Cache the console's geometry while it is actually on screen"""
+        if event.widget is self.window and self.window.state() == 'normal':
+            self._last_geometry = self.window.geometry()
+
+    def _set_console_font_size(self, size):
+        """Apply a console text size, clamped to a legible range"""
+        self.console_font_size = max(
+            CONSOLE_FONT_MIN, min(CONSOLE_FONT_MAX, size))
+        self.text.config(font=("Consolas", self.console_font_size))
+
+    def _zoom_step(self, direction):
+        """Change the console text size by one step"""
+        self._set_console_font_size(self.console_font_size + direction)
+        return "break"
+
+    def _zoom_console(self, event):
+        """Ctrl+scroll to resize the console text"""
+        return self._zoom_step(1 if event.delta > 0 else -1)
+
+    def _reset_console_font(self, event=None):
+        """Ctrl+0 to return to the default size"""
+        self._set_console_font_size(CONSOLE_FONT_DEFAULT)
+        return "break"
+
+    def _save_console_state(self):
+        """
+        Persist the console's size, position, and text size.
+
+        Written on hide and on exit rather than on every change -- zooming
+        fires once per scroll notch, and that is not worth a disk write each
+        time.
+        """
+        config, _ = load_settings()
+        if self._last_geometry:
+            config["ui"]["console_geometry"] = self._last_geometry
+        config["ui"]["console_font_size"] = self.console_font_size
+        save_settings(config)
+
     def hide_window(self):
         """Hide output window"""
+        self._save_console_state()
         self.window.withdraw()
 
     def _on_unmap(self, event):
@@ -548,16 +924,37 @@ class VoiceDictationTray:
             
         self._force_quit()
 
+    def _stop_daemon(self):
+        """
+        Terminate the daemon, escalating to kill if it will not exit.
+
+        Single definition of how the daemon dies -- shutdown and restart both
+        route through here rather than keeping their own copies.
+        """
+        if not getattr(self, 'process', None):
+            return
+        self.process.terminate()
+        try:
+            self.process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            self.process.kill()
+            self.process.wait()
+
+    def restart_daemon(self):
+        """
+        Swap the running daemon for a fresh one.
+
+        Internal only -- there is deliberately no user-facing restart command.
+        Deciding when to restart an engine is not the user's job, and offering
+        the button invites them to wonder whether they need it.
+        """
+        self._stop_daemon()
+        self.start_vdict()
+
     def _force_quit(self):
         """Hard exit without prompting"""
-        print("Stopping vdict.py...")
-        if getattr(self, 'process', None):
-            self.process.terminate()
-            try:
-                self.process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self.process.kill()
-                self.process.wait()
+        self._save_console_state()
+        self._stop_daemon()
         self.icon.stop()
         try:
             self.window.quit()
@@ -566,35 +963,44 @@ class VoiceDictationTray:
 
     def run(self):
         """Run the tray application"""
-        config_path = Path(__file__).parent / "config.json"
-        
-        # Self-healing config generation
-        if not config_path.exists():
-            with open(config_path, "w") as f:
-                json.dump(DEFAULT_CONFIG, f, indent=2)
+        # Seeds config.json from config.default.json when absent. Must run
+        # before start_vdict(), because the daemon reads config.json itself.
+        config, reset_reason = load_settings()
+
+        # Restore the console's size and position, ignoring a geometry whose
+        # origin is no longer on any attached display.
+        saved_geometry = config["ui"]["console_geometry"]
+        if saved_geometry:
+            origin = _geometry_origin(saved_geometry)
+            if origin and _is_on_screen(*origin):
+                self.window.geometry(saved_geometry)
+
+        self._set_console_font_size(config["ui"]["console_font_size"])
 
         # Start vdict.py subprocess
         self.start_vdict()
 
-        # Check if we should open console on boot
-        try:
-            with open(config_path, "r") as f:
-                config = json.load(f)
-        except Exception:
-            config = DEFAULT_CONFIG
-            
-        if config.get("ui", {}).get("open_console_on_boot", True):
+        # Queued after start_vdict so it lands under the welcome banner
+        if reset_reason:
+            self.output_queue.put(
+                f"[SETTINGS RESET] config.json could not be read "
+                f"({reset_reason}).")
+            self.output_queue.put(
+                "[SETTINGS RESET] Default settings have been restored. Open "
+                "Settings from the tray icon to reconfigure.")
+            self.output_queue.put("")
+
+        if config["ui"]["open_console_on_boot"]:
             # Open it (will happen every time until user disables it in Settings)
             self.show_window()
-            
-        if config.get("ui", {}).get("first_run", True):
+
+        if config["ui"]["first_run"]:
             # Pop settings menu on first run as an implicit tutorial
             self.window.after(500, self.open_settings)
-            
+
             # Disable first_run flag
-            config.setdefault("ui", {})["first_run"] = False
-            with open(config_path, "w") as f:
-                json.dump(config, f, indent=2)
+            config["ui"]["first_run"] = False
+            save_settings(config)
 
         # Start periodic output update
         self.window.after(100, self._update_output)
@@ -609,12 +1015,31 @@ class VoiceDictationTray:
 
 def _log_startup_crash():
     """Write an unhandled startup exception to a log file next to this
-    script -- a console-less launch (e.g. Windows startup shortcut) would
-    otherwise swallow the traceback invisibly."""
-    log_path = Path(__file__).parent / "tray_error.log"
-    with open(log_path, "a", encoding="utf-8") as f:
+    script and show it on screen -- a console-less launch (e.g. Windows
+    startup shortcut) would otherwise swallow the traceback invisibly."""
+    summary = traceback.format_exc().strip().splitlines()[-1]
+
+    with open(ERROR_LOG_PATH, "a", encoding="utf-8") as f:
         f.write("\n" + "=" * 60 + "\n")
         traceback.print_exc(file=f)
+
+    # Config has no fallbacks by design, so a malformed config.json lands
+    # here. Fail-fast only helps if the user can see the failure, so show it:
+    # this dialog is screenshottable for a bug report, and it names the one
+    # action that fixes a bad config.
+    try:
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showerror(
+            "Voice Dictation failed to start",
+            f"{summary}\n\nFull details were written to:\n{log_path}\n\n"
+            f"If this mentions config.json, delete that file and relaunch "
+            f"to restore the default settings.")
+        root.destroy()
+    except Exception:
+        # Never let the error reporter mask the original traceback, which
+        # the caller re-raises and the log above already captured.
+        pass
 
 
 if __name__ == "__main__":

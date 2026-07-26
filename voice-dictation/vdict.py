@@ -1,17 +1,13 @@
 """
 Voice Dictation Daemon - System-wide PTT voice-to-text
 
-Main entry point for background daemon that listens for middle mouse button,
-captures audio, transcribes via Whisper, and injects text at cursor.
+Background daemon that listens for the configured PTT trigger, captures audio,
+transcribes via Whisper, and injects the text at the cursor.
 
-Usage:
-    python vdict.py                      # Run with default profile
-    python vdict.py --profile radio      # Run with radio profile
-    python vdict.py --profile general    # Run with general profile
+Launched by vdict_tray.py, which writes config.json before starting this
+process. Running it directly requires config.json to already exist.
 """
 
-import sys
-import argparse
 from vdict.audio import AudioCapture
 from vdict.stt import STTEngine
 from vdict.keyboard import KeyboardInjector, PTTListener
@@ -126,18 +122,7 @@ def play_tone(tone_type, enabled=True):
 
 def main():
     """Main daemon loop"""
-    # Parse command-line arguments
-    parser = argparse.ArgumentParser(
-        description='Voice Dictation - PTT voice-to-text')
-    parser.add_argument(
-        '--profile',
-        type=str,
-        default=None,
-        help='Configuration profile to use (dev, radio, general)')
-    args = parser.parse_args()
-
-    # Load configuration with selected profile
-    config = load_config(profile_name=args.profile)
+    config = load_config()
 
     # Initialize components
     audio = AudioCapture(
@@ -154,18 +139,16 @@ def main():
     stt.load()
 
     keyboard = KeyboardInjector(
-        preserve_clipboard=config.get(
-            'keyboard', {}).get(
-            'preserve_clipboard', False))
+        preserve_clipboard=config['keyboard']['preserve_clipboard'])
 
     ptt = PTTListener(button=config['ptt']['button'])
 
     # Get prompt for jargon biasing
-    prompt = config['stt'].get('prompt', '')
+    prompt = config['stt']['prompt']
 
     # Get PTT mode and audio feedback settings
-    ptt_mode = config.get('ptt', {}).get('mode', 'toggle')
-    audio_feedback = config.get('audio', {}).get('feedback', True)
+    ptt_mode = config['ptt']['mode']
+    audio_feedback = config['audio']['feedback']
 
     print(f"\033[90mVoice Dictation v{__version__} READY\033[0m")
     print(

@@ -42,21 +42,29 @@ class AudioCapture:
         last_error = None
         for attempt in range(retry_attempts):
             try:
-                if required_device:
-                    devices = sd.query_devices()
-                    for idx, device in enumerate(devices):
-                        if required_device in device['name'] and device['max_input_channels'] > 0:
-                            self.device_id = idx
-                            break
-                else:
-                    # Automatically select system default microphone
-                    try:
-                        self.device_id = sd.default.device[0]
-                        # Verify the default device actually exists and has inputs
-                        sd.query_devices(self.device_id, 'input')
-                    except Exception:
-                        self.device_id = None
-                        
+                # Resolve against WASAPI only. PortAudio lists every mic once
+                # per Windows backend, and the tray's device dropdown
+                # enumerates WASAPI -- matching the same backend here keeps
+                # both sides naming the same device.
+                wasapi = next(
+                    (i for i, api in enumerate(sd.query_hostapis())
+                     if api['name'] == 'Windows WASAPI'), None)
+
+                if wasapi is not None:
+                    if required_device:
+                        for idx, device in enumerate(sd.query_devices()):
+                            if (device['hostapi'] == wasapi
+                                    and required_device in device['name']
+                                    and device['max_input_channels'] > 0):
+                                self.device_id = idx
+                                break
+                    else:
+                        # System default, as WASAPI reports it
+                        default_id = sd.query_hostapis(
+                            wasapi)['default_input_device']
+                        if default_id >= 0:
+                            self.device_id = default_id
+
                 if self.device_id is not None:
                     break
             except Exception as e:
@@ -67,7 +75,9 @@ class AudioCapture:
 
         if self.device_id is None:
             import sys
-            print("\033[91m[ERROR] No audio device detected. Please plug in a microphone and restart the app.\033[0m")
+            print("\033[91m[ERROR] Configured microphone not found. Pick a "
+                  "different one in Settings, or reconnect the device, then "
+                  "click Save & Restart.\033[0m")
             sys.exit(2)
 
     def start_capture(self):
@@ -78,13 +88,21 @@ class AudioCapture:
         self.recording = True
         self.buffer = []
 
-        # Create input stream with callback to buffer audio
+        # Create input stream with callback to buffer audio.
+        #
+        # auto_convert enables the Windows audio engine's resampler. WASAPI
+        # shared mode otherwise accepts only the device's native rate (48kHz
+        # on typical hardware), while Whisper's mel filterbank is defined
+        # against 16kHz and cannot take anything else. MME performed this same
+        # conversion implicitly; doing it through WASAPI just makes it
+        # explicit, and on a lower-latency backend.
         self.stream = sd.InputStream(
             device=self.device_id,
             samplerate=self.sample_rate,
             channels=1,  # Mono
             dtype='float32',
-            callback=self._audio_callback
+            callback=self._audio_callback,
+            extra_settings=sd.WasapiSettings(auto_convert=True)
         )
         self.stream.start()
 

@@ -1,0 +1,19 @@
+# Voice Dictation - custom vocabulary
+#
+# Words listed here are given to Whisper as a hint, which increases the
+# chance it will spell them correctly. Useful for names, acronyms,
+# jargon, and product names that come out wrong today. Add words as you hit
+# problems, not in advance. A long list of terms you never actually say
+# can be counterproductive.
+#
+# One word or phrase per line. Lines starting with # are ignored.
+# Changes take effect on your next dictation.
+#
+#Kubernetes
+#PostgreSQL
+#OAuth
+#Anthropic
+#your surname
+#your project names
+#
+# Add your own below this line.

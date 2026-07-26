@@ -1,69 +1,68 @@
 """
 Module: config.py
-Purpose: Configuration management with profile support
+Purpose: Configuration management
 
 Responsibilities:
   - Load config.json
-  - Select profile (default or specified)
-  - Read prompt files and convert to prompt strings
+  - Read vocabulary.txt and convert it to a recognizer hint string
   - Return merged configuration
 """
 
 import json
 from pathlib import Path
 
+# User-editable word list. Kept at the repo root rather than beside the code
+# so it is visible to someone who never opens the voice-dictation/ folder.
+VOCABULARY_PATH = Path(__file__).parent.parent.parent / "vocabulary.txt"
 
-def load_config(profile_name=None):
+
+def load_config():
     """
     Load configuration
 
+    vdict_tray.py creates config.json from config.default.json before this
+    process starts, so every key is expected to be present. A missing or
+    malformed key raises rather than falling back to a value the user never
+    chose -- a silent default is harder to diagnose than a loud failure.
+
     Returns:
-        dict: Merged configuration with stt settings
+        dict: Configuration, with stt['prompt'] resolved from vocabulary.txt
     """
     config_path = Path(__file__).parent.parent / "config.json"
 
     if not config_path.exists():
-        raise RuntimeError(f"Config file not found: {config_path}")
+        raise RuntimeError(
+            f"Config file not found: {config_path}. Launch via run.bat -- "
+            f"the tray seeds config.json from config.default.json.")
 
     with open(config_path, 'r') as f:
         config = json.load(f)
 
-    # Ensure stt key exists
-    stt = config.setdefault('stt', {})
-
-    # Load prompt from file or inline
-    prompt = ""
-    if 'prompt_file' in stt:
-        prompt = _load_prompt_file(stt['prompt_file'])
-    elif 'prompt' in stt:
-        prompt = stt['prompt']
-
-    stt['model'] = stt.get('model', 'small.en')
-    stt['device'] = stt.get('device', 'cpu')
-    stt['prompt'] = prompt
+    config['stt']['prompt'] = _load_vocabulary()
 
     return config
 
 
-def _load_prompt_file(prompt_file_path):
+def _load_vocabulary():
     """
-    Load prompt terms from text file (one term per line)
+    Load recognizer hint terms from vocabulary.txt
 
-    Args:
-        prompt_file_path: Relative path from voice-dictation/ folder
+    One term per line. Lines starting with '#' are comments and are skipped,
+    which is what lets the shipped file document itself without those example
+    words biasing the recognizer.
 
     Returns:
-        str: Comma-separated prompt string
+        str: Comma-separated term string ("" when the file has no live terms)
     """
-    prompt_path = Path(__file__).parent.parent / prompt_file_path
+    if not VOCABULARY_PATH.exists():
+        raise RuntimeError(
+            f"Vocabulary file not found: {VOCABULARY_PATH}. Restore it from "
+            f"the repository -- to use no custom words, empty the file "
+            f"rather than deleting it.")
 
-    if not prompt_path.exists():
-        # Silently return empty if prompt file missing (non-critical)
-        return ""
-
-    with open(prompt_path, 'r', encoding='utf-8') as f:
+    with open(VOCABULARY_PATH, 'r', encoding='utf-8') as f:
         lines = f.readlines()
 
-    # Strip whitespace, filter empty lines, join with commas
-    terms = [line.strip() for line in lines if line.strip()]
+    terms = [line.strip() for line in lines
+             if line.strip() and not line.lstrip().startswith('#')]
     return ", ".join(terms)
