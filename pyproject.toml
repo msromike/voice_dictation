@@ -2,16 +2,23 @@
 
 [tool.ruff]
 line-length = 100
+# vulture_whitelist.py is bare names by design -- it is vulture input, not code.
+exclude = ["venv", "images", "tools/vulture_whitelist.py"]
+
+# LOAD-BEARING. Must track the floor declared in README.md and setup.bat, NOT
+# the installed interpreter. This is what catches syntax newer than we promise
+# to support -- it found six 3.12-only f-strings against a declared 3.10 floor.
 target-version = "py310"
-exclude = ["venv", "images"]
 
 [tool.ruff.lint]
-# F  pyflakes        -- undefined names, unused imports, mutable defaults
-# E  pycodestyle     -- errors only
-# B  bugbear         -- loop-variable binding, silent traps
-# C901 mccabe        -- cyclomatic complexity
-# PLR pylint refactor-- too many branches/statements/args/returns
-select = ["F", "E", "B", "C901", "PLR"]
+# F   pyflakes        -- undefined names, unused imports, mutable defaults
+# E   pycodestyle     -- errors only
+# B   bugbear         -- loop-variable binding, silent traps
+# C901 mccabe         -- cyclomatic complexity
+# PLR pylint refactor -- too many branches/statements/args/returns
+# RUF100              -- noqa directives that are no longer needed, so a
+#                        suppression expires instead of calcifying
+select = ["F", "E", "B", "C901", "PLR", "RUF100"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10

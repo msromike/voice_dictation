@@ -146,10 +146,6 @@ class PTTListener:
         while not self.release_event.wait(timeout=0.1):
             pass  # Loop allows KeyboardInterrupt to be raised
 
-    def is_pressed(self):
-        """Check if PTT button is currently pressed"""
-        return self.pressed
-
     def stop(self):
         """Stop mouse listener (cleanup)"""
         self.listener.stop()
@@ -192,7 +188,7 @@ class KeyboardInjector:
         # Save current clipboard
         try:
             old_clipboard = self.pyperclip.paste()
-        except BaseException:
+        except Exception:
             old_clipboard = ""  # Clipboard empty or inaccessible
 
         # Add space after text for separation, then paste

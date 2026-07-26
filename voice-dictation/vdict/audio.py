@@ -161,7 +161,3 @@ class AudioCapture:
             audio_data = np.array([], dtype=np.float32)
 
         return audio_data
-
-    def is_recording(self):
-        """Check if currently recording"""
-        return self.recording

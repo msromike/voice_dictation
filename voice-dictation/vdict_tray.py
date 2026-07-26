@@ -497,7 +497,7 @@ class VoiceDictationTray:
         for line in stdout:
             self.output_queue.put(line.rstrip())
 
-    # Dispatches on daemon output markers. Split by backlog item 0.5.
+    # Dispatches on daemon output markers. Split by backlog B1.
     def _update_output(self):  # noqa: C901, PLR0912, PLR0915
         """Update text widget with queued output"""
         try:
@@ -598,7 +598,7 @@ class VoiceDictationTray:
         self.window.deiconify()
         self.window.lift()
 
-    # Builds the whole dialog inline. Split by backlog item 0.5; remove then.
+    # Builds the whole dialog inline. Split by backlog B1; remove then.
     def open_settings(self, icon=None, item=None):  # noqa: C901, PLR0915
         """Open settings dialog to configure PTT mode and audio"""
         # Several independent paths reach this -- the tray menu, the first-run

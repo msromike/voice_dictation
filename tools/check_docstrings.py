@@ -42,18 +42,34 @@ def check_comment_blocks(src):
         yield run_start, "comment block", run
 
 
-def main():
-    violations = 0
+def targets(argv):
+    """Yield paths to check: the file given on argv, else everything in SCAN"""
+    if argv:
+        path = Path(argv[0]).resolve()
+        if path.suffix == ".py" and path.exists():
+            yield path
+        return
     for folder in SCAN:
-        for path in sorted((ROOT / folder).rglob("*.py")):
-            src = path.read_text(encoding="utf-8")
-            found = list(check_docstrings(path, src)) + list(check_comment_blocks(src))
-            for line, kind, count in sorted(found):
-                rel = path.relative_to(ROOT)
-                print(f"{rel}:{line}: {kind} is {count} lines, cap is {MAX_LINES}")
-                violations += 1
+        yield from sorted((ROOT / folder).rglob("*.py"))
 
-    print(f"\n{violations} violation(s), cap {MAX_LINES} lines (ADR-010)")
+
+def main():
+    argv = sys.argv[1:]
+    violations = 0
+    for path in targets(argv):
+        src = path.read_text(encoding="utf-8")
+        found = list(check_docstrings(path, src)) + list(check_comment_blocks(src))
+        for line, kind, count in sorted(found):
+            try:
+                rel = path.relative_to(ROOT)
+            except ValueError:
+                rel = path
+            print(f"{rel}:{line}: {kind} is {count} lines, cap is {MAX_LINES}")
+            violations += 1
+
+    # A single-file run is hook feedback; stay silent when it is clean.
+    if not argv:
+        print(f"\n{violations} violation(s), cap {MAX_LINES} lines (ADR-010)")
     return 1 if violations else 0
 
 
