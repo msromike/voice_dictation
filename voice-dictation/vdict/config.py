@@ -15,6 +15,9 @@ from pathlib import Path
 # so it is visible to someone who never opens the voice-dictation/ folder.
 VOCABULARY_PATH = Path(__file__).parent.parent.parent / "vocabulary.txt"
 
+# Daemon exit code the tray matches on to open Settings. Both sides must agree.
+EXIT_NO_MICROPHONE = 2
+
 
 def load_config():
     """

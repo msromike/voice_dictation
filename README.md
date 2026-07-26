@@ -233,6 +233,38 @@ Settings live in `voice-dictation\config.json`, created on first run from
 `config.default.json`. Everything in it has a control in the Settings window, so
 there is no reason to edit it by hand.
 
+## Windows only, for now
+
+Windows by design rather than by accident. Audio goes through WASAPI, the
+single-instance guard uses the Win32 API, and text delivery moves to SendInput
+in 1.1.
+
+A Linux or macOS port would be genuinely welcome, so here is an honest map of
+what you would be taking on.
+
+**Straightforward**
+
+- `winsound` tones -- sounddevice is already a dependency and can play audio
+- The single-instance mutex -- any lockfile works
+- DPI scaling through `ctypes.windll` -- Tk exposes this cross-platform
+- `os.startfile` -- one small helper over `xdg-open` or `open`
+- The `.bat` scripts -- rewrite as shell scripts
+
+**The real work**
+
+- Audio. Device enumeration is built around WASAPI because Windows lists every
+  microphone once per host API, and `auto_convert` lets the OS resample to the
+  16kHz Whisper needs. Neither has a direct equivalent, so expect a second
+  implementation rather than a branch.
+
+There is deliberately no platform abstraction layer. Writing one without a
+second platform to test against would have handed you a broken seam to work
+around instead of clean code to replace. Everything above is a handful of
+direct call sites -- `grep` for `winsound`, `win32`, `windll`, `startfile`, and
+`WASAPI` finds all of them.
+
+Open an issue if you start one.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

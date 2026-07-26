@@ -18,7 +18,9 @@ import sounddevice as sd
 class AudioCapture:
     """Audio capture engine for PTT voice recording"""
 
-    def __init__(self, sample_rate=16000, required_device="",
+    # Device resolution plus a retry loop. Splitting it would spread one
+    # decision across two functions.
+    def __init__(self, sample_rate=16000, required_device="",  # noqa: C901
                  retry_attempts=5, retry_delay=1.0):
         """
         Initialize audio capture
@@ -75,10 +77,13 @@ class AudioCapture:
 
         if self.device_id is None:
             import sys
+            if last_error:
+                print(f"\033[91m[ERROR] Device lookup failed: {last_error}\033[0m")
             print("\033[91m[ERROR] Configured microphone not found. Pick a "
                   "different one in Settings, or reconnect the device, then "
                   "click Save & Restart.\033[0m")
-            sys.exit(2)
+            from .config import EXIT_NO_MICROPHONE
+            sys.exit(EXIT_NO_MICROPHONE)
 
     def start_capture(self):
         """Start capturing audio from microphone"""

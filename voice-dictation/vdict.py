@@ -8,6 +8,13 @@ Launched by vdict_tray.py, which writes config.json before starting this
 process. Running it directly requires config.json to already exist.
 """
 
+import sys
+
+# Must precede the imports below -- winsound raises ImportError elsewhere.
+if sys.platform != "win32":
+    sys.exit("Voice Dictation is Windows-only. See 'Windows only' in the "
+             "README for what a port would involve -- one would be welcome.")
+
 from vdict.audio import AudioCapture
 from vdict.stt import STTEngine
 from vdict.keyboard import KeyboardInjector, PTTListener
@@ -47,7 +54,8 @@ def generate_tone(
             wav_file.writeframes(packed_sample)
 
 
-def generate_double_tone(
+# Every parameter is a tone characteristic with a default.
+def generate_double_tone(  # noqa: PLR0913, PLR0917
         filename,
         freq=440.0,
         tone_duration_ms=90,
@@ -87,6 +95,9 @@ def generate_double_tone(
 
 
 # Generate UI tones to the temp directory on every launch
+# 0.4 seconds at 16kHz. Shorter recordings are treated as accidental clicks.
+MIN_RECORDING_SAMPLES = 6400
+
 TEMP_DIR = tempfile.gettempdir()
 TONE_START = os.path.join(TEMP_DIR, "vdict_start.wav")
 TONE_STOP = os.path.join(TEMP_DIR, "vdict_stop.wav")
@@ -120,7 +131,7 @@ def play_tone(tone_type, enabled=True):
             winsound.SND_FILENAME | winsound.SND_ASYNC)
 
 
-def main():
+def main():  # noqa: PLR0915
     """Main daemon loop"""
     config = load_config()
 
@@ -151,10 +162,8 @@ def main():
     audio_feedback = config['audio']['feedback']
 
     print(f"\033[90mVoice Dictation v{__version__} READY\033[0m")
-    print(
-        f"\033[90mMode: {
-            ptt_mode.upper()} | Button: {
-            config['ptt']['button'].upper()}\033[0m")
+    button_name = config['ptt']['button'].upper()
+    print(f"\033[90mMode: {ptt_mode.upper()} | Button: {button_name}\033[0m")
 
     try:
         cycle = 0
@@ -191,9 +200,9 @@ def main():
             audio_data = audio.stop_capture()
             play_tone("stop", enabled=audio_feedback)
 
-            # Short-circuit on accidental/rapid clicks (< 0.4 seconds) to
-            # prevent Whisper thread blocking
-            if len(audio_data) < 6400:
+            # Short-circuit on accidental/rapid clicks to prevent Whisper
+            # thread blocking
+            if len(audio_data) < MIN_RECORDING_SAMPLES:
                 print(
                     f"\033[90m[{cycle}] Error: Recording too short (ignored).\033[0m")
                 cycle += 1

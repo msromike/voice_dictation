@@ -65,17 +65,15 @@ class PTTListener:
             self.button = _BUTTON_MAP.get(button)
             if self.button is None:
                 raise ValueError(
-                    f"Unsupported PTT button: '{button}'. Supported: {
-                        list(_BUTTON_MAP)}")
+                    f"Unsupported PTT button: '{button}'. "
+                    f"Supported: {list(_BUTTON_MAP)}")
             self.target_key = None
             self.listener = mouse.Listener(on_click=self._on_click)
 
         self.listener.start()
 
         if self.debug:
-            print(
-                f"[DEBUG] PTTListener started, monitoring: {
-                    self.button_name}")
+            print(f"[DEBUG] PTTListener started, monitoring: {self.button_name}")
 
     def _on_click(self, x, y, button, pressed):
         """
@@ -87,20 +85,19 @@ class PTTListener:
             pressed: True if pressed, False if released
         """
         if self.debug:
-            print(
-                f"[DEBUG] Mouse event: button={button}, pressed={pressed}, target={
-                    self.button}")
+            print(f"[DEBUG] Mouse event: button={button}, "
+                  f"pressed={pressed}, target={self.button}")
 
         if button == self.button:
             self.pressed = pressed
             if pressed:
                 if self.debug:
-                    print(f"[DEBUG] Target button PRESSED - setting event")
+                    print("[DEBUG] Target button PRESSED - setting event")
                 self.press_event.set()
                 self.release_event.clear()
             else:
                 if self.debug:
-                    print(f"[DEBUG] Target button RELEASED - setting event")
+                    print("[DEBUG] Target button RELEASED - setting event")
                 self.release_event.set()
                 self.press_event.clear()
 
@@ -112,7 +109,7 @@ class PTTListener:
         if key == self.target_key and not self.pressed:
             self.pressed = True
             if self.debug:
-                print(f"[DEBUG] Target key PRESSED - setting event")
+                print("[DEBUG] Target key PRESSED - setting event")
             self.press_event.set()
             self.release_event.clear()
 
@@ -121,7 +118,7 @@ class PTTListener:
         if key == self.target_key:
             self.pressed = False
             if self.debug:
-                print(f"[DEBUG] Target key RELEASED - setting event")
+                print("[DEBUG] Target key RELEASED - setting event")
             self.release_event.set()
             self.press_event.clear()
 
@@ -173,7 +170,8 @@ class KeyboardInjector:
             self.time = time
         except ImportError as e:
             raise RuntimeError(
-                f"Missing dependency: {e}. Install: pip install pyperclip pyautogui")
+                f"Missing dependency: {e}. "
+                f"Install: pip install pyperclip pyautogui") from e
 
     def inject(self, text):
         """

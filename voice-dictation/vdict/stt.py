@@ -73,8 +73,7 @@ class STTEngine:
                 compute_type=compute_type)
         except Exception as e:
             raise RuntimeError(
-                f"Failed to load Whisper model '{
-                    self.model_name}': {e}") from e
+                f"Failed to load Whisper model '{self.model_name}': {e}") from e
 
     def wake_gpu(self):
         """
@@ -84,12 +83,14 @@ class STTEngine:
         if self.device != "cuda" or self.model is None:
             return
 
+        model = self.model
+
         def _primer():
             try:
                 # 0.1 seconds of absolute silence
                 dummy = np.zeros(1600, dtype=np.float32)
                 _ = list(
-                    self.model.transcribe(
+                    model.transcribe(
                         dummy,
                         beam_size=1,
                         vad_filter=False))

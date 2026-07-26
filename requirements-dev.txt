@@ -1,0 +1,4 @@
+# Development tooling. NOT needed to run the app -- see requirements.txt.
+#   pip install -r requirements-dev.txt
+ruff
+pyright

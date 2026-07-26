@@ -2,6 +2,11 @@
 """Voice Dictation - System Tray Wrapper (Chunk 2b: Capture and display output)"""
 import sys
 
+# Must precede the imports below -- win32event raises ImportError elsewhere.
+if sys.platform != "win32":
+    sys.exit("Voice Dictation is Windows-only. See 'Windows only' in the "
+             "README for what a port would involve -- one would be welcome.")
+
 __version__ = "1.0.0"
 
 import subprocess
@@ -25,7 +30,7 @@ import ctypes
 
 # Safe to import at module level only because vdict/__init__.py is bare and
 # config.py pulls in nothing heavier than json and pathlib. Keep it that way.
-from vdict.config import VOCABULARY_PATH
+from vdict.config import VOCABULARY_PATH, EXIT_NO_MICROPHONE
 
 try:
     # Tell Windows this app handles its own DPI scaling to fix Tkinter blur
@@ -33,6 +38,9 @@ try:
 except Exception:
     pass
 
+
+# Win32 GetLastError value returned when the single-instance mutex exists.
+ERROR_ALREADY_EXISTS = 183
 
 CONFIG_PATH = Path(__file__).parent / "config.json"
 CONFIG_TEMPLATE_PATH = Path(__file__).parent / "config.default.json"
@@ -224,7 +232,7 @@ class VoiceDictationTray:
             traceback.print_exception(exc_type, exc_value, exc_tb, file=f)
 
         summary = f"{exc_type.__name__}: {exc_value}"
-        if len(summary) > 120:
+        if len(summary) > 120:  # noqa: PLR2004 -- display truncation, not a contract
             summary = summary[:117] + "..."
 
         # Toasts get truncated and are suppressed under Focus Assist, so the
@@ -471,7 +479,8 @@ class VoiceDictationTray:
         self.is_loading_model = False
 
         # Start thread to read output
-        reader_thread = threading.Thread(target=self._read_output, daemon=True)
+        reader_thread = threading.Thread(
+            target=self._read_output, args=(self.process.stdout,), daemon=True)
         reader_thread.start()
 
     def _animate_dots(self):
@@ -483,12 +492,13 @@ class VoiceDictationTray:
             self.text.config(state=tk.DISABLED)
             self.window.after(1000, self._animate_dots)
 
-    def _read_output(self):
+    def _read_output(self, stdout):
         """Read subprocess output and queue it"""
-        for line in self.process.stdout:
+        for line in stdout:
             self.output_queue.put(line.rstrip())
 
-    def _update_output(self):
+    # Dispatches on daemon output markers. Split by backlog item 0.5.
+    def _update_output(self):  # noqa: C901, PLR0912, PLR0915
         """Update text widget with queued output"""
         try:
             while True:
@@ -556,7 +566,7 @@ class VoiceDictationTray:
                 exit_code = self.process.poll()
                 if exit_code is not None:
                     self._exit_reported = True
-                    if exit_code == 2:
+                    if exit_code == EXIT_NO_MICROPHONE:
                         # A missing microphone is a configuration problem, not
                         # a fatal one. Killing the tray here would remove the
                         # only surface for choosing a different device, so the
@@ -588,7 +598,8 @@ class VoiceDictationTray:
         self.window.deiconify()
         self.window.lift()
 
-    def open_settings(self, icon=None, item=None):
+    # Builds the whole dialog inline. Split by backlog item 0.5; remove then.
+    def open_settings(self, icon=None, item=None):  # noqa: C901, PLR0915
         """Open settings dialog to configure PTT mode and audio"""
         # Several independent paths reach this -- the tray menu, the first-run
         # tutorial, and missing-microphone recovery -- so never stack windows.
@@ -626,7 +637,8 @@ class VoiceDictationTray:
         from tkinter import ttk
         
         # Add a professional banner to stretch the window width and look clean
-        title_label = tk.Label(main_frame, text="Voice Dictation Settings", font=("Segoe UI", 12, "bold"))
+        title_label = tk.Label(main_frame, text="Voice Dictation Settings",
+                               font=("Segoe UI", 12, "bold"))
         title_label.pack(pady=(0, int(5 * self.dpi_scale)))
         
         separator = ttk.Separator(main_frame, orient='horizontal')
@@ -919,7 +931,9 @@ class VoiceDictationTray:
 
     def exit_app(self, icon=None, item=None):
         """Exit application and kill subprocess"""
-        if not messagebox.askokcancel("Close Voice Dictation", "Click OK to exit Voice Dictation.", parent=self.window):
+        if not messagebox.askokcancel(
+                "Close Voice Dictation", "Click OK to exit Voice Dictation.",
+                parent=self.window):
             return
             
         self._force_quit()
@@ -931,7 +945,7 @@ class VoiceDictationTray:
         Single definition of how the daemon dies -- shutdown and restart both
         route through here rather than keeping their own copies.
         """
-        if not getattr(self, 'process', None):
+        if self.process is None:
             return
         self.process.terminate()
         try:
@@ -1014,9 +1028,7 @@ class VoiceDictationTray:
 
 
 def _log_startup_crash():
-    """Write an unhandled startup exception to a log file next to this
-    script and show it on screen -- a console-less launch (e.g. Windows
-    startup shortcut) would otherwise swallow the traceback invisibly."""
+    """Write an unhandled startup exception to the error log and show it on screen"""
     summary = traceback.format_exc().strip().splitlines()[-1]
 
     with open(ERROR_LOG_PATH, "a", encoding="utf-8") as f:
@@ -1032,7 +1044,7 @@ def _log_startup_crash():
         root.withdraw()
         messagebox.showerror(
             "Voice Dictation failed to start",
-            f"{summary}\n\nFull details were written to:\n{log_path}\n\n"
+            f"{summary}\n\nFull details were written to:\n{ERROR_LOG_PATH}\n\n"
             f"If this mentions config.json, delete that file and relaunch "
             f"to restore the default settings.")
         root.destroy()
@@ -1044,14 +1056,18 @@ def _log_startup_crash():
 
 if __name__ == "__main__":
     try:
-        # Single-instance check using Windows mutex
-        mutex = win32event.CreateMutex(None, False, "VoiceDictationTrayMutex")
-        if win32api.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+        # Single-instance check using Windows mutex.
+        # NULL security attributes is the documented default; the stub omits it.
+        mutex = win32event.CreateMutex(
+            None, False, "VoiceDictationTrayMutex")  # pyright: ignore[reportArgumentType]
+        if win32api.GetLastError() == ERROR_ALREADY_EXISTS:
             import tkinter as tk
             from tkinter import messagebox
             root = tk.Tk()
             root.withdraw()
-            messagebox.showinfo("Voice Dictation", "Voice Dictation is already running in your system tray.")
+            messagebox.showinfo(
+                "Voice Dictation",
+                "Voice Dictation is already running in your system tray.")
             sys.exit(1)
 
         app = VoiceDictationTray()

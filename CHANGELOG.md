@@ -48,3 +48,6 @@ First public release.
   the README.
 - Text cannot be typed into programs running as administrator unless this app
   is also run as administrator. This is a Windows restriction.
+- Windows only. Launching on another platform exits with an explanation rather
+  than a traceback. See "Windows only, for now" in the README for what a port
+  would involve.
