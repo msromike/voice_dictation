@@ -52,7 +52,7 @@ That is the whole daily loop. Everything below is optional.
 
 ### The tray icon
 
-Look for the microphone near the clock. Double-click it to open the console
+Look for the microphone near the clock. Double-click it to open the output
 window, or right-click it for the menu.
 
 <a href="images/tray.png"><img src="images/tray.png" width="370"
@@ -60,11 +60,11 @@ alt="The system tray menu, with Show Output, Settings, and Exit"></a>
 
 | Tray menu | What it does |
 |---|---|
-| Show Output | Opens the console window |
-| Settings... | Opens Settings without opening the console first |
+| Show Output | Opens the output window |
+| Settings... | Opens Settings without opening the output window first |
 | Exit | Closes the app |
 
-### The console window
+### The output window
 
 A running log of what you dictated, plus a menu bar holding the rest of the app.
 Minimizing it puts it back in the tray; closing it exits the app, and asks
@@ -112,7 +112,7 @@ The window's size, position, and text size are remembered between runs.
 ### Settings
 
 <a href="images/settings.png"><img src="images/settings.png" width="300"
-alt="The Settings window, showing microphone, push-to-talk button and mode, model size, compute device, and the audio and console checkboxes"></a>
+alt="The Settings window, showing microphone, push-to-talk button and mode, model size, compute device, and the audio and output checkboxes"></a>
 
 | Setting | Options |
 |---|---|
@@ -122,7 +122,7 @@ alt="The Settings window, showing microphone, push-to-talk button and mode, mode
 | AI Model Size | tiny.en, base.en, small.en, medium.en, large-v3 |
 | Compute Device | CPU or GPU -- GPU is greyed out if you have no NVIDIA card |
 | Enable Audio Beeps | The start/stop tones |
-| Show Console on Startup | Whether the log window opens on launch |
+| Show Output on Startup | Whether the output window opens on launch |
 
 Click **Save & Restart** to apply. Changing the model downloads it the first
 time you use it.
@@ -167,6 +167,11 @@ Device dropdown lets you pick GPU, your card was detected and you should switch.
 The `.en` models are English-only and more accurate at English than the
 similarly sized multilingual ones. `large-v3` handles other languages.
 
+**What worked for me.** The built-in mic on a cheap webcam, two feet away, gave
+poor accuracy. A conference-style desk mic fixed it -- it has been accurate
+every time since, with a Roomba going round my chair, and it rejects sound from
+behind, so a YouTube video on the same desk doesn't get transcribed.
+
 ## Known limitations
 
 **It replaces your clipboard.** Text is delivered by copying it and sending
@@ -190,15 +195,15 @@ noise, which shows up as invented words. A headset mic is noticeably better.
 
 ## If something goes wrong
 
-**Nothing happens when I press the button.** Open the console from the tray and
-watch while you press it. If nothing appears, the button binding is not what you
-think -- rebind it in Settings.
+**Nothing happens when I press the button.** Open the output window from the
+tray and watch while you press it. If nothing appears, the button binding is not
+what you think -- rebind it in Settings.
 
 **"No Microphone Detected".** The mic it was set to use is gone. The Settings
 window opens automatically; pick a different one and click Save & Restart.
 
 **The app will not start.** Check `logs\tray_error.log`, or open it from
-**Help > Error Log** if you can get the console window up. It is only
+**Help > Error Log** if you can get the output window up. It is only
 written when something actually fails, so if it exists, its last entry is your
 answer. If that menu item is greyed out, no error has ever been recorded.
 

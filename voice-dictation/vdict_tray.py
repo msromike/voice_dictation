@@ -700,7 +700,7 @@ class VoiceDictationTray:
         # 5. Open Console on Boot
         open_console_var = tk.BooleanVar(value=config["ui"]["open_console_on_boot"])
         tk.Checkbutton(
-            main_frame, text="Show Console on Startup", variable=open_console_var).pack(
+            main_frame, text="Show Output on Startup", variable=open_console_var).pack(
             pady=(0, int(15 * self.dpi_scale)))
 
         def _get_pos():

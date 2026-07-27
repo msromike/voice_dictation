@@ -12,6 +12,12 @@ All notable changes to this project are documented here. Format follows
   system tray now share one icon instead of showing the generic batch-file cog,
   the Python logo, and a shape drawn at runtime.
 
+### Changed
+
+- The window that shows dictation activity is now called the output window
+  throughout. The Settings checkbox reads "Show Output on Startup", previously
+  "Show Console on Startup".
+
 ### Fixed
 
 - `setup.bat` now resolves paths from its own folder. Running it from a
