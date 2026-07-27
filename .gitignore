@@ -14,7 +14,6 @@ __pycache__/
 .claude/
 .gemini/
 *.code-workspace
-CLAUDE.md
 pyrightconfig.json
 .github/copilot-instructions.md
 .github/instructions/
