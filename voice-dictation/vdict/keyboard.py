@@ -3,10 +3,9 @@
 import threading
 from pynput import mouse, keyboard
 
-# Mouse button names accepted in config.json -> pynput button enum.
-# "side" maps to x2; unlike middle-click, browsers and Electron do not hook it.
-_BUTTON_MAP = {
-    "left": mouse.Button.left,
+# config.json name -> pynput button. "side" is x2: browsers hook middle-click,
+# not that. Left is absent on purpose -- it would record on every click.
+BUTTON_MAP = {
     "right": mouse.Button.right,
     "middle": mouse.Button.middle,
     "side": mouse.Button.x2,
@@ -20,7 +19,7 @@ class PTTListener:
 
     def __init__(self, button="middle", debug=False):
         """Start listening for the PTT trigger.
-        button is a mouse name from _BUTTON_MAP, or "key:<name>" for a pynput Key."""
+        button is a mouse name from BUTTON_MAP, or "key:<name>" for a pynput Key."""
         self.button_name = button
         self.pressed = False
         self.debug = debug
@@ -42,11 +41,11 @@ class PTTListener:
                 on_press=self._on_key_press,
                 on_release=self._on_key_release)
         else:
-            self.button = _BUTTON_MAP.get(button)
+            self.button = BUTTON_MAP.get(button)
             if self.button is None:
                 raise ValueError(
                     f"Unsupported PTT button: '{button}'. "
-                    f"Supported: {list(_BUTTON_MAP)}")
+                    f"Supported: {list(BUTTON_MAP)}")
             self.target_key = None
             self.listener = mouse.Listener(on_click=self._on_click)
 

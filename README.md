@@ -117,7 +117,7 @@ alt="The Settings window, showing microphone, push-to-talk button and mode, mode
 | Setting | Options |
 |---|---|
 | Microphone | System default, or any specific mic |
-| PTT Button Trigger | Click it, then press any key or mouse button to bind it |
+| PTT Button Trigger | Click it, then press any key or mouse button to bind it -- left-click excepted |
 | PTT Recording Mode | **Hold** (hold to talk) or **Toggle** (click to start, click to stop) |
 | AI Model Size | tiny.en, base.en, small.en, medium.en, large-v3 |
 | Compute Device | CPU or GPU -- GPU is greyed out if you have no NVIDIA card |

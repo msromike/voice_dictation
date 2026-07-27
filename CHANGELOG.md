@@ -20,6 +20,10 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- The push-to-talk picker no longer accepts the left mouse button. Binding it
+  made every click start a recording. It now says why and keeps the binding you
+  already had.
+
 - `setup.bat` now resolves paths from its own folder. Running it from a
   different working directory previously created the Desktop shortcut with the
   wrong target.

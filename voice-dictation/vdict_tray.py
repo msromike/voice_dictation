@@ -767,17 +767,33 @@ class VoiceDictationTray:
 
     def _rebind_key(self, btn_var, disp_var, tk_btn):
         """Temporary keycatcher listener for settings UI"""
+        previous = disp_var.get()
         disp_var.set("Press any key...")
         tk_btn.config(state="disabled")
 
         listeners = []
 
+        def _stop_listeners(_event=None):
+            for lst in listeners:
+                lst.stop()
+
         def _finish_bind(val, disp):
             btn_var.set(val)
             disp_var.set(disp)
             tk_btn.config(state="normal")
-            for lst in listeners:
-                lst.stop()
+            _stop_listeners()
+
+        def _reject(name):
+            # Ends the capture. The modal is dismissed with a left-click, which
+            # a still-running listener would read as another rejected press.
+            disp_var.set(previous)
+            tk_btn.config(state="normal")
+            _stop_listeners()
+            messagebox.showwarning(
+                "Cannot bind that button",
+                f"{name} cannot be used as the push-to-talk trigger.\n\n"
+                f"Supported: {', '.join(BUTTON_MAP)}",
+                parent=self.settings_win)
 
         def on_k_press(key):
             try:
@@ -793,18 +809,31 @@ class VoiceDictationTray:
                 return False
 
         def on_m_click(x, y, button, pressed):
-            if pressed:
+            # Bind only what config.json accepts, so the picker cannot write a
+            # value the daemon then refuses to load. Left is not in the map.
+            if not pressed:
+                return None
+            if button.name in BUTTON_MAP:
                 val = button.name
-                disp = f"Mouse {button.name.capitalize()}"
-                if val in ['x1', 'x2']:
+                disp = f"Mouse {val.capitalize()}"
+                if val in ('x1', 'x2'):
                     disp = f"Mouse Side ({val.upper()})"
                 self.window.after(0, lambda: _finish_bind(val, disp))
                 return False
+            name = button.name
+            self.window.after(0, lambda: _reject(name))
+            return False
 
+        # Both are lazy: vdict.keyboard imports pynput at module scope, and the
+        # tray keeps pynput out of its own startup.
         from pynput import mouse, keyboard
+        from vdict.keyboard import BUTTON_MAP
         k_listener = keyboard.Listener(on_press=on_k_press)
         m_listener = mouse.Listener(on_click=on_m_click)
         listeners.extend([k_listener, m_listener])
+        # Closing Settings mid-capture would otherwise leave both global hooks
+        # running with no window behind them.
+        tk_btn.bind("<Destroy>", _stop_listeners, add="+")
         k_listener.start()
         m_listener.start()
 
