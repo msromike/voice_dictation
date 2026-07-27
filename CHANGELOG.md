@@ -4,6 +4,20 @@ All notable changes to this project are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- An application icon. The Desktop shortcut, the Startup shortcut, and the
+  system tray now share one icon instead of showing the generic batch-file cog,
+  the Python logo, and a shape drawn at runtime.
+
+### Fixed
+
+- `setup.bat` now resolves paths from its own folder. Running it from a
+  different working directory previously created the Desktop shortcut with the
+  wrong target.
+
 ## [1.0.0] - 2026-07-25
 
 First public release.

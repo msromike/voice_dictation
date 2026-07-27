@@ -22,7 +22,7 @@ import webbrowser
 import json
 import re
 from pathlib import Path
-from PIL import Image, ImageDraw
+from PIL.IcoImagePlugin import IcoImageFile
 import pystray
 import win32event
 import win32api
@@ -42,8 +42,14 @@ except Exception:
 # Win32 GetLastError value returned when the single-instance mutex exists.
 ERROR_ALREADY_EXISTS = 183
 
+# GetSystemMetrics index for the tray/small-icon edge length.
+SM_CXSMICON = 49
+
 CONFIG_PATH = Path(__file__).parent / "config.json"
 CONFIG_TEMPLATE_PATH = Path(__file__).parent / "config.default.json"
+
+# Shared by the tray, the Desktop shortcut and the Startup shortcut.
+ICON_PATH = Path(__file__).parent.parent / "images" / "vdict.ico"
 
 # Repo root, beside vocabulary.txt. Created at import so the log is writable
 # before anything can fail.
@@ -352,16 +358,14 @@ class VoiceDictationTray:
             pass
 
     def create_tray_icon(self):
-        """Create system tray icon with microphone image"""
-        # Create simple microphone icon
-        img = Image.new('RGB', (64, 64), color='white')
-        draw = ImageDraw.Draw(img)
-
-        # Draw microphone shape
-        draw.ellipse([20, 10, 44, 35], fill='black')  # Mic head
-        draw.rectangle([28, 30, 36, 45], fill='black')  # Mic body
-        draw.line([22, 50, 42, 50], fill='black', width=3)  # Base
-        draw.line([32, 45, 32, 50], fill='black', width=3)  # Stand
+        """Create system tray icon from the shared .ico"""
+        wanted = ctypes.windll.user32.GetSystemMetrics(SM_CXSMICON)
+        with ICON_PATH.open("rb") as handle:
+            icon = IcoImageFile(handle)
+            # The .ico holds 16/32/48/256. Assigning .size selects a stored frame
+            # rather than letting Windows rescale whichever one it opened.
+            icon.size = min(icon.ico.sizes(), key=lambda s: abs(s[0] - wanted))
+            img = icon.convert("RGBA")
 
         # Create menu
         menu = pystray.Menu(

@@ -1,4 +1,5 @@
 @echo off
+cd /d "%~dp0"
 
 :: Check for Python installation
 where python >nul 2>nul
@@ -22,6 +23,6 @@ echo NOTE: This will download ~1.4GB of NVIDIA CUDA binaries so you don't have t
 pip install -r requirements.txt
 echo Creating Desktop and Startup shortcuts...
 call install_startup.bat
-powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut(\"$HOME\Desktop\Voice Dictation.lnk\"); $Shortcut.TargetPath = \"$PWD\run.bat\"; $Shortcut.WorkingDirectory = \"$PWD\"; $Shortcut.Save()"
+powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut(\"$HOME\Desktop\Voice Dictation.lnk\"); $Shortcut.TargetPath = \"%~dp0run.bat\"; $Shortcut.WorkingDirectory = \"%~dp0\"; $Shortcut.IconLocation = \"%~dp0images\vdict.ico\"; $Shortcut.Save()"
 echo Setup complete! You can now run the app from your Desktop or using run.bat
 pause
