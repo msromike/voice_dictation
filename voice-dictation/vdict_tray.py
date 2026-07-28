@@ -15,6 +15,7 @@ import traceback
 import queue
 import shutil
 import os
+import glob
 import tkinter as tk
 from tkinter import scrolledtext, messagebox, filedialog
 from datetime import datetime
@@ -26,11 +27,14 @@ from PIL.IcoImagePlugin import IcoImageFile
 import pystray
 import win32event
 import win32api
+import win32con
+import win32gui
 import ctypes
 
 # Safe to import at module level only because vdict/__init__.py is bare and
 # config.py pulls in nothing heavier than json and pathlib. Keep it that way.
 from vdict.config import VOCABULARY_PATH, EXIT_NO_MICROPHONE
+from vdict import hotkey
 
 try:
     # Tell Windows this app handles its own DPI scaling to fix Tkinter blur
@@ -109,6 +113,119 @@ def _geometry_origin(geometry):
     if not match:
         return None
     return int(match.group(1)), int(match.group(2))
+
+
+# config.json stt.device -> display name. Settings and the startup block share it.
+DEVICE_LABELS = {"cpu": "CPU", "cuda": "GPU (CUDA)"}
+
+# Tk event.state bits, measured on Windows. Alt is bit 17, NOT the X11 Mod1
+# 0x0008 you would guess from Ctrl landing on its X11 value.
+TK_SHIFT, TK_CTRL, TK_ALT = 0x0001, 0x0004, 0x20000
+
+# Held modifiers auto-repeat, so these can never be taken as the captured key.
+MODIFIER_KEYSYMS = frozenset((
+    "Shift_L", "Shift_R", "Control_L", "Control_R",
+    "Alt_L", "Alt_R", "Win_L", "Win_R", "Super_L", "Super_R"))
+
+VK_F1, VK_F24 = 0x70, 0x87
+
+# Windows names these as their numpad twins unless lParam bit 24 is set.
+EXTENDED_VKS = frozenset((0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+                          0x2D, 0x2E, 0x90, 0xA3, 0xA5))
+
+# Pause has no scan code through MAPVK_VK_TO_VSC; its real one is the
+# multi-byte E1 1D 45 sequence, so Windows cannot name it.
+VK_NAMES = {0x13: "Pause"}
+
+
+def _windows_key_name(vk):
+    """The keycap label Windows gives this key on the layout in use.
+    Empty for keys no keycap carries. Windows holds every layout, so no table can."""
+    user32 = ctypes.windll.user32
+    lparam = (user32.MapVirtualKeyW(vk, 0) & 0xFF) << 16
+    if vk in EXTENDED_VKS:
+        lparam |= 1 << 24
+    buf = ctypes.create_unicode_buffer(64)
+    return buf.value if user32.GetKeyNameTextW(lparam, buf, 64) else ""
+
+
+def _vk_name(vk):
+    """Display name for a virtual-key code, asked of Windows rather than tabulated.
+    F-keys are derived -- a scan code exists but no layout carries a keycap for them."""
+    if VK_F1 <= vk <= VK_F24:
+        return f"F{vk - VK_F1 + 1}"
+    return _windows_key_name(vk) or VK_NAMES.get(vk, f"0x{vk:02X}")
+
+
+def _combo_name(mods, vk):
+    """Render a modifier mask and virtual key as "Ctrl+Alt+Shift+K" """
+    parts = [name for bit, name in ((win32con.MOD_CONTROL, "Ctrl"),
+                                    (win32con.MOD_ALT, "Alt"),
+                                    (win32con.MOD_SHIFT, "Shift")) if mods & bit]
+    parts.append(_vk_name(vk))
+    return "+".join(parts)
+
+
+def _state_to_mods(state):
+    """Tk event.state -> the fsModifiers mask RegisterHotKey expects"""
+    mods = 0
+    for bit, mod in ((TK_CTRL, win32con.MOD_CONTROL),
+                     (TK_ALT, win32con.MOD_ALT),
+                     (TK_SHIFT, win32con.MOD_SHIFT)):
+        if state & bit:
+            mods |= mod
+    return mods
+
+
+def _dim(text):
+    """Wrap a line in the ANSI dim code the output window maps to gray"""
+    return f"\033[90m{text}\033[0m"
+
+
+# The startup block is a header: label/value, no tags. Scrolling lines below it
+# keep [TAG] instead -- greppable, and they split into columns in a spreadsheet.
+def _summary_line(label, value):
+    """One aligned label/value line of the startup block. Consolas makes the padding line up."""
+    return f"{label + ':':<10}{value}"
+
+
+def _human_size(size):
+    """Format a byte count the way Explorer does -- binary steps, decimal labels"""
+    for unit in ("B", "KB", "MB"):
+        if size < 1024:  # noqa: PLR2004 -- the base of the unit, not a threshold
+            return f"{size:.0f} {unit}"
+        size /= 1024
+    return f"{size:.1f} GB"
+
+
+def _model_size_on_disk(model_name):
+    """Bytes the cached model occupies, or None when it has not been downloaded.
+    Skips symlinks: HuggingFace either hardcopies snapshots or links them to blobs, never both."""
+    cache = os.environ.get("HF_HUB_CACHE") or os.path.join(
+        os.environ.get("HF_HOME") or os.path.expanduser("~/.cache/huggingface"), "hub")
+    found = glob.glob(os.path.join(cache, f"models--*whisper-{model_name}"))
+    if not found:
+        return None
+
+    total = 0
+    for root, _dirs, files in os.walk(found[0]):
+        for name in files:
+            path = os.path.join(root, name)
+            if not os.path.islink(path):
+                total += os.path.getsize(path)
+    return total
+
+
+def _format_bind(val):
+    """Turn a config.json ptt.button value into a display name.
+    "key:f13" -> "F13", "x2" -> "Mouse Side (X2)"."""
+    if val.startswith("key:"):
+        return val[4:].replace('_', ' ').title()
+    if val in ["left", "right", "middle"]:
+        return f"Mouse {val.capitalize()}"
+    if val in ["x1", "x2", "side"]:
+        return f"Mouse Side ({val.upper()})"
+    return val.title()
 
 
 def _is_on_screen(x, y):
@@ -387,9 +504,13 @@ class VoiceDictationTray:
         """Start vdict.py as subprocess and capture output"""
         vdict_path = Path(__file__).parent / "vdict.py"
 
-        # Disable Python output buffering for immediate capture
+        # Set here, not inside the daemon: these are read at import time, and an
+        # import inside the daemon can always beat code that runs after it.
         env = os.environ.copy()
-        env['PYTHONUNBUFFERED'] = '1'
+        env["PYTHONUNBUFFERED"] = "1"          # immediate capture, no buffering
+        env["HF_HUB_VERBOSITY"] = "error"      # no third-party chatter in our window
+        env["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+        env["HF_HUB_DISABLE_TELEMETRY"] = "1"
 
         # Clear the previous run's exit report, or a daemon that dies again
         # after Save & Restart would fail silently.
@@ -404,20 +525,9 @@ class VoiceDictationTray:
             bufsize=1,
             env=env
         )
-        # Inject welcome banner into the console output queue
-        banner = [
-            "\033[97m============================================================",
-            " Welcome to Voice Dictation",
-            f" {PROJECT_URL} | MIT License",
-            "============================================================\033[0m",
-            ""
-        ]
-        for line in banner:
-            self.output_queue.put(line)
-
-        # Into the console, not stdout, which pythonw discards.
-        self.output_queue.put(
-            f"\033[90mStarted vdict.py (PID: {self.process.pid})\033[0m")
+        # Into the console, not stdout, which pythonw discards. The banner is
+        # NOT here: it greets once from run(), never again on a restart.
+        self._log_header(self.process.pid)
 
         self.notified_slow_boot = False
 
@@ -535,6 +645,57 @@ class VoiceDictationTray:
         self.window.deiconify()
         self.window.lift()
 
+    def _hotkey_line(self):
+        """The Hotkey header value, and whether it reads as a fault rather than a state"""
+        if self.hotkey_failed:
+            return (f"{self.hotkey_name} is unavailable -- another application or "
+                    f"Windows already uses it. Pick a different one in Settings."), True
+        if self.hotkey_name is None:
+            return ("None set. Assign one in Settings to show this window "
+                    "from anywhere."), False
+        return f"{self.hotkey_name} shows this window from anywhere.", False
+
+    def _log_header(self, pid):
+        """The startup block. Called only by start_vdict, so first launch and every
+        engine restart print the identical thing and cannot drift apart."""
+        config, _ = load_settings()
+        ptt, stt = config["ptt"], config["stt"]
+
+        size = _model_size_on_disk(stt["model"])
+        model = stt["model"] if size is None else f"{stt['model']} ({_human_size(size)})"
+        hotkey_value, is_fault = self._hotkey_line()
+
+        for label, value, dim in (
+                ("Started", f"vdict.py (PID {pid})", True),
+                ("Mode", "Hold button down to dictate." if ptt["mode"] == "hold"
+                         else "Press button once to toggle dictation.", True),
+                ("Trigger", _format_bind(ptt["button"]), True),
+                ("Hotkey", hotkey_value, not is_fault),
+                ("Compute", DEVICE_LABELS[stt["device"]], True),
+                ("Model", model, True)):
+            line = _summary_line(label, value)
+            self.output_queue.put(_dim(line) if dim else line)
+
+    def _register_hotkey(self, cfg):
+        """Claim the configured combination. Records what happened for the header
+        to report -- unset and already-taken are both states, never failures."""
+        self.hotkey_name = cfg["name"]
+        self.hotkey_failed = (
+            cfg["vk"] is not None
+            and not hotkey.register(cfg["modifiers"], cfg["vk"], self._on_hotkey))
+
+    def _on_hotkey(self):
+        """Runs on hotkey.py's owning thread, which must never touch Tk itself."""
+        self.window.after(0, self._raise_window)
+
+    def _raise_window(self):
+        """Bring the output window up with keyboard focus. Nothing may precede these two
+        calls -- the foreground grant Windows hands us on the keypress is momentary."""
+        self.window.deiconify()
+        win32gui.SetForegroundWindow(int(self.window.wm_frame(), 0))
+        self.output_queue.put(
+            f"\033[90m[HOTKEY] {self.hotkey_name} -- output window raised\033[0m")
+
     # Builds the whole dialog inline. Split by backlog B1; remove then.
     def open_settings(self, icon=None, item=None):  # noqa: C901, PLR0915
         """Open settings dialog to configure PTT mode and audio"""
@@ -615,16 +776,6 @@ class VoiceDictationTray:
         # 2. PTT Config
         tk.Label(main_frame, text="PTT Button Trigger:").pack()
         button_var = tk.StringVar(value=config["ptt"]["button"])
-            
-        def _format_bind(val):
-            if val.startswith("key:"):
-                return val[4:].replace('_', ' ').title()
-            if val in ["left", "right", "middle"]:
-                return f"Mouse {val.capitalize()}"
-            if val in ["x1", "x2", "side"]:
-                return f"Mouse Side ({val.upper()})"
-            return val.title()
-            
         button_display_var = tk.StringVar(value=_format_bind(button_var.get()))
         
         bind_btn = tk.Button(
@@ -679,9 +830,8 @@ class VoiceDictationTray:
         has_cuda = _has_cuda()
 
         tk.Label(main_frame, text="Compute Device:").pack()
-        device_mapping = {"cpu": "CPU", "cuda": "GPU (CUDA)"}
-        reverse_device_mapping = {"CPU": "cpu", "GPU (CUDA)": "cuda"}
-        device_var = tk.StringVar(value=device_mapping[config["stt"]["device"]])
+        reverse_device_mapping = {v: k for k, v in DEVICE_LABELS.items()}
+        device_var = tk.StringVar(value=DEVICE_LABELS[config["stt"]["device"]])
 
         dev_menu = tk.OptionMenu(main_frame, device_var, "CPU", "GPU (CUDA)")
         if not has_cuda:
@@ -703,6 +853,9 @@ class VoiceDictationTray:
             main_frame, text="Show Output on Startup", variable=open_console_var).pack(
             pady=(0, int(15 * self.dpi_scale)))
 
+        # 6. Output window hotkey
+        hotkey_binding = self._build_hotkey_row(main_frame)
+
         def _get_pos():
             geom = settings_win.geometry()
             match = re.search(r'\+?(-?\d+)\+?(-?\d+)$', geom)
@@ -718,6 +871,7 @@ class VoiceDictationTray:
             config["audio"]["feedback"] = audio_var.get()
             config["stt"]["model"] = ai_model_var.get()
             config["stt"]["device"] = reverse_device_mapping[device_var.get()]
+            config["hotkey"] = hotkey_binding
 
             x, y = _get_pos()
             config["ui"]["settings_pos"] = {"x": x, "y": y}
@@ -735,6 +889,12 @@ class VoiceDictationTray:
             settings_win.destroy()
 
         settings_win.protocol("WM_DELETE_WINDOW", on_close)
+        # Bound on the toplevel, so a capture in progress swallows Escape first.
+        settings_win.bind("<Escape>", lambda e: on_close())
+        # <Destroy>, not on_close: save_and_restart calls destroy() directly and
+        # destroy() never fires the WM_DELETE_WINDOW handler.
+        settings_win.bind("<Destroy>",
+                          lambda e: self._rebind_on_close(e, settings_win), add="+")
         tk.Button(main_frame, text="Save & Restart", command=save_and_restart).pack(
             pady=(int(5 * self.dpi_scale), 0))
 
@@ -764,6 +924,92 @@ class VoiceDictationTray:
         # height naturally
         settings_win.geometry(f"+{x}+{y}")
         settings_win.deiconify()  # Show the window at the correct position
+
+    def _build_hotkey_row(self, parent):
+        """Label and picker button for the output-window hotkey.
+        Returns the mutable binding the capture writes into and Save reads back."""
+        cfg, _ = load_settings()
+        binding = dict(cfg["hotkey"])
+
+        tk.Label(parent, text="Output Window Hotkey:").pack()
+        display = tk.StringVar(value=binding["name"] or "None")
+        btn = tk.Button(parent, textvariable=display, width=20)
+        btn.config(command=lambda: self._capture_hotkey(btn, display, binding))
+        btn.pack(pady=(0, int(15 * self.dpi_scale)))
+        return binding
+
+    def _rebind_on_close(self, event, settings_win):
+        """Settings is gone -- put the hotkey back from whatever is on disk now.
+        Saved or abandoned, disk already holds the right answer."""
+        # <Destroy> fires for every descendant; the guard keeps this to one call.
+        if event.widget is not settings_win:
+            return
+        # Silent. A Save & Restart reprints the header anyway, and closing
+        # without saving changed nothing on disk to announce.
+        cfg, _ = load_settings()
+        hotkey.unregister()
+        self._register_hotkey(cfg["hotkey"])
+
+    def _confirm_bare_key(self, name):
+        """Warn before binding a key with no modifier.
+        Nobody should end up here without knowing what they gave up."""
+        return messagebox.askokcancel(
+            "No modifier key -- Alt, Ctrl or Shift",
+            f"You are binding {name} on its own.\n\n"
+            f"Pressing {name} anywhere in Windows will raise this window. "
+            f"Whatever {name} normally does, it stops doing.\n\n"
+            f"Bind {name} anyway?",
+            # The buttons cannot be relabelled, so the verb lives in the question
+            # and Cancel takes the default, making Enter the safe answer.
+            default=messagebox.CANCEL,
+            icon=messagebox.WARNING,
+            parent=self.settings_win)
+
+    def _capture_hotkey(self, btn, display, binding):
+        """Take one combination from the picker button itself.
+        Binding on the button, not the dialog, is what lets Escape mean two things."""
+        previous, previous_text = dict(binding), display.get()
+        display.set("Press a combination...")
+        btn.focus_set()
+
+        # A live hotkey is swallowed by Windows before Tk sees it, so the
+        # combination in use could never be rebound. _rebind_on_close puts it back.
+        hotkey.unregister()
+
+        def restore():
+            """Every abandoned capture puts the old binding back on the face"""
+            binding.update(previous)
+            display.set(previous_text)
+
+        def on_key(event):
+            # Modifiers auto-repeat while held, so they can never end a capture.
+            if event.keysym in MODIFIER_KEYSYMS:
+                return "break"
+
+            # Unbind BEFORE anything that runs a nested event loop. The warning
+            # below is modal, and a live binding could re-enter this handler.
+            btn.unbind("<KeyPress>")
+
+            # "break" keeps this Escape off settings_win, whose own binding
+            # closes the dialog. That is the second Escape.
+            if event.keysym == "Escape":
+                restore()
+                return "break"
+
+            # keycode and state are read out before the modal opens, so the
+            # accept path needs no binding once the dialog returns.
+            mods = _state_to_mods(event.state)
+            name = _combo_name(mods, event.keycode)
+            if mods == 0 and not self._confirm_bare_key(name):
+                restore()
+                return "break"
+
+            binding.update(modifiers=mods, vk=event.keycode, name=name)
+            display.set(name)
+            return "break"
+
+        # "break" also stops Tab, Return and space reaching the dialog's widgets.
+        btn.bind("<KeyPress>", on_key)
 
     def _rebind_key(self, btn_var, disp_var, tk_btn):
         """Temporary keycatcher listener for settings UI"""
@@ -934,7 +1180,17 @@ class VoiceDictationTray:
 
         self._set_console_font_size(config["ui"]["console_font_size"])
 
-        # Start vdict.py subprocess
+        # Greets once per app launch. start_vdict must never print this -- a
+        # restart re-greeting the user reads as though the log had been wiped.
+        for line in ("\033[97m" + "=" * 60,
+                     " Welcome to Voice Dictation",
+                     f" {PROJECT_URL} | MIT License",
+                     "=" * 60 + "\033[0m",
+                     ""):
+            self.output_queue.put(line)
+
+        # Before start_vdict, so the header has a true Hotkey line to report.
+        self._register_hotkey(config["hotkey"])
         self.start_vdict()
 
         # Queued after start_vdict so it lands under the welcome banner

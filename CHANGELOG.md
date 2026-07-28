@@ -8,11 +8,26 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- A hotkey that raises the output window from any application. Bind it in
+  Settings under "Output Window Hotkey". Nothing is bound out of the box --
+  any combination shipped as a default would collide on somebody's machine and
+  look broken on first launch. Binding a key with no modifier is allowed, but
+  warns first, because that key stops doing whatever it normally did.
+
 - An application icon. The Desktop shortcut, the Startup shortcut, and the
   system tray now share one icon instead of showing the generic batch-file cog,
   the Python logo, and a shape drawn at runtime.
 
 ### Changed
+
+- The output window opens with a header naming the push-to-talk mode and
+  trigger, the hotkey, the compute device, and the model. The model line
+  carries its real size on disk, which is what tells you a large model will not
+  fit in your GPU; it reads bare until that model has been downloaded.
+
+- Save & Restart no longer reprints the welcome banner, which made the log look
+  as though it had been wiped. It reprints the header instead, so a changed
+  model or compute device shows up in the log rather than being taken on trust.
 
 - The window that shows dictation activity is now called the output window
   throughout. The Settings checkbox reads "Show Output on Startup", previously

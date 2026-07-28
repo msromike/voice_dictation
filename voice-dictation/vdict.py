@@ -139,7 +139,8 @@ def main():  # noqa: PLR0915
         device=config['stt']['device']
     )
 
-    print(f"\033[90mLoading {config['stt']['model']} to {config['stt']['device'].upper()}\033[0m")
+    # Must keep the "Loading " prefix -- the tray matches on it to animate dots.
+    print("\033[90mLoading model\033[0m")
     stt.load()
 
     keyboard = KeyboardInjector(
@@ -154,9 +155,10 @@ def main():  # noqa: PLR0915
     ptt_mode = config['ptt']['mode']
     audio_feedback = config['audio']['feedback']
 
+    # The rule closes the startup block. Dashes, not the banner's equals signs --
+    # this divides sections, it does not open the log.
     print(f"\033[90mVoice Dictation v{__version__} READY\033[0m")
-    button_name = config['ptt']['button'].upper()
-    print(f"\033[90mMode: {ptt_mode.upper()} | Button: {button_name}\033[0m")
+    print("\033[90m" + "-" * 60 + "\033[0m")
 
     try:
         cycle = 0

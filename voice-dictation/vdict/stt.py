@@ -16,9 +16,6 @@ for sp in site.getsitepackages() + [site.getusersitepackages()]:
         os.environ["PATH"] = ";".join(nvidia_bins) + ";" + os.environ.get("PATH", "")
         break
 
-# Suppress HuggingFace cache symlink and auth warnings
-os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
-os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 
 class STTEngine:
     """Speech-to-text engine using Faster-Whisper"""

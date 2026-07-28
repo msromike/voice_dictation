@@ -18,6 +18,7 @@ pyrightconfig.json
 .github/copilot-instructions.md
 .github/instructions/
 .docs/
+.reference/
 
 # Project Specific
 voice-dictation/config.json

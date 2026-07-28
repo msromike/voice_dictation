@@ -123,6 +123,7 @@ alt="The Settings window, showing microphone, push-to-talk button and mode, mode
 | Compute Device | CPU or GPU -- GPU is greyed out if you have no NVIDIA card |
 | Enable Audio Beeps | The start/stop tones |
 | Show Output on Startup | Whether the output window opens on launch |
+| Output Window Hotkey | Click it, then press a combination to raise the output window from anywhere. Unset by default |
 
 Click **Save & Restart** to apply. Changing the model downloads it the first
 time you use it.
