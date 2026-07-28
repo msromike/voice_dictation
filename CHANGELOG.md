@@ -35,9 +35,19 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- The push-to-talk picker no longer locks up. A key it could not read left the
+  button greyed out for the rest of the session, with a global mouse hook still
+  running behind it and nothing said. It now restores the previous binding and
+  reports the failure.
+
+- Escape cancels the push-to-talk picker instead of binding itself.
+
+- Clicking anywhere while the push-to-talk picker is waiting -- including on the
+  Settings close button -- no longer raises a "cannot bind that button" warning.
+  Unsupported buttons are ignored and the picker keeps waiting.
+
 - The push-to-talk picker no longer accepts the left mouse button. Binding it
-  made every click start a recording. It now says why and keeps the binding you
-  already had.
+  made every click start a recording.
 
 - `setup.bat` now resolves paths from its own folder. Running it from a
   different working directory previously created the Desktop shortcut with the

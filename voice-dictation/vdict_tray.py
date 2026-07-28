@@ -238,6 +238,106 @@ def _is_on_screen(x, y):
             and virtual_y <= y <= virtual_y + virtual_h - 60)
 
 
+class _PTTCapture:
+    """One push-to-talk rebind. Every exit routes through end(), the only place
+    the button is re-enabled and the global hooks are dropped."""
+
+    def __init__(self, tray, btn_var, disp_var, tk_btn):
+        """Hold the widgets the capture writes back into, and the face to restore"""
+        self.tray = tray
+        self.btn_var = btn_var
+        self.disp_var = disp_var
+        self.tk_btn = tk_btn
+        self.previous = disp_var.get()
+        self.listeners = []
+        self.done = False
+
+    def start(self):
+        """Disable the button and listen for one key or mouse press.
+        pynput is imported here so the tray's own startup never loads it."""
+        from pynput import keyboard, mouse
+
+        self.disp_var.set("Press any key...")
+        self.tk_btn.config(state="disabled")
+        self.listeners = [keyboard.Listener(on_press=self._on_key),
+                          mouse.Listener(on_click=self._on_click)]
+        # Closing Settings mid-capture would leave both global hooks running
+        # with no window behind them.
+        self.tk_btn.bind("<Destroy>", self._unhook, add="+")
+        for listener in self.listeners:
+            listener.start()
+
+    def _unhook(self, _event=None):
+        """Drop both global hooks and mark the capture over. Also the <Destroy>
+        handler, so a widget Tk has already torn down ends the capture too."""
+        self.done = True
+        for listener in self.listeners:
+            listener.stop()
+
+    def end(self, display):
+        """The only way a capture ends. Restores the face, re-enables, unhooks."""
+        if self.done:
+            return
+        self.disp_var.set(display)
+        self.tk_btn.config(state="normal")
+        self._unhook()
+
+    def accept(self, val, disp):
+        """Write the binding back and close the capture"""
+        if self.done:
+            return
+        self.btn_var.set(val)
+        self.end(disp)
+
+    def reject(self, title, body):
+        """Close the capture unchanged, then say why"""
+        # Guarded: closing Settings is itself a left-click, which the listener
+        # would otherwise reject into a dialog over a destroyed parent.
+        if self.done:
+            return
+        self.end(self.previous)
+        messagebox.showwarning(title, body, parent=self.tray.settings_win)
+
+    def failed(self, exc):
+        """Nothing about the key was usable. All three surfaces say so."""
+        if self.done:
+            return
+        _log_error("PTT rebind", exc)
+        self.tray.output_queue.put("Error: could not bind that key")
+        self.reject("Cannot bind that key", "Could not bind that key.")
+
+    def _on_key(self, key):
+        """pynput thread. Marshals to Tk rather than touching widgets here."""
+        try:
+            name = getattr(key, "name", None)
+            if name == "esc":
+                # Cancels. Settings closes on Escape too, from its own binding.
+                self.tray.window.after(0, lambda: self.end(self.previous))
+                return False
+            if name is None:
+                val, disp = f"key:{key.char}", key.char.upper()
+            else:
+                val, disp = f"key:{name}", name.replace("_", " ").title()
+            self.tray.window.after(0, lambda: self.accept(val, disp))
+        except Exception as exc:
+            # Bind exc as a default: Python clears the name leaving the block.
+            self.tray.window.after(0, lambda e=exc: self.failed(e))
+        return False
+
+    def _on_click(self, x, y, button, pressed):
+        """Only BUTTON_MAP binds; anything else is ignored and the capture stays
+        open. Left especially -- it is how the dialog itself is operated."""
+        from vdict.keyboard import BUTTON_MAP
+
+        if not pressed or button.name not in BUTTON_MAP:
+            return None
+        disp = (f"Mouse Side ({button.name.upper()})"
+                if button.name in ("x1", "x2")
+                else f"Mouse {button.name.capitalize()}")
+        self.tray.window.after(0, lambda: self.accept(button.name, disp))
+        return False
+
+
 class VoiceDictationTray:
     """System tray wrapper for vdict.py"""
 
@@ -1012,76 +1112,8 @@ class VoiceDictationTray:
         btn.bind("<KeyPress>", on_key)
 
     def _rebind_key(self, btn_var, disp_var, tk_btn):
-        """Temporary keycatcher listener for settings UI"""
-        previous = disp_var.get()
-        disp_var.set("Press any key...")
-        tk_btn.config(state="disabled")
-
-        listeners = []
-
-        def _stop_listeners(_event=None):
-            for lst in listeners:
-                lst.stop()
-
-        def _finish_bind(val, disp):
-            btn_var.set(val)
-            disp_var.set(disp)
-            tk_btn.config(state="normal")
-            _stop_listeners()
-
-        def _reject(name):
-            # Ends the capture. The modal is dismissed with a left-click, which
-            # a still-running listener would read as another rejected press.
-            disp_var.set(previous)
-            tk_btn.config(state="normal")
-            _stop_listeners()
-            messagebox.showwarning(
-                "Cannot bind that button",
-                f"{name} cannot be used as the push-to-talk trigger.\n\n"
-                f"Supported: {', '.join(BUTTON_MAP)}",
-                parent=self.settings_win)
-
-        def on_k_press(key):
-            try:
-                if hasattr(key, 'name'):
-                    val = f"key:{key.name}"
-                    disp = key.name.replace('_', ' ').title()
-                else:
-                    val = f"key:{key.char}"
-                    disp = key.char.upper()
-                self.window.after(0, lambda: _finish_bind(val, disp))
-                return False
-            except Exception:
-                return False
-
-        def on_m_click(x, y, button, pressed):
-            # Bind only what config.json accepts, so the picker cannot write a
-            # value the daemon then refuses to load. Left is not in the map.
-            if not pressed:
-                return None
-            if button.name in BUTTON_MAP:
-                val = button.name
-                disp = f"Mouse {val.capitalize()}"
-                if val in ('x1', 'x2'):
-                    disp = f"Mouse Side ({val.upper()})"
-                self.window.after(0, lambda: _finish_bind(val, disp))
-                return False
-            name = button.name
-            self.window.after(0, lambda: _reject(name))
-            return False
-
-        # Both are lazy: vdict.keyboard imports pynput at module scope, and the
-        # tray keeps pynput out of its own startup.
-        from pynput import mouse, keyboard
-        from vdict.keyboard import BUTTON_MAP
-        k_listener = keyboard.Listener(on_press=on_k_press)
-        m_listener = mouse.Listener(on_click=on_m_click)
-        listeners.extend([k_listener, m_listener])
-        # Closing Settings mid-capture would otherwise leave both global hooks
-        # running with no window behind them.
-        tk_btn.bind("<Destroy>", _stop_listeners, add="+")
-        k_listener.start()
-        m_listener.start()
+        """Capture one push-to-talk trigger into the Settings button"""
+        _PTTCapture(self, btn_var, disp_var, tk_btn).start()
 
     def _remember_geometry(self, event):
         """Cache the console's geometry while it is actually on screen"""
