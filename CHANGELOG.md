@@ -8,6 +8,9 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- A double beep when the speech engine finishes loading, so you know it is ready
+  without watching the output window. It also sounds after Save & Restart.
+
 - A hotkey that raises the output window from any application. Bind it in
   Settings under "Output Window Hotkey". Nothing is bound out of the box --
   any combination shipped as a default would collide on somebody's machine and
@@ -19,6 +22,11 @@ All notable changes to this project are documented here. Format follows
   the Python logo, and a shape drawn at runtime.
 
 ### Changed
+
+- Enable Audio Beeps now silences only the start and stop tones. The double beep
+  keeps sounding, because it reports the engine coming up or a toggle recording
+  abandoned after two minutes -- both worth knowing whether or not you want a
+  beep on every dictation.
 
 - The output window opens with a header naming the push-to-talk mode and
   trigger, the hotkey, the compute device, and the model. The model line

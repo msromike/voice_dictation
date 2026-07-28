@@ -92,14 +92,16 @@ def generate_double_tone(  # noqa: PLR0913, PLR0917
 MIN_RECORDING_SAMPLES = 6400
 
 TEMP_DIR = tempfile.gettempdir()
-TONE_START = os.path.join(TEMP_DIR, "vdict_start.wav")
-TONE_STOP = os.path.join(TEMP_DIR, "vdict_stop.wav")
-TONE_TIMEOUT = os.path.join(TEMP_DIR, "vdict_timeout.wav")
+TONE_HIGH = os.path.join(TEMP_DIR, "vdict_high.wav")
+TONE_LOW = os.path.join(TEMP_DIR, "vdict_low.wav")
+TONE_LOW_DOUBLE = os.path.join(TEMP_DIR, "vdict_low_double.wav")
 
-generate_tone(TONE_START, freq=783.99, duration_ms=80, volume=0.22275)
-generate_tone(TONE_STOP, freq=523.25, duration_ms=90, volume=0.18225)
+generate_tone(TONE_HIGH, freq=783.99, duration_ms=80, volume=0.22275)
+generate_tone(TONE_LOW, freq=523.25, duration_ms=90, volume=0.18225)
+# The only double, and low on purpose. High is the user-action register, so a
+# high double would be heard as a recording starting.
 generate_double_tone(
-    TONE_TIMEOUT,
+    TONE_LOW_DOUBLE,
     freq=523.25,
     tone_duration_ms=90,
     gap_duration_ms=150,
@@ -107,21 +109,19 @@ generate_double_tone(
 
 
 def play_tone(tone_type, enabled=True):
-    """Play the requested tone 100% asynchronously"""
-    if not enabled:
+    """Play the requested tone 100% asynchronously. enabled silences the
+    per-dictation singles only -- the system double always sounds."""
+    if tone_type in ("timeout", "ready"):
+        tone = TONE_LOW_DOUBLE
+    elif not enabled:
         return
-    if tone_type == "start":
-        winsound.PlaySound(
-            TONE_START,
-            winsound.SND_FILENAME | winsound.SND_ASYNC)
+    elif tone_type == "start":
+        tone = TONE_HIGH
     elif tone_type == "stop":
-        winsound.PlaySound(
-            TONE_STOP,
-            winsound.SND_FILENAME | winsound.SND_ASYNC)
-    elif tone_type == "timeout":
-        winsound.PlaySound(
-            TONE_TIMEOUT,
-            winsound.SND_FILENAME | winsound.SND_ASYNC)
+        tone = TONE_LOW
+    else:
+        return
+    winsound.PlaySound(tone, winsound.SND_FILENAME | winsound.SND_ASYNC)
 
 
 def main():  # noqa: PLR0915
@@ -155,10 +155,12 @@ def main():  # noqa: PLR0915
     ptt_mode = config['ptt']['mode']
     audio_feedback = config['audio']['feedback']
 
-    # The rule closes the startup block. Dashes, not the banner's equals signs --
-    # this divides sections, it does not open the log.
+    # Closes the session block. Dashes, not the startup header's equals signs --
+    # this divides sections, it does not open the log. Blank line after.
     print(f"\033[90mVoice Dictation v{__version__} READY\033[0m")
     print("\033[90m" + "-" * 60 + "\033[0m")
+    print()
+    play_tone("ready", enabled=audio_feedback)
 
     try:
         cycle = 0

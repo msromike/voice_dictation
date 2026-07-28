@@ -115,7 +115,7 @@ def _geometry_origin(geometry):
     return int(match.group(1)), int(match.group(2))
 
 
-# config.json stt.device -> display name. Settings and the startup block share it.
+# config.json stt.device -> display name. Settings and the session block share it.
 DEVICE_LABELS = {"cpu": "CPU", "cuda": "GPU (CUDA)"}
 
 # Tk event.state bits, measured on Windows. Alt is bit 17, NOT the X11 Mod1
@@ -182,10 +182,10 @@ def _dim(text):
     return f"\033[90m{text}\033[0m"
 
 
-# The startup block is a header: label/value, no tags. Scrolling lines below it
+# The session block is label/value, no tags. Scrolling lines below it
 # keep [TAG] instead -- greppable, and they split into columns in a spreadsheet.
 def _summary_line(label, value):
-    """One aligned label/value line of the startup block. Consolas makes the padding line up."""
+    """One aligned label/value line of the session block. Consolas makes the padding line up."""
     return f"{label + ':':<10}{value}"
 
 
@@ -627,7 +627,7 @@ class VoiceDictationTray:
         )
         # Into the console, not stdout, which pythonw discards. The banner is
         # NOT here: it greets once from run(), never again on a restart.
-        self._log_header(self.process.pid)
+        self._log_session_block(self.process.pid)
 
         self.notified_slow_boot = False
 
@@ -746,7 +746,7 @@ class VoiceDictationTray:
         self.window.lift()
 
     def _hotkey_line(self):
-        """The Hotkey header value, and whether it reads as a fault rather than a state"""
+        """The session block's Hotkey value, and whether it reads as a fault"""
         if self.hotkey_failed:
             return (f"{self.hotkey_name} is unavailable -- another application or "
                     f"Windows already uses it. Pick a different one in Settings."), True
@@ -755,8 +755,8 @@ class VoiceDictationTray:
                     "from anywhere."), False
         return f"{self.hotkey_name} shows this window from anywhere.", False
 
-    def _log_header(self, pid):
-        """The startup block. Called only by start_vdict, so first launch and every
+    def _log_session_block(self, pid):
+        """The session block. Called only by start_vdict, so first launch and every
         engine restart print the identical thing and cannot drift apart."""
         config, _ = load_settings()
         ptt, stt = config["ptt"], config["stt"]
@@ -765,6 +765,9 @@ class VoiceDictationTray:
         model = stt["model"] if size is None else f"{stt['model']} ({_human_size(size)})"
         hotkey_value, is_fault = self._hotkey_line()
 
+        # The block owns its own blank line, so a restart is still separated
+        # from the run above it with no startup header in between.
+        self.output_queue.put("")
         for label, value, dim in (
                 ("Started", f"vdict.py (PID {pid})", True),
                 ("Mode", "Hold button down to dictate." if ptt["mode"] == "hold"
@@ -777,7 +780,7 @@ class VoiceDictationTray:
             self.output_queue.put(_dim(line) if dim else line)
 
     def _register_hotkey(self, cfg):
-        """Claim the configured combination. Records what happened for the header
+        """Claim the configured combination. Records what happened for the session block
         to report -- unset and already-taken are both states, never failures."""
         self.hotkey_name = cfg["name"]
         self.hotkey_failed = (
@@ -1044,7 +1047,7 @@ class VoiceDictationTray:
         # <Destroy> fires for every descendant; the guard keeps this to one call.
         if event.widget is not settings_win:
             return
-        # Silent. A Save & Restart reprints the header anyway, and closing
+        # Silent. A Save & Restart reprints the session block anyway, and closing
         # without saving changed nothing on disk to announce.
         cfg, _ = load_settings()
         hotkey.unregister()
@@ -1212,16 +1215,15 @@ class VoiceDictationTray:
 
         self._set_console_font_size(config["ui"]["console_font_size"])
 
-        # Greets once per app launch. start_vdict must never print this -- a
-        # restart re-greeting the user reads as though the log had been wiped.
+        # Startup header. Once per app launch -- start_vdict must never print
+        # it, since a restart re-greeting the user reads as a wiped log.
         for line in ("\033[97m" + "=" * 60,
                      " Welcome to Voice Dictation",
                      f" {PROJECT_URL} | MIT License",
-                     "=" * 60 + "\033[0m",
-                     ""):
+                     "=" * 60 + "\033[0m"):
             self.output_queue.put(line)
 
-        # Before start_vdict, so the header has a true Hotkey line to report.
+        # Before start_vdict, so the session block has a true Hotkey line.
         self._register_hotkey(config["hotkey"])
         self.start_vdict()
 
