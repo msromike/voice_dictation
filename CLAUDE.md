@@ -24,12 +24,15 @@ Do not remove the ignore.
 No lock words -- settled, locked, decided, rejected, cannot happen, do not relitigate.
 Anything unverified says UNVERIFIED.
 Applies to what I say, not only to what I write in files.
+Record decisions with the reason that would overturn them: what was chosen, what
+it beat, why. Stops re-derivation, not questioning. Build sheets: ALREADY WEIGHED.
 
 ## Docs
 backlog.txt = work to do.    Drains to empty. A reminder, not a design doc.
 defects.txt = wrong now.     Drains to empty.
 Done = app runs + backlog empty + defects empty.
-A backlog entry is a few lines. Design goes in a build sheet when the item comes up. Delete the sheet when it lands.
+A backlog entry is a few lines. Design goes in a build sheet when the item comes up.
+Mike deletes the sheet himself, once it is no longer needed.
 NO LINE NUMBERS in docs. Name a greppable symbol.
 Durable facts go in a code comment at the point of temptation
 

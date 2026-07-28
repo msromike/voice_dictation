@@ -122,7 +122,7 @@ alt="The Settings window, showing microphone, push-to-talk button and mode, mode
 | AI Model Size | tiny.en, base.en, small.en, medium.en, large-v3 |
 | Compute Device | CPU or GPU -- GPU is greyed out if you have no NVIDIA card |
 | Enable Audio Beeps | The start/stop tones |
-| Show Output on Startup | Whether the output window opens on launch |
+| Show Output Window on Startup | Whether the output window opens on launch |
 | Output Window Hotkey | Click it, then press a combination to raise the output window from anywhere. Unset by default |
 
 Click **Save & Restart** to apply. Changing the model downloads it the first
@@ -134,7 +134,7 @@ plays a double beep.
 ### Teaching it words
 
 Names, acronyms, and jargon often come out wrong. Add them, one per line, to
-`vocabulary.txt` in this folder and the recognizer will favor those spellings.
+`userdata\vocabulary.txt` and the recognizer will favor those spellings.
 **File > Vocabulary...** opens it for you.
 
 Changes take effect on your next dictation. There is nothing to restart and
@@ -146,9 +146,9 @@ where you did not say them. Add words as you hit problems, not in advance.
 
 ### Starting over
 
-Delete `voice-dictation\config.json` and relaunch. The app rebuilds it from
-`config.default.json`. That file is also what it falls back on if `config.json`
-ever gets corrupted.
+Delete `userdata\config.json` and relaunch. The app rebuilds it from its own
+built-in defaults. That is also what it falls back on if `config.json` ever
+gets corrupted.
 
 ## Which model and which device
 
@@ -203,7 +203,7 @@ what you think -- rebind it in Settings.
 **"No Microphone Detected".** The mic it was set to use is gone. The Settings
 window opens automatically; pick a different one and click Save & Restart.
 
-**The app will not start.** Check `logs\tray_error.log`, or open it from
+**The app will not start.** Check `userdata\logs\tray_error.log`, or open it from
 **Help > Error Log** if you can get the output window up. It is only
 written when something actually fails, so if it exists, its last entry is your
 answer. If that menu item is greyed out, no error has ever been recorded.

@@ -4,6 +4,7 @@ Pillow
 sounddevice
 numpy
 pynput
+pydantic
 pyperclip
 pyautogui
 pywin32

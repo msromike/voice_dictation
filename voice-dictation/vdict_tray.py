@@ -20,9 +20,9 @@ import tkinter as tk
 from tkinter import scrolledtext, messagebox, filedialog
 from datetime import datetime
 import webbrowser
-import json
 import re
 from pathlib import Path
+from typing import cast, Literal
 from PIL.IcoImagePlugin import IcoImageFile
 import pystray
 import win32event
@@ -30,10 +30,11 @@ import win32api
 import win32con
 import win32gui
 import ctypes
+from pydantic import ValidationError
 
-# Safe to import at module level only because vdict/__init__.py is bare and
-# config.py pulls in nothing heavier than json and pathlib. Keep it that way.
-from vdict.config import VOCABULARY_PATH, EXIT_NO_MICROPHONE
+from vdict.config import (
+    Config, CONFIG_PATH, HotkeyConfig, Pos, VOCABULARY_PATH, VOCABULARY_TEMPLATE_PATH,
+    EXIT_NO_MICROPHONE, read_config)
 from vdict import hotkey
 
 try:
@@ -49,15 +50,11 @@ ERROR_ALREADY_EXISTS = 183
 # GetSystemMetrics index for the tray/small-icon edge length.
 SM_CXSMICON = 49
 
-CONFIG_PATH = Path(__file__).parent / "config.json"
-CONFIG_TEMPLATE_PATH = Path(__file__).parent / "config.default.json"
-
 # Shared by the tray, the Desktop shortcut and the Startup shortcut.
 ICON_PATH = Path(__file__).parent.parent / "images" / "vdict.ico"
 
-# Repo root, beside vocabulary.txt. Created at import so the log is writable
-# before anything can fail.
-LOG_DIR = Path(__file__).parent.parent / "logs"
+# Created at import so the log is writable before anything can fail.
+LOG_DIR = Path(__file__).parent.parent / "userdata" / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 ERROR_LOG_PATH = LOG_DIR / "tray_error.log"
 
@@ -71,30 +68,42 @@ CONSOLE_FONT_DEFAULT = 12
 CONSOLE_FONT_MIN = 7
 CONSOLE_FONT_MAX = 32
 
+# Single source, so the boot-time seed and the File > Vocabulary seed
+# can never drift into two different wordings.
+VOCABULARY_RESET_MESSAGE = (
+    "[VOCABULARY RESET] vocabulary.txt not found -- restored from template.")
+
+
+def _summarize_config_error(exc):
+    """A short, human-readable reason for a config problem -- not pydantic's
+    full dump, when that's what raised."""
+    if isinstance(exc, ValidationError):
+        first = exc.errors()[0]
+        loc = ".".join(str(p) for p in first["loc"])
+        return f"{loc}: {first['msg']}" if loc else first["msg"]
+    return str(exc)
+
 
 def load_settings():
-    """Read config.json, seeding from config.default.json on first run. Defaults live
-    there and nowhere else. Unparseable JSON is replaced wholesale, never merged."""
+    """Read config.json, seeding from the Config model's own defaults on first run.
+    Anything unreadable or invalid is replaced wholesale from the model, never merged."""
     if not CONFIG_PATH.exists():
-        if not CONFIG_TEMPLATE_PATH.exists():
-            raise RuntimeError(
-                f"Missing {CONFIG_TEMPLATE_PATH.name} -- the install is "
-                f"incomplete. Re-clone the repository or restore that file.")
-        shutil.copyfile(CONFIG_TEMPLATE_PATH, CONFIG_PATH)
+        with open(CONFIG_PATH, "w") as f:
+            f.write(Config().model_dump_json(indent=2))
+        return Config(), None
 
     try:
-        with open(CONFIG_PATH, "r") as f:
-            return json.load(f), None
-    except json.JSONDecodeError as exc:
-        shutil.copyfile(CONFIG_TEMPLATE_PATH, CONFIG_PATH)
-        with open(CONFIG_PATH, "r") as f:
-            return json.load(f), str(exc)
+        return read_config(), None
+    except (FileNotFoundError, ValidationError) as exc:
+        with open(CONFIG_PATH, "w") as f:
+            f.write(Config().model_dump_json(indent=2))
+        return Config(), _summarize_config_error(exc)
 
 
 def save_settings(config):
     """Write config.json back to disk"""
     with open(CONFIG_PATH, "w") as f:
-        json.dump(config, f, indent=2)
+        f.write(Config.model_validate(config).model_dump_json(indent=2))
 
 
 def _log_error(context, exc):
@@ -427,7 +436,7 @@ class VoiceDictationTray:
         # log above is the durable half -- this just tells them to go look.
         try:
             self.icon.notify(
-                f"{summary}\n\nDetails written to logs\\tray_error.log",
+                f"{summary}\n\nDetails written to {ERROR_LOG_PATH}",
                 "Voice Dictation error")
         except Exception:
             pass
@@ -509,8 +518,19 @@ class VoiceDictationTray:
         webbrowser.open(PROJECT_URL)
         return "break"
 
+    def _reseed_vocabulary_if_missing(self):
+        """Restore vocabulary.txt from the template if it is absent.
+        Returns whether a reseed happened -- callers decide when to log it."""
+        if VOCABULARY_PATH.exists():
+            return False
+        shutil.copyfile(VOCABULARY_TEMPLATE_PATH, VOCABULARY_PATH)
+        return True
+
     def _open_vocabulary(self):
-        """Open vocabulary.txt in the user's default .txt handler"""
+        """Open vocabulary.txt in the user's default .txt handler.
+        Reseeds from the template first if it was deleted -- nothing to validate."""
+        if self._reseed_vocabulary_if_missing():
+            self.output_queue.put(VOCABULARY_RESET_MESSAGE)
         os.startfile(VOCABULARY_PATH)
 
     def _save_log_as(self):
@@ -759,10 +779,10 @@ class VoiceDictationTray:
         """The session block. Called only by start_vdict, so first launch and every
         engine restart print the identical thing and cannot drift apart."""
         config, _ = load_settings()
-        ptt, stt = config["ptt"], config["stt"]
+        ptt, stt = config.ptt, config.stt
 
-        size = _model_size_on_disk(stt["model"])
-        model = stt["model"] if size is None else f"{stt['model']} ({_human_size(size)})"
+        size = _model_size_on_disk(stt.model)
+        model = stt.model if size is None else f"{stt.model} ({_human_size(size)})"
         hotkey_value, is_fault = self._hotkey_line()
 
         # The block owns its own blank line, so a restart is still separated
@@ -770,11 +790,11 @@ class VoiceDictationTray:
         self.output_queue.put("")
         for label, value, dim in (
                 ("Started", f"vdict.py (PID {pid})", True),
-                ("Mode", "Hold button down to dictate." if ptt["mode"] == "hold"
+                ("Mode", "Hold button down to dictate." if ptt.mode == "hold"
                          else "Press button once to toggle dictation.", True),
-                ("Trigger", _format_bind(ptt["button"]), True),
+                ("Trigger", _format_bind(ptt.button), True),
                 ("Hotkey", hotkey_value, not is_fault),
-                ("Compute", DEVICE_LABELS[stt["device"]], True),
+                ("Compute", DEVICE_LABELS[stt.device], True),
                 ("Model", model, True)):
             line = _summary_line(label, value)
             self.output_queue.put(_dim(line) if dim else line)
@@ -782,10 +802,10 @@ class VoiceDictationTray:
     def _register_hotkey(self, cfg):
         """Claim the configured combination. Records what happened for the session block
         to report -- unset and already-taken are both states, never failures."""
-        self.hotkey_name = cfg["name"]
+        self.hotkey_name = cfg.name
         self.hotkey_failed = (
-            cfg["vk"] is not None
-            and not hotkey.register(cfg["modifiers"], cfg["vk"], self._on_hotkey))
+            cfg.vk is not None
+            and not hotkey.register(cfg.modifiers, cfg.vk, self._on_hotkey))
 
     def _on_hotkey(self):
         """Runs on hotkey.py's owning thread, which must never touch Tk itself."""
@@ -863,7 +883,7 @@ class VoiceDictationTray:
                      if dev['hostapi'] == wasapi
                      and dev['max_input_channels'] > 0]
 
-        saved_mic = config["audio"]["device"]
+        saved_mic = config.audio.device
         # Keep a configured-but-currently-absent device (unplugged headset) in
         # the list rather than silently snapping to something else.
         if saved_mic and saved_mic not in mic_names:
@@ -878,7 +898,7 @@ class VoiceDictationTray:
 
         # 2. PTT Config
         tk.Label(main_frame, text="PTT Button Trigger:").pack()
-        button_var = tk.StringVar(value=config["ptt"]["button"])
+        button_var = tk.StringVar(value=config.ptt.button)
         button_display_var = tk.StringVar(value=_format_bind(button_var.get()))
         
         bind_btn = tk.Button(
@@ -890,7 +910,7 @@ class VoiceDictationTray:
         bind_btn.pack(pady=(0, int(15 * self.dpi_scale)))
 
         tk.Label(main_frame, text="PTT Recording Mode:").pack()
-        mode_var = tk.StringVar(value=config["ptt"]["mode"].capitalize())
+        mode_var = tk.StringVar(value=config.ptt.mode.capitalize())
         tk.OptionMenu(
             main_frame, mode_var, "Toggle", "Hold").pack(
             pady=(
@@ -899,7 +919,7 @@ class VoiceDictationTray:
 
         # 3. AI Model & Compute
         tk.Label(main_frame, text="AI Model Size:").pack()
-        ai_model_var = tk.StringVar(value=config["stt"]["model"])
+        ai_model_var = tk.StringVar(value=config.stt.model)
         tk.OptionMenu(main_frame,
                       ai_model_var,
                       "tiny.en",
@@ -934,7 +954,7 @@ class VoiceDictationTray:
 
         tk.Label(main_frame, text="Compute Device:").pack()
         reverse_device_mapping = {v: k for k, v in DEVICE_LABELS.items()}
-        device_var = tk.StringVar(value=DEVICE_LABELS[config["stt"]["device"]])
+        device_var = tk.StringVar(value=DEVICE_LABELS[config.stt.device])
 
         dev_menu = tk.OptionMenu(main_frame, device_var, "CPU", "GPU (CUDA)")
         if not has_cuda:
@@ -945,15 +965,15 @@ class VoiceDictationTray:
         dev_menu.pack(pady=(0, int(15 * self.dpi_scale)))
 
         # 4. Audio Beeps
-        audio_var = tk.BooleanVar(value=config["audio"]["feedback"])
+        audio_var = tk.BooleanVar(value=config.audio.feedback)
         tk.Checkbutton(
             main_frame, text="Enable Audio Beeps", variable=audio_var).pack(
             pady=(0, int(15 * self.dpi_scale)))
             
         # 5. Open Console on Boot
-        open_console_var = tk.BooleanVar(value=config["ui"]["open_console_on_boot"])
+        open_console_var = tk.BooleanVar(value=config.ui.open_console_on_boot)
         tk.Checkbutton(
-            main_frame, text="Show Output on Startup", variable=open_console_var).pack(
+            main_frame, text="Show Output Window on Startup", variable=open_console_var).pack(
             pady=(0, int(15 * self.dpi_scale)))
 
         # 6. Output window hotkey
@@ -968,17 +988,18 @@ class VoiceDictationTray:
 
         def save_and_restart():
             mic = mic_var.get()
-            config["audio"]["device"] = "" if mic == DEFAULT_MIC_LABEL else mic
-            config["ptt"]["button"] = button_var.get()
-            config["ptt"]["mode"] = mode_var.get().lower()
-            config["audio"]["feedback"] = audio_var.get()
-            config["stt"]["model"] = ai_model_var.get()
-            config["stt"]["device"] = reverse_device_mapping[device_var.get()]
-            config["hotkey"] = hotkey_binding
+            config.audio.device = "" if mic == DEFAULT_MIC_LABEL else mic
+            config.ptt.button = button_var.get()
+            config.ptt.mode = cast(Literal["hold", "toggle"], mode_var.get().lower())
+            config.audio.feedback = audio_var.get()
+            config.stt.model = ai_model_var.get()
+            config.stt.device = cast(
+                Literal["cpu", "cuda"], reverse_device_mapping[device_var.get()])
+            config.hotkey = HotkeyConfig(**hotkey_binding)
 
             x, y = _get_pos()
-            config["ui"]["settings_pos"] = {"x": x, "y": y}
-            config["ui"]["open_console_on_boot"] = open_console_var.get()
+            config.ui.settings_pos = Pos(x=x, y=y)
+            config.ui.open_console_on_boot = open_console_var.get()
 
             save_settings(config)
 
@@ -987,7 +1008,7 @@ class VoiceDictationTray:
 
         def on_close():
             x, y = _get_pos()
-            config["ui"]["settings_pos"] = {"x": x, "y": y}
+            config.ui.settings_pos = Pos(x=x, y=y)
             save_settings(config)
             settings_win.destroy()
 
@@ -1010,9 +1031,9 @@ class VoiceDictationTray:
 
         # Fall back to the default corner if the remembered spot is no longer on
         # any attached display. Same guard as the console.
-        saved_pos = config["ui"]["settings_pos"]
-        if saved_pos and _is_on_screen(saved_pos["x"], saved_pos["y"]):
-            x, y = saved_pos["x"], saved_pos["y"]
+        saved_pos = config.ui.settings_pos
+        if saved_pos and _is_on_screen(saved_pos.x, saved_pos.y):
+            x, y = saved_pos.x, saved_pos.y
         else:
             # Default to bottom right using auto-calculated dimensions
             win_width = settings_win.winfo_reqwidth()
@@ -1032,7 +1053,7 @@ class VoiceDictationTray:
         """Label and picker button for the output-window hotkey.
         Returns the mutable binding the capture writes into and Save reads back."""
         cfg, _ = load_settings()
-        binding = dict(cfg["hotkey"])
+        binding = cfg.hotkey.model_dump()
 
         tk.Label(parent, text="Output Window Hotkey:").pack()
         display = tk.StringVar(value=binding["name"] or "None")
@@ -1051,7 +1072,7 @@ class VoiceDictationTray:
         # without saving changed nothing on disk to announce.
         cfg, _ = load_settings()
         hotkey.unregister()
-        self._register_hotkey(cfg["hotkey"])
+        self._register_hotkey(cfg.hotkey)
 
     def _confirm_bare_key(self, name):
         """Warn before binding a key with no modifier.
@@ -1148,8 +1169,8 @@ class VoiceDictationTray:
         Called on hide and exit only; zooming fires once per scroll notch."""
         config, _ = load_settings()
         if self._last_geometry:
-            config["ui"]["console_geometry"] = self._last_geometry
-        config["ui"]["console_font_size"] = self.console_font_size
+            config.ui.console_geometry = self._last_geometry
+        config.ui.console_font_size = self.console_font_size
         save_settings(config)
 
     def hide_window(self):
@@ -1189,11 +1210,41 @@ class VoiceDictationTray:
         self._stop_daemon()
         self.start_vdict()
 
+    def _run_shutdown_steps(self):
+        """Best-effort housekeeping before exit -- one failure never blocks
+        the rest (toast, disk, console each try); returns whether anything failed."""
+        steps = (
+            (self._save_console_state,
+             "Console position/size/font not saved -- next launch uses the "
+             "last saved state."),
+            (self._stop_daemon,
+             "Daemon may still be running -- check Task Manager for an "
+             "orphaned vdict.py process."),
+            (self.icon.stop,
+             "Tray icon may linger in the notification area until Explorer "
+             "refreshes."))
+        any_failed = False
+        for step, meaning in steps:
+            try:
+                step()
+            except Exception as exc:
+                any_failed = True
+                self._report_callback_exception(type(exc), exc, exc.__traceback__)
+                try:
+                    self.output_queue.put(f"[SHUTDOWN ERROR] {step.__name__}: {meaning}")
+                except Exception:
+                    pass
+        return any_failed
+
     def _force_quit(self):
-        """Hard exit without prompting"""
-        self._save_console_state()
-        self._stop_daemon()
-        self.icon.stop()
+        """Hard exit without prompting. Housekeeping is best-effort -- exit
+        itself is never conditional on any of it succeeding."""
+        if self._run_shutdown_steps():
+            messagebox.showerror(
+                "Voice Dictation",
+                "Something went wrong while shutting down. Check the output "
+                "window or the error log for details.\n\nClick OK to exit anyway.",
+                parent=self.window)
         try:
             self.window.quit()
         except BaseException:
@@ -1201,19 +1252,23 @@ class VoiceDictationTray:
 
     def run(self):
         """Run the tray application"""
-        # Seeds config.json from config.default.json when absent. Must run
-        # before start_vdict(), because the daemon reads config.json itself.
+        # Seeds config.json from the Config model's defaults when absent. Must
+        # run before start_vdict(), because the daemon reads config.json itself.
         config, reset_reason = load_settings()
+
+        # Seeds vocabulary.txt from the tracked template when absent -- same
+        # ordering reason. Logging is deferred below, under the banner too.
+        vocabulary_reseeded = self._reseed_vocabulary_if_missing()
 
         # Restore the console's size and position, ignoring a geometry whose
         # origin is no longer on any attached display.
-        saved_geometry = config["ui"]["console_geometry"]
+        saved_geometry = config.ui.console_geometry
         if saved_geometry:
             origin = _geometry_origin(saved_geometry)
             if origin and _is_on_screen(*origin):
                 self.window.geometry(saved_geometry)
 
-        self._set_console_font_size(config["ui"]["console_font_size"])
+        self._set_console_font_size(config.ui.console_font_size)
 
         # Startup header. Once per app launch -- start_vdict must never print
         # it, since a restart re-greeting the user reads as a wiped log.
@@ -1224,10 +1279,13 @@ class VoiceDictationTray:
             self.output_queue.put(line)
 
         # Before start_vdict, so the session block has a true Hotkey line.
-        self._register_hotkey(config["hotkey"])
+        self._register_hotkey(config.hotkey)
         self.start_vdict()
 
-        # Queued after start_vdict so it lands under the welcome banner
+        # Queued after start_vdict, which already queued the session block
+        # itself -- these land after both, not right under the banner.
+        if vocabulary_reseeded:
+            self.output_queue.put(VOCABULARY_RESET_MESSAGE)
         if reset_reason:
             self.output_queue.put(
                 f"[SETTINGS RESET] config.json could not be read "
@@ -1237,16 +1295,16 @@ class VoiceDictationTray:
                 "Settings from the tray icon to reconfigure.")
             self.output_queue.put("")
 
-        if config["ui"]["open_console_on_boot"]:
+        if config.ui.open_console_on_boot:
             # Open it (will happen every time until user disables it in Settings)
             self.show_window()
 
-        if config["ui"]["first_run"]:
+        if config.ui.first_run:
             # Pop settings menu on first run as an implicit tutorial
             self.window.after(500, self.open_settings)
 
             # Disable first_run flag
-            config["ui"]["first_run"] = False
+            config.ui.first_run = False
             save_settings(config)
 
         # Start periodic output update

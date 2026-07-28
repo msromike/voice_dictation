@@ -43,6 +43,13 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- Exit no longer gets stuck. Previously, if any step of shutting down failed --
+  saving the console's state, stopping the daemon, or removing the tray icon --
+  clicking Exit would do nothing, with no explanation. Each step now runs
+  independently, so one failure cannot block the others or the app closing. A
+  failure still shows a dialog naming the problem, with details in the output
+  window and the error log, before exiting anyway.
+
 - The push-to-talk picker no longer locks up. A key it could not read left the
   button greyed out for the rest of the session, with a global mouse hook still
   running behind it and nothing said. It now restores the previous binding and

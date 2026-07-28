@@ -11,7 +11,7 @@ if sys.platform != "win32":
 from vdict.audio import AudioCapture
 from vdict.stt import STTEngine
 from vdict.keyboard import KeyboardInjector, PTTListener
-from vdict.config import load_config
+from vdict.config import load_config, load_vocabulary
 import math
 import struct
 import wave
@@ -130,13 +130,12 @@ def main():  # noqa: PLR0915
 
     # Initialize components
     audio = AudioCapture(
-        sample_rate=config['audio']['sample_rate'],
-        required_device=config['audio']['device']
+        required_device=config.audio.device
     )
 
     stt = STTEngine(
-        model_name=config['stt']['model'],
-        device=config['stt']['device']
+        model_name=config.stt.model,
+        device=config.stt.device
     )
 
     # Must keep the "Loading " prefix -- the tray matches on it to animate dots.
@@ -144,16 +143,16 @@ def main():  # noqa: PLR0915
     stt.load()
 
     keyboard = KeyboardInjector(
-        preserve_clipboard=config['keyboard']['preserve_clipboard'])
+        preserve_clipboard=config.keyboard.preserve_clipboard)
 
-    ptt = PTTListener(button=config['ptt']['button'])
+    ptt = PTTListener(button=config.ptt.button)
 
     # Get prompt for jargon biasing
-    prompt = config['stt']['prompt']
+    prompt = load_vocabulary()
 
     # Get PTT mode and audio feedback settings
-    ptt_mode = config['ptt']['mode']
-    audio_feedback = config['audio']['feedback']
+    ptt_mode = config.ptt.mode
+    audio_feedback = config.audio.feedback
 
     # Closes the session block. Dashes, not the startup header's equals signs --
     # this divides sections, it does not open the log. Blank line after.

@@ -1,42 +1,101 @@
 """Loads config.json and vocabulary.txt. There are no key-level fallbacks."""
 
-import json
 from pathlib import Path
+from typing import Literal
 
-# User-editable word list. Kept at the repo root rather than beside the code
-# so it is visible to someone who never opens the voice-dictation/ folder.
-VOCABULARY_PATH = Path(__file__).parent.parent.parent / "vocabulary.txt"
+from pydantic import BaseModel, ConfigDict
+
+# User-editable word list, seeded from the tracked template when absent.
+VOCABULARY_PATH = Path(__file__).parent.parent.parent / "userdata" / "vocabulary.txt"
+VOCABULARY_TEMPLATE_PATH = Path(__file__).parent.parent.parent / "templates" / "vocabulary.txt"
+
+# Single source for both processes -- the tray writes this path, the daemon reads it.
+CONFIG_PATH = Path(__file__).parent.parent.parent / "userdata" / "config.json"
 
 # Daemon exit code the tray matches on to open Settings. Both sides must agree.
 EXIT_NO_MICROPHONE = 2
 
 
+class Pos(BaseModel):
+    model_config = ConfigDict(validate_assignment=True)
+    x: int
+    y: int
+
+
+class AudioConfig(BaseModel):
+    model_config = ConfigDict(validate_assignment=True)
+    device: str = ""
+    feedback: bool = True
+
+
+class PttConfig(BaseModel):
+    model_config = ConfigDict(validate_assignment=True)
+    button: str = "middle"
+    mode: Literal["hold", "toggle"] = "hold"
+
+
+class KeyboardConfig(BaseModel):
+    model_config = ConfigDict(validate_assignment=True)
+    preserve_clipboard: bool = True
+
+
+class SttConfig(BaseModel):
+    model_config = ConfigDict(validate_assignment=True)
+    model: str = "base.en"
+    device: Literal["cpu", "cuda"] = "cpu"
+
+
+class HotkeyConfig(BaseModel):
+    model_config = ConfigDict(validate_assignment=True)
+    modifiers: int | None = None
+    vk: int | None = None
+    name: str | None = None
+
+
+class UiConfig(BaseModel):
+    model_config = ConfigDict(validate_assignment=True)
+    open_console_on_boot: bool = True
+    first_run: bool = True
+    settings_pos: Pos | None = None
+    console_geometry: str | None = None
+    console_font_size: int = 12
+
+
+class Config(BaseModel):
+    model_config = ConfigDict(validate_assignment=True)
+    audio: AudioConfig = AudioConfig()
+    ptt: PttConfig = PttConfig()
+    keyboard: KeyboardConfig = KeyboardConfig()
+    stt: SttConfig = SttConfig()
+    hotkey: HotkeyConfig = HotkeyConfig()
+    ui: UiConfig = UiConfig()
+
+
+def read_config():
+    """Read and validate config.json against the Config model. Raises
+    FileNotFoundError or ValidationError (which also covers malformed JSON)."""
+    return Config.model_validate_json(CONFIG_PATH.read_text())
+
+
 def load_config():
-    """Return config.json with stt['prompt'] resolved from vocabulary.txt.
-    Every key is required. The tray seeds config.json before this process starts."""
-    config_path = Path(__file__).parent.parent / "config.json"
-
-    if not config_path.exists():
+    """Return config.json as a Config instance.
+    The tray seeds config.json before this process starts."""
+    if not CONFIG_PATH.exists():
         raise RuntimeError(
-            f"Config file not found: {config_path}. Launch via run.bat -- "
-            f"the tray seeds config.json from config.default.json.")
+            f"Config file not found: {CONFIG_PATH}. Launch via run.bat -- "
+            f"the tray seeds config.json from the Config model's defaults.")
 
-    with open(config_path, 'r') as f:
-        config = json.load(f)
-
-    config['stt']['prompt'] = _load_vocabulary()
-
-    return config
+    return read_config()
 
 
-def _load_vocabulary():
+def load_vocabulary():
     """Return vocabulary.txt as a comma-separated hint string, "" when it has no terms.
     One term per line. '#' lines are skipped, so the shipped file can document itself."""
     if not VOCABULARY_PATH.exists():
         raise RuntimeError(
-            f"Vocabulary file not found: {VOCABULARY_PATH}. Restore it from "
-            f"the repository -- to use no custom words, empty the file "
-            f"rather than deleting it.")
+            f"Vocabulary file not found: {VOCABULARY_PATH}. Relaunch to "
+            f"reseed it from {VOCABULARY_TEMPLATE_PATH} -- to use no custom "
+            f"words, empty the file rather than deleting it.")
 
     with open(VOCABULARY_PATH, 'r', encoding='utf-8') as f:
         lines = f.readlines()

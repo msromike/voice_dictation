@@ -21,5 +21,4 @@ pyrightconfig.json
 .reference/
 
 # Project Specific
-voice-dictation/config.json
-logs/
+userdata/
