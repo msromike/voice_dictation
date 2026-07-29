@@ -439,6 +439,7 @@ class VoiceDictationTray:
         # Create output window
         self.window = tk.Tk()
         self.window.title("Voice Dictation Output")
+        self.window.iconbitmap(str(ICON_PATH))
         main_w, main_h = int(900 * self.dpi_scale), int(600 * self.dpi_scale)
         self.window.geometry(f"{main_w}x{main_h}")
 
@@ -1420,6 +1421,11 @@ def _log_startup_crash():
 
 if __name__ == "__main__":
     try:
+        # Without an explicit AUMID, Windows taskbar groups this window under
+        # pythonw.exe's identity and shows its icon instead of ours.
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            "VoiceDictation.Tray")
+
         # Single-instance check using Windows mutex.
         # NULL security attributes is the documented default; the stub omits it.
         mutex = win32event.CreateMutex(

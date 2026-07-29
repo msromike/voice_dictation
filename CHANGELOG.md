@@ -19,7 +19,11 @@ All notable changes to this project are documented here. Format follows
 
 - An application icon. The Desktop shortcut, the Startup shortcut, and the
   system tray now share one icon instead of showing the generic batch-file cog,
-  the Python logo, and a shape drawn at runtime.
+  the Python logo, and a shape drawn at runtime. The output window's title bar
+  and Alt+Tab preview use it too. The Windows 11 taskbar button itself still
+  shows the Python icon while running as a script -- that one reads the icon
+  baked into pythonw.exe, which no in-process call can override; only
+  compiling to a real .exe changes it.
 
 - A distinct tone when a recording is too short to transcribe (under 0.4
   seconds), so you know immediately rather than waiting for text that never
