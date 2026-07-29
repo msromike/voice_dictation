@@ -15,7 +15,6 @@ from vdict.keyboard import KeyboardInjector, PTTListener
 from vdict.config import load_config, load_vocabulary
 import wave
 import os
-import threading
 import queue
 import numpy as np
 import sounddevice as sd
@@ -45,19 +44,36 @@ TONE_SAMPLE_RATE = _high_rate
 
 _output_stream = None
 _tone_queue = queue.Queue()
-_KEEPALIVE_CHUNK = np.zeros((int(TONE_SAMPLE_RATE * 0.02), 1), dtype=np.float32)
+_current_tone = None
+_current_tone_pos = 0
 
 
-def _audio_writer_loop():
-    """Owns every write to the stream. A queued tone plays immediately;
-    otherwise silence, so the stream never drains and clicks on resume."""
-    assert _output_stream is not None
-    while True:
-        try:
-            data = _tone_queue.get(timeout=0.02)
-        except queue.Empty:
-            data = _KEEPALIVE_CHUNK
-        _output_stream.write(data)
+def _output_callback(outdata, frames, _time_info, status):
+    """Fills outdata in place -- called by PortAudio's own real-time
+    thread whenever it needs more data. Never blocks."""
+    global _current_tone, _current_tone_pos
+    if status:
+        print(f"Output stream status: {status}")
+
+    filled = 0
+    while filled < frames:
+        if _current_tone is None:
+            try:
+                _current_tone = _tone_queue.get_nowait()
+                _current_tone_pos = 0
+            except queue.Empty:
+                outdata[filled:] = 0.0
+                return
+
+        remaining = len(_current_tone) - _current_tone_pos
+        take = min(remaining, frames - filled)
+        outdata[filled:filled + take] = (
+            _current_tone[_current_tone_pos:_current_tone_pos + take])
+        _current_tone_pos += take
+        filled += take
+
+        if _current_tone_pos >= len(_current_tone):
+            _current_tone = None
 
 
 def _resolve_output_device():
@@ -126,9 +142,9 @@ def main():  # noqa: PLR0915
         device=_resolve_output_device(),
         channels=1,
         dtype="float32",
+        callback=_output_callback,
         extra_settings=sd.WasapiSettings(auto_convert=True))
     _output_stream.start()
-    threading.Thread(target=_audio_writer_loop, daemon=True).start()
 
     # Get prompt for jargon biasing
     prompt = load_vocabulary()
