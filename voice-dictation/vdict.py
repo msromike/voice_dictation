@@ -3,7 +3,8 @@ Launched by vdict_tray.py, which writes config.json first. Requires it to exist.
 
 import sys
 
-# Must precede the imports below -- winsound raises ImportError elsewhere.
+# Must precede the imports below -- vdict.audio is WASAPI-specific and the
+# whole app is Windows-only regardless.
 if sys.platform != "win32":
     sys.exit("Voice Dictation is Windows-only. See 'Windows only' in the "
              "README for what a port would involve -- one would be welcome.")
@@ -12,116 +13,88 @@ from vdict.audio import AudioCapture
 from vdict.stt import STTEngine
 from vdict.keyboard import KeyboardInjector, PTTListener
 from vdict.config import load_config, load_vocabulary
-import math
-import struct
 import wave
 import os
-import tempfile
-import winsound
+import threading
+import queue
+import numpy as np
+import sounddevice as sd
 
 __version__ = "1.0.0"
 
 
-def generate_tone(
-        filename,
-        freq=880.0,
-        duration_ms=90,
-        volume=0.3,
-        sample_rate=44100):
-    num_samples = int(sample_rate * (duration_ms / 1000.0))
-    fade_len = int(sample_rate * 0.01)
-
-    with wave.open(filename, "w") as wav_file:
-        wav_file.setnchannels(1)
-        wav_file.setsampwidth(2)
-        wav_file.setframerate(sample_rate)
-
-        for i in range(num_samples):
-            t = float(i) / sample_rate
-            sample = math.sin(2.0 * math.pi * freq * t)
-            if i < fade_len:
-                sample *= i / fade_len
-            elif i > num_samples - fade_len:
-                sample *= (num_samples - i) / fade_len
-            packed_sample = struct.pack("<h", int(sample * volume * 32767.0))
-            wav_file.writeframes(packed_sample)
-
-
-# Every parameter is a tone characteristic with a default.
-def generate_double_tone(  # noqa: PLR0913, PLR0917
-        filename,
-        freq=440.0,
-        tone_duration_ms=90,
-        gap_duration_ms=150,
-        volume=0.3,
-        sample_rate=44100):
-    tone_samples = int(sample_rate * (tone_duration_ms / 1000.0))
-    gap_samples = int(sample_rate * (gap_duration_ms / 1000.0))
-    total_samples = (tone_samples * 2) + gap_samples
-    fade_len = int(sample_rate * 0.01)
-
-    with wave.open(filename, "w") as wav_file:
-        wav_file.setnchannels(1)
-        wav_file.setsampwidth(2)
-        wav_file.setframerate(sample_rate)
-
-        for i in range(total_samples):
-            if i < tone_samples:
-                t = float(i) / sample_rate
-                sample = math.sin(2.0 * math.pi * freq * t)
-                if i < fade_len:
-                    sample *= i / fade_len
-                elif i > tone_samples - fade_len:
-                    sample *= (tone_samples - i) / fade_len
-            elif i < tone_samples + gap_samples:
-                sample = 0.0
-            else:
-                tone2_i = i - (tone_samples + gap_samples)
-                t = float(tone2_i) / sample_rate
-                sample = math.sin(2.0 * math.pi * freq * t)
-                if tone2_i < fade_len:
-                    sample *= tone2_i / fade_len
-                elif tone2_i > tone_samples - fade_len:
-                    sample *= (tone_samples - tone2_i) / fade_len
-            packed_sample = struct.pack("<h", int(sample * volume * 32767.0))
-            wav_file.writeframes(packed_sample)
-
-
-# Generate UI tones to the temp directory on every launch
 # 0.4 seconds at 16kHz. Shorter recordings are treated as accidental clicks.
 MIN_RECORDING_SAMPLES = 6400
 
-TEMP_DIR = tempfile.gettempdir()
-TONE_HIGH = os.path.join(TEMP_DIR, "vdict_high.wav")
-TONE_LOW = os.path.join(TEMP_DIR, "vdict_low.wav")
-TONE_LOW_DOUBLE = os.path.join(TEMP_DIR, "vdict_low_double.wav")
 
-generate_tone(TONE_HIGH, freq=783.99, duration_ms=80, volume=0.22275)
-generate_tone(TONE_LOW, freq=523.25, duration_ms=90, volume=0.18225)
-# The only double, and low on purpose. High is the user-action register, so a
-# high double would be heard as a recording starting.
-generate_double_tone(
-    TONE_LOW_DOUBLE,
-    freq=523.25,
-    tone_duration_ms=90,
-    gap_duration_ms=150,
-    volume=0.18225)
+def _load_tone(filename):
+    """Read a WAV file into (sample_rate, float32 samples -1.0 to 1.0)."""
+    with wave.open(filename, "rb") as wav_file:
+        rate = wav_file.getframerate()
+        raw_bytes = wav_file.readframes(wav_file.getnframes())
+    samples = np.frombuffer(raw_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+    return rate, samples
 
 
-def play_tone(tone_type, enabled=True):
-    """Play the requested tone 100% asynchronously. enabled silences the
-    per-dictation singles only -- the system double always sounds."""
+SOUNDS_DIR = os.path.join(os.path.dirname(__file__), "vdict", "sounds")
+_high_rate, TONE_HIGH = _load_tone(os.path.join(SOUNDS_DIR, "high.wav"))
+_low_rate, TONE_LOW = _load_tone(os.path.join(SOUNDS_DIR, "low.wav"))
+_double_rate, TONE_LOW_DOUBLE = _load_tone(os.path.join(SOUNDS_DIR, "low_double.wav"))
+assert _high_rate == _low_rate == _double_rate
+TONE_SAMPLE_RATE = _high_rate
+
+_output_stream = None
+_tone_queue = queue.Queue()
+_KEEPALIVE_CHUNK = np.zeros((int(TONE_SAMPLE_RATE * 0.02), 1), dtype=np.float32)
+
+
+def _audio_writer_loop():
+    """Owns every write to the stream. A queued tone plays immediately;
+    otherwise silence, so the stream never drains and clicks on resume."""
+    assert _output_stream is not None
+    while True:
+        try:
+            data = _tone_queue.get(timeout=0.02)
+        except queue.Empty:
+            data = _KEEPALIVE_CHUNK
+        _output_stream.write(data)
+
+
+def _resolve_output_device():
+    """WASAPI's own default output endpoint. No retry -- an output device
+    disappearing mid-session is not the microphone's recovery problem."""
+    wasapi = next(
+        (i for i, api in enumerate(sd.query_hostapis())
+         if api["name"] == "Windows WASAPI"), None)
+    if wasapi is None:
+        sys.exit("Windows WASAPI audio backend not available.")
+    default_id = sd.query_hostapis(wasapi)["default_output_device"]
+    if default_id < 0:
+        sys.exit("No default WASAPI output device found.")
+    return default_id
+
+
+TONE_VOLUME_HIGH = 0.22275
+TONE_VOLUME_LOW = 0.18225
+
+
+def play_tone(tone_type, enabled=True, volume=1.0):
+    """Play the requested tone 100% asynchronously. enabled silences start,
+    stop and too_short; ready and timeout always sound."""
     if tone_type in ("timeout", "ready"):
-        tone = TONE_LOW_DOUBLE
+        tone, reference_volume = TONE_LOW_DOUBLE, TONE_VOLUME_LOW
     elif not enabled:
         return
     elif tone_type == "start":
-        tone = TONE_HIGH
+        tone, reference_volume = TONE_HIGH, TONE_VOLUME_HIGH
     elif tone_type == "stop":
-        tone = TONE_LOW
+        tone, reference_volume = TONE_LOW, TONE_VOLUME_LOW
+    elif tone_type == "too_short":
+        tone, reference_volume = TONE_LOW_DOUBLE, TONE_VOLUME_LOW
     else:
         return
-    winsound.PlaySound(tone, winsound.SND_FILENAME | winsound.SND_ASYNC)
+    scaled = (tone * (reference_volume * volume)).reshape(-1, 1)
+    _tone_queue.put(scaled)
 
 
 def main():  # noqa: PLR0915
@@ -146,6 +119,16 @@ def main():  # noqa: PLR0915
         preserve_clipboard=config.keyboard.preserve_clipboard)
 
     ptt = PTTListener(button=config.ptt.button)
+
+    global _output_stream
+    _output_stream = sd.OutputStream(
+        samplerate=TONE_SAMPLE_RATE,
+        device=_resolve_output_device(),
+        channels=1,
+        dtype="float32",
+        extra_settings=sd.WasapiSettings(auto_convert=True))
+    _output_stream.start()
+    threading.Thread(target=_audio_writer_loop, daemon=True).start()
 
     # Get prompt for jargon biasing
     prompt = load_vocabulary()
@@ -194,15 +177,18 @@ def main():  # noqa: PLR0915
                 ptt.wait_for_release()
 
             audio_data = audio.stop_capture()
-            play_tone("stop", enabled=audio_feedback)
 
-            # Short-circuit on accidental/rapid clicks to prevent Whisper
-            # thread blocking
+            # Short captures can make Whisper hallucinate plausible-but-false
+            # text instead of returning empty -- see spike_notes.txt.
             if len(audio_data) < MIN_RECORDING_SAMPLES:
+                play_tone("too_short", enabled=audio_feedback)
                 print(
-                    f"\033[90m[{cycle}] Error: Recording too short (ignored).\033[0m")
+                    f"\033[90m[{cycle}] Not transcribed -- hold the button "
+                    "at least 0.4s.\033[0m")
                 cycle += 1
                 continue
+
+            play_tone("stop", enabled=audio_feedback)
 
             # Transcribe with prompt for jargon biasing
             text = stt.transcribe(audio_data, initial_prompt=prompt)

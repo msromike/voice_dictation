@@ -21,6 +21,11 @@ All notable changes to this project are documented here. Format follows
   system tray now share one icon instead of showing the generic batch-file cog,
   the Python logo, and a shape drawn at runtime.
 
+- A distinct tone when a recording is too short to transcribe (under 0.4
+  seconds), so you know immediately rather than waiting for text that never
+  comes. The console explains why: "Not transcribed -- hold the button at
+  least 0.4s."
+
 ### Changed
 
 - Enable Audio Beeps now silences only the start and stop tones. The double beep

@@ -9,9 +9,27 @@ import sounddevice as sd
 class AudioCapture:
     """Audio capture engine for PTT voice recording"""
 
-    # Device resolution plus a retry loop. Splitting it would spread one
-    # decision across two functions.
-    def __init__(self, sample_rate=16000, required_device="",  # noqa: C901
+    def _find_device_id(self, required_device):
+        """Match required_device against WASAPI input devices, or WASAPI's own
+        default when empty. WASAPI only -- PortAudio lists each mic once per backend."""
+        wasapi = next(
+            (i for i, api in enumerate(sd.query_hostapis())
+             if api['name'] == 'Windows WASAPI'), None)
+        if wasapi is None:
+            return None
+
+        if not required_device:
+            default_id = sd.query_hostapis(wasapi)['default_input_device']
+            return default_id if default_id >= 0 else None
+
+        for idx, device in enumerate(sd.query_devices()):
+            if (device['hostapi'] == wasapi
+                    and required_device in device['name']
+                    and device['max_input_channels'] > 0):
+                return idx
+        return None
+
+    def __init__(self, sample_rate=16000, required_device="",
                  retry_attempts=5, retry_delay=1.0):
         """Resolve the configured input device. Opens no stream.
         Whisper requires sample_rate=16000. required_device matches a name substring."""
@@ -21,39 +39,20 @@ class AudioCapture:
         self.stream = None
         self.device_id = None
 
-        # Retry to survive transient USB re-enumeration on sleep/wake.
-        # Crash-fast once retries are exhausted.
+        # Retry to survive transient USB re-enumeration on sleep/wake. Crash-
+        # fast once exhausted; the final sleep is wasted but not worth a branch.
         last_error = None
-        for attempt in range(retry_attempts):
+        for _ in range(retry_attempts):
             try:
-                # Resolve against WASAPI only. PortAudio lists each mic once per
-                # backend, and the tray's device dropdown enumerates WASAPI.
-                wasapi = next(
-                    (i for i, api in enumerate(sd.query_hostapis())
-                     if api['name'] == 'Windows WASAPI'), None)
+                device_id = self._find_device_id(required_device)
+            except sd.PortAudioError as e:
+                device_id, last_error = None, e
 
-                if wasapi is not None:
-                    if required_device:
-                        for idx, device in enumerate(sd.query_devices()):
-                            if (device['hostapi'] == wasapi
-                                    and required_device in device['name']
-                                    and device['max_input_channels'] > 0):
-                                self.device_id = idx
-                                break
-                    else:
-                        # System default, as WASAPI reports it
-                        default_id = sd.query_hostapis(
-                            wasapi)['default_input_device']
-                        if default_id >= 0:
-                            self.device_id = default_id
+            if device_id is not None:
+                self.device_id = device_id
+                break
 
-                if self.device_id is not None:
-                    break
-            except Exception as e:
-                last_error = e
-
-            if attempt < retry_attempts - 1:
-                time.sleep(retry_delay)
+            time.sleep(retry_delay)
 
         if self.device_id is None:
             import sys
