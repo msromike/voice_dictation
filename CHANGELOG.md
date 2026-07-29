@@ -33,6 +33,12 @@ All notable changes to this project are documented here. Format follows
   abandoned after two minutes -- both worth knowing whether or not you want a
   beep on every dictation.
 
+- A broken config.json now resets only the affected setting, not the whole
+  file. The output window names exactly what changed and what it reset to,
+  for example "Push-to-talk mode - HOLD" -- everything else you configured is
+  left alone. A file that cannot be parsed at all still resets in full, since
+  there is nothing left to preserve in that case.
+
 - The output window opens with a header naming the push-to-talk mode and
   trigger, the hotkey, the compute device, and the model. The model line
   carries its real size on disk, which is what tells you a large model will not

@@ -16,6 +16,7 @@ import queue
 import shutil
 import os
 import glob
+import json
 import tkinter as tk
 from tkinter import scrolledtext, messagebox, filedialog
 from datetime import datetime
@@ -34,7 +35,7 @@ from pydantic import ValidationError
 
 from vdict.config import (
     Config, CONFIG_PATH, HotkeyConfig, Pos, VOCABULARY_PATH, VOCABULARY_TEMPLATE_PATH,
-    EXIT_NO_MICROPHONE, read_config)
+    EXIT_NO_MICROPHONE)
 from vdict import hotkey
 
 try:
@@ -84,20 +85,95 @@ def _summarize_config_error(exc):
     return str(exc)
 
 
+def _delete_at_path(d, loc):
+    """Delete the value at the deepest reachable point along a pydantic
+    error's loc -- a wrong-type section resets there, not deeper."""
+    node = d
+    for depth, key in enumerate(loc):
+        if not isinstance(node, dict) or key not in node:
+            return
+        if depth == len(loc) - 1 or not isinstance(node[key], dict):
+            del node[key]
+            return
+        node = node[key]
+
+
+def _wholesale_reset_message(exc):
+    """Complete, display-ready line for a full reset -- everything changed
+    here, not just one field, so name the whole file, not individual ones."""
+    detail = _summarize_config_error(exc)
+    return (f"config.json could not be read ({detail}) -- "
+            "default settings have been restored.")
+
+
+# loc -> a name worth telling the user about, one per line, never grouped.
+# Absent means app-managed state (position/size/font/first-run) -- silent.
+FIELD_LABELS: dict[tuple[str, ...], str] = {
+    ("audio", "device"): "Microphone",
+    ("audio", "feedback"): "Audio beeps",
+    ("ptt", "button"): "Push-to-talk button",
+    ("ptt", "mode"): "Push-to-talk mode",
+    ("stt", "model"): "Whisper model",
+    ("stt", "device"): "Compute device",
+    ("hotkey", "modifiers"): "Output window hotkey",
+    ("hotkey", "vk"): "Output window hotkey",
+    ("hotkey", "name"): "Output window hotkey",
+    ("ui", "open_console_on_boot"): "Show output on startup",
+}
+
+
+def _format_value(config, loc):
+    """The value at loc, read off the healed Config, for display.
+    "" -> System Default, None -> Not set; everything else uppercased."""
+    node = config
+    for key in loc:
+        node = getattr(node, key)
+    if node == "":
+        return "SYSTEM DEFAULT"
+    if node is None:
+        return "NOT SET"
+    return str(node).upper()
+
+
 def load_settings():
-    """Read config.json, seeding from the Config model's own defaults on first run.
-    Anything unreadable or invalid is replaced wholesale from the model, never merged."""
+    """Read config.json, seeding from the Config model's own defaults. A bad
+    field resets to its own default and is named; unparseable JSON resets all."""
     if not CONFIG_PATH.exists():
         with open(CONFIG_PATH, "w") as f:
             f.write(Config().model_dump_json(indent=2))
         return Config(), None
 
     try:
-        return read_config(), None
-    except (FileNotFoundError, ValidationError) as exc:
+        raw = json.loads(CONFIG_PATH.read_text())
+    except (FileNotFoundError, json.JSONDecodeError) as exc:
         with open(CONFIG_PATH, "w") as f:
             f.write(Config().model_dump_json(indent=2))
-        return Config(), _summarize_config_error(exc)
+        return Config(), [_wholesale_reset_message(exc)]
+
+    try:
+        return Config.model_validate(raw), None
+    except ValidationError as exc:
+        healed = []
+        for error in exc.errors():
+            _delete_at_path(raw, error["loc"])
+            # This schema has no list fields, so loc is always all-str --
+            # narrower than pydantic's own general tuple[int | str, ...].
+            loc = cast(tuple[str, ...], error["loc"])
+            label = FIELD_LABELS.get(loc)
+            if label and label not in [h[0] for h in healed]:
+                healed.append((label, loc))
+
+        try:
+            config = Config.model_validate(raw)
+        except ValidationError as exc2:
+            with open(CONFIG_PATH, "w") as f:
+                f.write(Config().model_dump_json(indent=2))
+            return Config(), [_wholesale_reset_message(exc2)]
+
+        with open(CONFIG_PATH, "w") as f:
+            f.write(config.model_dump_json(indent=2))
+        lines = [f"{label} - {_format_value(config, loc)}" for label, loc in healed]
+        return config, lines
 
 
 def save_settings(config):
@@ -1287,12 +1363,11 @@ class VoiceDictationTray:
         if vocabulary_reseeded:
             self.output_queue.put(VOCABULARY_RESET_MESSAGE)
         if reset_reason:
+            for line in reset_reason:
+                self.output_queue.put(f"[SETTINGS RESET] {line}")
             self.output_queue.put(
-                f"[SETTINGS RESET] config.json could not be read "
-                f"({reset_reason}).")
-            self.output_queue.put(
-                "[SETTINGS RESET] Default settings have been restored. Open "
-                "Settings from the tray icon to reconfigure.")
+                "[SETTINGS RESET] Open Settings from the tray icon to "
+                "reconfigure.")
             self.output_queue.put("")
 
         if config.ui.open_console_on_boot:
