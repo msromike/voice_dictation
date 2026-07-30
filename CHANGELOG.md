@@ -90,6 +90,11 @@ All notable changes to this project are documented here. Format follows
   tray still opens Settings so you can pick another device or reconnect and
   Save & Restart.
 
+- The daemon no longer crashes when a transcription contains a character
+  outside the Windows ANSI codepage -- curly quotes, em-dashes, and accented
+  characters are common in Whisper's output. Both processes now communicate
+  over UTF-8 explicitly instead of falling back to the system default.
+
 ## [1.0.0] - 2026-07-25
 
 First public release.

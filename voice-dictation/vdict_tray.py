@@ -706,6 +706,7 @@ class VoiceDictationTray:
         # import inside the daemon can always beat code that runs after it.
         env = os.environ.copy()
         env["PYTHONUNBUFFERED"] = "1"          # immediate capture, no buffering
+        env["PYTHONIOENCODING"] = "utf-8"      # transcripts carry curly quotes/em-dashes
         env["HF_HUB_VERBOSITY"] = "error"      # no third-party chatter in our window
         env["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
         env["HF_HUB_DISABLE_TELEMETRY"] = "1"
@@ -720,6 +721,7 @@ class VoiceDictationTray:
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            encoding="utf-8",
             bufsize=1,
             env=env
         )
