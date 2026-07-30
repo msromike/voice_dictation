@@ -33,10 +33,10 @@ import win32gui
 import ctypes
 from pydantic import ValidationError
 
-from vdict.config import (
+from vdict.common.config import (
     Config, CONFIG_PATH, HotkeyConfig, Pos, VOCABULARY_PATH, VOCABULARY_TEMPLATE_PATH,
     EXIT_NO_MICROPHONE)
-from vdict import hotkey
+from vdict.tray import hotkey
 
 try:
     # Tell Windows this app handles its own DPI scaling to fix Tkinter blur
@@ -339,7 +339,7 @@ class _PTTCapture:
 
     def start(self):
         """Disable the button and listen for one key or mouse press.
-        pynput is imported here so the tray's own startup never loads it."""
+        pynput is deferred here, off the tray's startup path."""
         from pynput import keyboard, mouse
 
         self.disp_var.set("Press any key...")
@@ -412,7 +412,8 @@ class _PTTCapture:
     def _on_click(self, x, y, button, pressed):
         """Only BUTTON_MAP binds; anything else is ignored and the capture stays
         open. Left especially -- it is how the dialog itself is operated."""
-        from vdict.keyboard import BUTTON_MAP
+        # Deferred for the same reason as start()'s pynput import.
+        from vdict.daemon.keyboard import BUTTON_MAP
 
         if not pressed or button.name not in BUTTON_MAP:
             return None
@@ -424,7 +425,7 @@ class _PTTCapture:
 
 
 class VoiceDictationTray:
-    """System tray wrapper for vdict.py"""
+    """System tray wrapper for vdict_daemon.py"""
 
     def __init__(self):
         self.process = None
@@ -698,8 +699,8 @@ class VoiceDictationTray:
         return icon
 
     def start_vdict(self):
-        """Start vdict.py as subprocess and capture output"""
-        vdict_path = Path(__file__).parent / "vdict.py"
+        """Start vdict_daemon.py as subprocess and capture output"""
+        vdict_path = Path(__file__).parent / "vdict_daemon.py"
 
         # Set here, not inside the daemon: these are read at import time, and an
         # import inside the daemon can always beat code that runs after it.
@@ -827,7 +828,7 @@ class VoiceDictationTray:
                         return
                     self.text.config(state=tk.NORMAL)
                     self.text.insert(
-                        tk.END, f"\n[vdict.py exited with code {exit_code}]\n")
+                        tk.END, f"\n[vdict_daemon.py exited with code {exit_code}]\n")
                     self.text.see(tk.END)
                     self.text.config(state=tk.DISABLED)
         except Exception as e:
@@ -866,7 +867,7 @@ class VoiceDictationTray:
         # from the run above it with no startup header in between.
         self.output_queue.put("")
         for label, value, dim in (
-                ("Started", f"vdict.py (PID {pid})", True),
+                ("Started", f"vdict_daemon.py (PID {pid})", True),
                 ("Mode", "Hold button down to dictate." if ptt.mode == "hold"
                          else "Press button once to toggle dictation.", True),
                 ("Trigger", _format_bind(ptt.button), True),
@@ -1296,7 +1297,7 @@ class VoiceDictationTray:
              "last saved state."),
             (self._stop_daemon,
              "Daemon may still be running -- check Task Manager for an "
-             "orphaned vdict.py process."),
+             "orphaned vdict_daemon.py process."),
             (self.icon.stop,
              "Tray icon may linger in the notification area until Explorer "
              "refreshes."))

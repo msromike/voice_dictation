@@ -6,11 +6,12 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict
 
 # User-editable word list, seeded from the tracked template when absent.
-VOCABULARY_PATH = Path(__file__).parent.parent.parent / "userdata" / "vocabulary.txt"
-VOCABULARY_TEMPLATE_PATH = Path(__file__).parent.parent.parent / "templates" / "vocabulary.txt"
+VOCABULARY_PATH = Path(__file__).parent.parent.parent.parent / "userdata" / "vocabulary.txt"
+VOCABULARY_TEMPLATE_PATH = (
+    Path(__file__).parent.parent.parent.parent / "templates" / "vocabulary.txt")
 
 # Single source for both processes -- the tray writes this path, the daemon reads it.
-CONFIG_PATH = Path(__file__).parent.parent.parent / "userdata" / "config.json"
+CONFIG_PATH = Path(__file__).parent.parent.parent.parent / "userdata" / "config.json"
 
 # Daemon exit code the tray matches on to open Settings. Both sides must agree.
 EXIT_NO_MICROPHONE = 2

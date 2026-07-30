@@ -218,7 +218,7 @@ cause exactly this.
 ## How it works
 
 Two processes. `vdict_tray.py` owns the tray icon, the settings window, and the
-log; it launches `vdict.py`, the daemon that does the actual work.
+log; it launches `vdict_daemon.py`, the daemon that does the actual work.
 
 The daemon uses [pynput](https://github.com/moses-palmer/pynput) to watch for
 your push-to-talk button globally, records through

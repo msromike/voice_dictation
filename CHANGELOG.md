@@ -83,6 +83,13 @@ All notable changes to this project are documented here. Format follows
   different working directory previously created the Desktop shortcut with the
   wrong target.
 
+- The daemon no longer crashes with a raw traceback if the microphone
+  disconnects mid-session, after a recording has already started
+  successfully. It now shows the same "Configured microphone not found"
+  message already used when the microphone can't be found at launch, and the
+  tray still opens Settings so you can pick another device or reconnect and
+  Save & Restart.
+
 ## [1.0.0] - 2026-07-25
 
 First public release.

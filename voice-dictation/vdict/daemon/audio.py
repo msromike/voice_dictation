@@ -55,14 +55,20 @@ class AudioCapture:
             time.sleep(retry_delay)
 
         if self.device_id is None:
-            import sys
-            if last_error:
-                print(f"\033[91m[ERROR] Device lookup failed: {last_error}\033[0m")
-            print("\033[91m[ERROR] Configured microphone not found. Pick a "
-                  "different one in Settings, or reconnect the device, then "
-                  "click Save & Restart.\033[0m")
-            from .config import EXIT_NO_MICROPHONE
-            sys.exit(EXIT_NO_MICROPHONE)
+            self._exit_no_microphone(
+                f"Device lookup failed: {last_error}" if last_error else None)
+
+    def _exit_no_microphone(self, detail):
+        """Print the standard no-microphone message and exit. Shared by device
+        lookup at startup and stream-open failure mid-session."""
+        import sys
+        if detail:
+            print(f"\033[91m[ERROR] {detail}\033[0m")
+        print("\033[91m[ERROR] Configured microphone not found. Pick a "
+              "different one in Settings, or reconnect the device, then "
+              "click Save & Restart.\033[0m")
+        from vdict.common.config import EXIT_NO_MICROPHONE
+        sys.exit(EXIT_NO_MICROPHONE)
 
     def start_capture(self):
         """Start capturing audio from microphone"""
@@ -74,15 +80,18 @@ class AudioCapture:
 
         # auto_convert enables the Windows resampler. WASAPI shared mode accepts
         # only the device's native rate; Whisper's mel filterbank requires 16kHz.
-        self.stream = sd.InputStream(
-            device=self.device_id,
-            samplerate=self.sample_rate,
-            channels=1,  # Mono
-            dtype='float32',
-            callback=self._audio_callback,
-            extra_settings=sd.WasapiSettings(auto_convert=True)
-        )
-        self.stream.start()
+        try:
+            self.stream = sd.InputStream(
+                device=self.device_id,
+                samplerate=self.sample_rate,
+                channels=1,  # Mono
+                dtype='float32',
+                callback=self._audio_callback,
+                extra_settings=sd.WasapiSettings(auto_convert=True)
+            )
+            self.stream.start()
+        except sd.PortAudioError as e:
+            self._exit_no_microphone(f"Microphone disconnected: {e}")
 
     def _audio_callback(self, indata, frames, time, status):
         """Buffer incoming samples. Runs on the sounddevice background thread."""

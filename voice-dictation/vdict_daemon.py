@@ -3,16 +3,16 @@ Launched by vdict_tray.py, which writes config.json first. Requires it to exist.
 
 import sys
 
-# Must precede the imports below -- vdict.audio is WASAPI-specific and the
-# whole app is Windows-only regardless.
+# Must precede the imports below -- vdict.daemon.audio is WASAPI-specific and
+# the whole app is Windows-only regardless.
 if sys.platform != "win32":
     sys.exit("Voice Dictation is Windows-only. See 'Windows only' in the "
              "README for what a port would involve -- one would be welcome.")
 
-from vdict.audio import AudioCapture
-from vdict.stt import STTEngine
-from vdict.keyboard import KeyboardInjector, PTTListener
-from vdict.config import load_config, load_vocabulary
+from vdict.daemon.audio import AudioCapture
+from vdict.daemon.stt import STTEngine
+from vdict.daemon.keyboard import KeyboardInjector, PTTListener
+from vdict.common.config import load_config, load_vocabulary
 import wave
 import os
 import queue
