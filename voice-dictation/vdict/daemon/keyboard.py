@@ -17,12 +17,10 @@ BUTTON_MAP = {
 class PTTListener:
     """Push-to-talk trigger listener (configurable mouse button or keyboard key)"""
 
-    def __init__(self, button="middle", debug=False):
+    def __init__(self, button="middle"):
         """Start listening for the PTT trigger.
         button is a mouse name from BUTTON_MAP, or "key:<name>" for a pynput Key."""
-        self.button_name = button
         self.pressed = False
-        self.debug = debug
 
         # Threading events for blocking waits
         self.press_event = threading.Event()
@@ -51,37 +49,21 @@ class PTTListener:
 
         self.listener.start()
 
-        if self.debug:
-            print(f"[DEBUG] PTTListener started, monitoring: {self.button_name}")
-
     def _on_click(self, x, y, button, pressed):
         """Internal callback for mouse events. Runs on the pynput background thread."""
-        if self.debug:
-            print(f"[DEBUG] Mouse event: button={button}, "
-                  f"pressed={pressed}, target={self.button}")
-
         if button == self.button:
             self.pressed = pressed
             if pressed:
-                if self.debug:
-                    print("[DEBUG] Target button PRESSED - setting event")
                 self.press_event.set()
                 self.release_event.clear()
             else:
-                if self.debug:
-                    print("[DEBUG] Target button RELEASED - setting event")
                 self.release_event.set()
                 self.press_event.clear()
 
     def _on_key_press(self, key):
         """Internal callback for keyboard press events (runs in background thread)"""
-        if self.debug:
-            print(f"[DEBUG] Key event: key={key}, target={self.target_key}")
-
         if key == self.target_key and not self.pressed:
             self.pressed = True
-            if self.debug:
-                print("[DEBUG] Target key PRESSED - setting event")
             self.press_event.set()
             self.release_event.clear()
 
@@ -89,8 +71,6 @@ class PTTListener:
         """Internal callback for keyboard release events (runs in background thread)"""
         if key == self.target_key:
             self.pressed = False
-            if self.debug:
-                print("[DEBUG] Target key RELEASED - setting event")
             self.release_event.set()
             self.press_event.clear()
 

@@ -7,6 +7,8 @@ import glob
 import threading
 import numpy as np
 
+from vdict.common.output import log
+
 # Fix CUDA DLL resolution for Python 3.8+ on Windows (for ctranslate2)
 import site
 
@@ -35,7 +37,7 @@ class STTEngine:
             from huggingface_hub import try_to_load_from_cache
             repo_id = f"Systran/faster-whisper-{self.model_name}"
             if not isinstance(try_to_load_from_cache(repo_id, "model.bin"), str):
-                print(f"[SYSTEM] INITIATING DOWNLOAD: {self.model_name}")
+                log("download", f"Initiating download: {self.model_name}")
 
             # CPU requires float32. CUDA runs fastest on float16.
             compute_type = "float16" if self.device == "cuda" else "float32"

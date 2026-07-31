@@ -18,7 +18,7 @@ import os
 import glob
 import json
 import tkinter as tk
-from tkinter import scrolledtext, messagebox, filedialog, simpledialog
+from tkinter import scrolledtext, messagebox, filedialog
 from datetime import datetime
 import webbrowser
 import re
@@ -72,8 +72,7 @@ CONSOLE_FONT_MAX = 32
 
 # Single source, so the boot-time seed and the File > Vocabulary seed
 # can never drift into two different wordings.
-VOCABULARY_RESET_MESSAGE = (
-    "[VOCABULARY RESET] vocabulary.txt not found -- restored from template.")
+VOCABULARY_RESET_MESSAGE = "vocabulary.txt not found -- restored from template."
 
 # Categories suppressed from window display -- empty until step 7's
 # transcript_only_mode gives it a real caller.
@@ -275,11 +274,6 @@ def _state_to_mods(state):
     return mods
 
 
-def _dim(text):
-    """Wrap a line in the ANSI dim code the output window maps to gray"""
-    return f"\033[90m{text}\033[0m"
-
-
 # The session block is label/value, no tags. Scrolling lines below it
 # keep [TAG] instead -- greppable, and they split into columns in a spreadsheet.
 def _summary_line(label, value):
@@ -387,22 +381,13 @@ class _PTTCapture:
         self.btn_var.set(val)
         self.end(disp)
 
-    def reject(self, title, body):
-        """Close the capture unchanged, then say why"""
-        # Guarded: closing Settings is itself a left-click, which the listener
-        # would otherwise reject into a dialog over a destroyed parent.
-        if self.done:
-            return
-        self.end(self.previous)
-        messagebox.showwarning(title, body, parent=self.tray.settings_win)
-
     def failed(self, exc):
         """Nothing about the key was usable. All three surfaces say so."""
         if self.done:
             return
         _log_error("PTT rebind", exc)
-        self.tray.output_queue.put("Error: could not bind that key")
-        self.reject("Cannot bind that key", "Could not bind that key.")
+        self.tray.log("error", "Could not bind that key.")
+        self.end(self.previous)
 
     def _on_key(self, key):
         """pynput thread. Marshals to Tk rather than touching widgets here."""
@@ -471,8 +456,8 @@ class VoiceDictationTray:
         )
         self.text.tag_configure(
             "sys_dim", foreground="#707070")  # Map ANSI dim gray
-        self.text.tag_configure("sys_yellow", foreground="#e5c07b")
-        self.text.tag_configure("sys_red", foreground="#f44747")
+        self.text.tag_configure("sys_yellow", foreground="#FFFF00")
+        self.text.tag_configure("sys_red", foreground="#FF0000")
         self.text.pack(fill=tk.BOTH, expand=True)
         self.text.config(state=tk.DISABLED)
 
@@ -626,16 +611,33 @@ class VoiceDictationTray:
         """Open vocabulary.txt in the user's default .txt handler.
         Reseeds from the template first if it was deleted -- nothing to validate."""
         if self._reseed_vocabulary_if_missing():
-            self.output_queue.put(VOCABULARY_RESET_MESSAGE)
+            self.log("note", VOCABULARY_RESET_MESSAGE)
         os.startfile(VOCABULARY_PATH)
 
     def _open_log_probe(self):
-        """Dev hook: prompt for a category and text, then dispatch through self.log()."""
-        category = simpledialog.askstring("Log Probe", "Category:", parent=self.window)
-        if not category:
-            return
-        text = simpledialog.askstring("Log Probe", "Text:", parent=self.window) or ""
-        self.log(category, text)
+        """Dev hook: one dialog with category + text fields, dispatched through self.log()."""
+        dialog = tk.Toplevel(self.window)
+        dialog.title("Log Probe")
+        dialog.transient(self.window)
+        dialog.grab_set()
+
+        tk.Label(dialog, text="Category:").grid(row=0, column=0, sticky="e", padx=5, pady=5)
+        category_var = tk.StringVar()
+        category_entry = tk.Entry(dialog, textvariable=category_var)
+        category_entry.grid(row=0, column=1, padx=5, pady=5)
+        category_entry.focus_set()
+
+        tk.Label(dialog, text="Text:").grid(row=1, column=0, sticky="e", padx=5, pady=5)
+        text_var = tk.StringVar()
+        tk.Entry(dialog, textvariable=text_var).grid(row=1, column=1, padx=5, pady=5)
+
+        def submit(event=None):
+            dialog.destroy()
+            if category_var.get():
+                self.log(category_var.get(), text_var.get())
+
+        tk.Button(dialog, text="OK", command=submit).grid(row=2, column=0, columnspan=2, pady=5)
+        dialog.bind("<Return>", submit)
 
     def _save_log_as(self):
         """Write the console log to a text file.
@@ -873,17 +875,16 @@ class VoiceDictationTray:
 
         # The block owns its own blank line, so a restart is still separated
         # from the run above it with no startup header in between.
-        self.output_queue.put("")
-        for label, value, dim in (
-                ("Started", f"vdict_daemon.py (PID {pid})", True),
+        self.log("block", "")
+        for label, value, category in (
+                ("Started", f"vdict_daemon.py (PID {pid})", "block"),
                 ("Mode", "Hold button down to dictate." if ptt.mode == "hold"
-                         else "Press button once to toggle dictation.", True),
-                ("Trigger", _format_bind(ptt.button), True),
-                ("Hotkey", hotkey_value, not is_fault),
-                ("Compute", DEVICE_LABELS[stt.device], True),
-                ("Model", model, True)):
-            line = _summary_line(label, value)
-            self.output_queue.put(_dim(line) if dim else line)
+                         else "Press button once to toggle dictation.", "block"),
+                ("Trigger", _format_bind(ptt.button), "block"),
+                ("Hotkey", hotkey_value, "error" if is_fault else "block"),
+                ("Compute", DEVICE_LABELS[stt.device], "block"),
+                ("Model", model, "block")):
+            self.log(category, _summary_line(label, value))
 
     def _register_hotkey(self, cfg):
         """Claim the configured combination. Records what happened for the session block
@@ -902,8 +903,7 @@ class VoiceDictationTray:
         calls -- the foreground grant Windows hands us on the keypress is momentary."""
         self.window.deiconify()
         win32gui.SetForegroundWindow(int(self.window.wm_frame(), 0))
-        self.output_queue.put(
-            f"\033[90m[HOTKEY] {self.hotkey_name} -- output window raised\033[0m")
+        self.log("note", f"{self.hotkey_name} raised the output window")
 
     # Builds the whole dialog inline. Split by backlog B1; remove then.
     def open_settings(self, icon=None, item=None):  # noqa: C901, PLR0915
@@ -1317,7 +1317,7 @@ class VoiceDictationTray:
                 any_failed = True
                 self._report_callback_exception(type(exc), exc, exc.__traceback__)
                 try:
-                    self.output_queue.put(f"[SHUTDOWN ERROR] {step.__name__}: {meaning}")
+                    self.log("error", f"{step.__name__}: {meaning}")
                 except Exception:
                     pass
         return any_failed
@@ -1358,11 +1358,10 @@ class VoiceDictationTray:
 
         # Startup header. Once per app launch -- start_vdict must never print
         # it, since a restart re-greeting the user reads as a wiped log.
-        for line in ("\033[97m" + "=" * 60,
-                     " Welcome to Voice Dictation",
-                     f" {PROJECT_URL} | MIT License",
-                     "=" * 60 + "\033[0m"):
-            self.output_queue.put(line)
+        self.log("header", "=" * 60)
+        self.log("header", " Welcome to Voice Dictation")
+        self.log("header", f" {PROJECT_URL} | MIT License")
+        self.log("header", "=" * 60)
 
         # Before start_vdict, so the session block has a true Hotkey line.
         self._register_hotkey(config.hotkey)
@@ -1371,14 +1370,13 @@ class VoiceDictationTray:
         # Queued after start_vdict, which already queued the session block
         # itself -- these land after both, not right under the banner.
         if vocabulary_reseeded:
-            self.output_queue.put(VOCABULARY_RESET_MESSAGE)
+            self.log("note", VOCABULARY_RESET_MESSAGE)
         if reset_reason:
             for line in reset_reason:
-                self.output_queue.put(f"[SETTINGS RESET] {line}")
-            self.output_queue.put(
-                "[SETTINGS RESET] Open Settings from the tray icon to "
-                "reconfigure.")
-            self.output_queue.put("")
+                self.log("note", line)
+            self.log("note", "Config Reset. Open Settings from the tray icon to "
+                              "reconfigure.")
+            self.log("block", "")
 
         if config.ui.open_console_on_boot:
             # Open it (will happen every time until user disables it in Settings)

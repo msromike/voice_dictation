@@ -12,3 +12,7 @@ _.report_callback_exception
 # DANGEROUS TO "FIX". The mutex handle must stay referenced for the process
 # lifetime, or it is collected, the mutex releases, and single-instance dies.
 mutex
+
+# Pydantic's own metaclass reads this class attribute internally to configure
+# the model (e.g. validate_assignment=True) -- never read by our code directly.
+model_config

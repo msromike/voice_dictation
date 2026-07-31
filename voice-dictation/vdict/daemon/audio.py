@@ -5,6 +5,8 @@ import time
 import numpy as np
 import sounddevice as sd
 
+from vdict.common.output import log
+
 
 class AudioCapture:
     """Audio capture engine for PTT voice recording"""
@@ -96,7 +98,7 @@ class AudioCapture:
     def _audio_callback(self, indata, frames, time, status):
         """Buffer incoming samples. Runs on the sounddevice background thread."""
         if status:
-            print(f"Audio stream status: {status}")
+            log("note", f"Audio stream status: {status}")
 
         if self.recording:
             # Append audio data to buffer (copy to prevent memory issues)

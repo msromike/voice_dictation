@@ -13,6 +13,7 @@ from vdict.daemon.audio import AudioCapture
 from vdict.daemon.stt import STTEngine
 from vdict.daemon.keyboard import KeyboardInjector, PTTListener
 from vdict.common.config import load_config, load_vocabulary
+from vdict.common.output import log
 import wave
 import os
 import queue
@@ -53,7 +54,7 @@ def _output_callback(outdata, frames, _time_info, status):
     thread whenever it needs more data. Never blocks."""
     global _current_tone, _current_tone_pos
     if status:
-        print(f"Output stream status: {status}")
+        log("note", f"Output stream status: {status}")
 
     filled = 0
     while filled < frames:
@@ -83,10 +84,12 @@ def _resolve_output_device():
         (i for i, api in enumerate(sd.query_hostapis())
          if api["name"] == "Windows WASAPI"), None)
     if wasapi is None:
-        sys.exit("Windows WASAPI audio backend not available.")
+        log("error", "Windows WASAPI audio backend not available.")
+        sys.exit(1)
     default_id = sd.query_hostapis(wasapi)["default_output_device"]
     if default_id < 0:
-        sys.exit("No default WASAPI output device found.")
+        log("error", "No default WASAPI output device found.")
+        sys.exit(1)
     return default_id
 
 
@@ -127,8 +130,7 @@ def main():  # noqa: PLR0915
         device=config.stt.device
     )
 
-    # Must keep the "Loading " prefix -- the tray matches on it to animate dots.
-    print("\033[90mLoading model\033[0m")
+    log("loading", "Loading model")
     stt.load()
 
     keyboard = KeyboardInjector(
@@ -155,13 +157,12 @@ def main():  # noqa: PLR0915
 
     # Closes the session block. Dashes, not the startup header's equals signs --
     # this divides sections, it does not open the log. Blank line after.
-    print(f"\033[90mVoice Dictation v{__version__} READY\033[0m")
-    print("\033[90m" + "-" * 60 + "\033[0m")
-    print()
+    log("ready", f"Voice Dictation v{__version__} READY")
+    log("block", "-" * 60)
+    log("block", "")
     play_tone("ready", enabled=audio_feedback)
 
     try:
-        cycle = 0
         while True:
             # Wait for button to be pressed
             ptt.wait_for_press()
@@ -174,7 +175,7 @@ def main():  # noqa: PLR0915
                 ptt.wait_for_release()
 
             play_tone("start", enabled=audio_feedback)
-            print(f"\033[90m[{cycle}] Recording...\033[0m")
+            log("rec", "")
             audio.start_capture()
 
             if ptt_mode == "toggle":
@@ -182,10 +183,9 @@ def main():  # noqa: PLR0915
                 pressed = ptt.wait_for_press(timeout_secs=120.0)
                 if not pressed:
                     play_tone("timeout", enabled=audio_feedback)
-                    print(f"\033[90m[{cycle}] Error: Timeout reached.\033[0m")
-                    print(f"\033[90m[{cycle}] Closed (Timeout).\033[0m")
+                    log("note", "Timeout reached.")
+                    log("done", "")
                     audio.stop_capture()
-                    cycle += 1
                     continue
                 ptt.wait_for_release()
             else:
@@ -198,10 +198,8 @@ def main():  # noqa: PLR0915
             # text instead of returning empty -- see spike_notes.txt.
             if len(audio_data) < MIN_RECORDING_SAMPLES:
                 play_tone("too_short", enabled=audio_feedback)
-                print(
-                    f"\033[90m[{cycle}] Not transcribed -- hold the button "
-                    "at least 0.4s.\033[0m")
-                cycle += 1
+                log("note", "Not transcribed -- hold the button at least 0.4s.")
+                log("done", "")
                 continue
 
             play_tone("stop", enabled=audio_feedback)
@@ -210,13 +208,12 @@ def main():  # noqa: PLR0915
             text = stt.transcribe(audio_data, initial_prompt=prompt)
 
             if text:
-                print(text)
+                log("transcript", text)
                 keyboard.inject(text)
             else:
-                print(f"\033[90m[{cycle}] Error: No speech detected.\033[0m")
+                log("note", "No speech detected.")
 
-            print(f"\033[90m[{cycle}] Closed.\033[0m")
-            cycle += 1
+            log("done", "")
 
     except KeyboardInterrupt:
         print("\n\n\033[90mStopped\033[0m")

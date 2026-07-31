@@ -11,7 +11,7 @@ class CategorySpec(NamedTuple):
 
 
 CATEGORIES: dict[str, CategorySpec] = {
-    "header":     CategorySpec("none", ""),
+    "header":     CategorySpec("dim", ""),
     "block":      CategorySpec("dim", ""),
     "rec":        CategorySpec("dim", "REC"),
     "done":       CategorySpec("dim", "DONE"),
@@ -19,7 +19,7 @@ CATEGORIES: dict[str, CategorySpec] = {
     "error":      CategorySpec("red", "ERROR"),
     "transcript": CategorySpec("none", ""),
     "ready":      CategorySpec("dim", "", toast=True),
-    "download":   CategorySpec("none", "", toast=True),
+    "download":   CategorySpec("dim", "", toast=True),
     "loading":    CategorySpec("dim", ""),
 }
 
