@@ -10,7 +10,8 @@ from vdict.common import output  # noqa: E402 -- needs the path insert above fir
 
 EXPECTED_CATEGORIES = (
     "header", "block", "rec", "done", "note",
-    "error", "transcript", "ready", "download", "loading")
+    "error", "transcript", "ready", "download", "loading",
+    "mic-fault", "model-fault")
 
 
 def check_categories():

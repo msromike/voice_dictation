@@ -21,6 +21,8 @@ CATEGORIES: dict[str, CategorySpec] = {
     "ready":      CategorySpec("dim", "", toast=True),
     "download":   CategorySpec("dim", "", toast=True),
     "loading":    CategorySpec("dim", ""),
+    "mic-fault":   CategorySpec("red", "ERROR", box=True),
+    "model-fault": CategorySpec("red", "ERROR", box=True),
 }
 
 

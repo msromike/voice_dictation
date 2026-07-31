@@ -34,8 +34,7 @@ import ctypes
 from pydantic import ValidationError
 
 from vdict.common.config import (
-    Config, CONFIG_PATH, HotkeyConfig, Pos, VOCABULARY_PATH, VOCABULARY_TEMPLATE_PATH,
-    EXIT_NO_MICROPHONE)
+    Config, CONFIG_PATH, HotkeyConfig, Pos, VOCABULARY_PATH, VOCABULARY_TEMPLATE_PATH)
 from vdict.common import output
 from vdict.tray import hotkey
 
@@ -59,6 +58,7 @@ ICON_PATH = Path(__file__).parent.parent / "images" / "vdict.ico"
 LOG_DIR = Path(__file__).parent.parent / "userdata" / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 ERROR_LOG_PATH = LOG_DIR / "tray_error.log"
+MIC_FAULT_FLAG_PATH = Path(__file__).parent.parent / "userdata" / "mic_fault.flag"
 
 # Single source for the project URL -- it appears in the console banner, the
 # About box, and the Help menu.
@@ -429,6 +429,8 @@ class VoiceDictationTray:
         self.process = None
         self.output_queue = queue.Queue()
         self._exit_reported = False
+        self._fault_shown = False
+        self.is_loading_model = False
 
         try:
             self.dpi_scale = ctypes.windll.user32.GetDpiForSystem() / 96.0
@@ -742,6 +744,7 @@ class VoiceDictationTray:
         # Clear the previous run's exit report, or a daemon that dies again
         # after Save & Restart would fail silently.
         self._exit_reported = False
+        self._fault_shown = False
 
         self.process = subprocess.Popen(
             [sys.executable, str(vdict_path)],
@@ -760,9 +763,9 @@ class VoiceDictationTray:
         self.is_loading_model = False
 
         # Start thread to read output
-        reader_thread = threading.Thread(
+        self.reader_thread = threading.Thread(
             target=self._read_output, args=(self.process.stdout,), daemon=True)
-        reader_thread.start()
+        self.reader_thread.start()
 
     def _animate_dots(self):
         """Append gray dots to the console while loading"""
@@ -782,9 +785,9 @@ class VoiceDictationTray:
         for line in stdout:
             self.output_queue.put(output.parse(line.rstrip()))
 
-    # Dispatches on daemon output markers. Split by backlog B1.
-    def _update_output(self):  # noqa: C901, PLR0912
-        """Update text widget with queued output"""
+    def _drain_output_queue(self):  # noqa: C901, PLR0912
+        """One pass over whatever's currently queued -- dispatch each item by
+        category. Called normally, and again from the exit-check gap (5j)."""
         try:
             while True:
                 category, text = self.output_queue.get_nowait()
@@ -812,6 +815,12 @@ class VoiceDictationTray:
                 if spec and spec.toast and self.window.state() != 'normal':
                     self.icon.notify(text, "Voice Dictation")
 
+                if spec and spec.box:
+                    if category == "mic-fault":
+                        self._show_mic_fault(text)
+                    elif category == "model-fault":
+                        self._show_model_fault(text)
+
                 self.text.see(tk.END)
                 self.text.config(state=tk.DISABLED)
         except queue.Empty:
@@ -819,28 +828,20 @@ class VoiceDictationTray:
         except Exception as e:
             _log_error("Output update error", e)
 
+    # Dispatches on daemon output markers. Split by backlog B1.
+    def _update_output(self):
+        """Update text widget with queued output"""
+        self._drain_output_queue()
+
         try:
             if self.process and not getattr(self, '_exit_reported', False):
                 exit_code = self.process.poll()
                 if exit_code is not None:
                     self._exit_reported = True
-                    if exit_code == EXIT_NO_MICROPHONE:
-                        # Open Settings rather than exiting; the tray is the only
-                        # way to pick another device.
-                        self.open_settings()
-                        messagebox.showerror(
-                            "No Microphone Detected",
-                            "Voice Dictation could not find the configured "
-                            "microphone.\n\nPick a different one in the "
-                            "Settings window and click Save & Restart, or "
-                            "reconnect the device and click Save & Restart.",
-                            parent=self.settings_win)
-                        return
-                    self.text.config(state=tk.NORMAL)
-                    self.text.insert(
-                        tk.END, f"\n[vdict_daemon.py exited with code {exit_code}]\n")
-                    self.text.see(tk.END)
-                    self.text.config(state=tk.DISABLED)
+                    self.reader_thread.join(timeout=0.5)
+                    self._drain_output_queue()
+                    if not self._fault_shown:
+                        self.log("error", f"vdict_daemon.py exited with code {exit_code}")
         except Exception as e:
             _log_error("Exit-check error", e)
         finally:
@@ -904,6 +905,50 @@ class VoiceDictationTray:
         self.window.deiconify()
         win32gui.SetForegroundWindow(int(self.window.wm_frame(), 0))
         self.log("note", f"{self.hotkey_name} raised the output window")
+
+    def _show_mic_fault(self, text):
+        """mic-fault's dispatch bundle: raise the window, open Settings as
+        signage underneath, then a blocking modal naming the problem."""
+        self._fault_shown = True
+        self.window.deiconify()
+        self.open_settings()
+
+        modal = tk.Toplevel(self.settings_win)
+        modal.title("No Microphone Detected")
+        modal.transient(self.settings_win)
+        modal.grab_set()
+
+        tk.Label(modal, text=text, wraplength=int(360 * self.dpi_scale),
+                 justify="left", padx=int(20 * self.dpi_scale),
+                 pady=int(20 * self.dpi_scale)).pack()
+
+        def close():
+            MIC_FAULT_FLAG_PATH.write_text(text)
+            self._force_quit()
+
+        tk.Button(modal, text="Close", command=close).pack(
+            pady=(0, int(20 * self.dpi_scale)))
+        modal.protocol("WM_DELETE_WINDOW", close)
+
+    def _show_model_fault(self, text):
+        """model-fault's dispatch bundle -- same as mic-fault's, but no flag
+        written; Save & Restart (existing, unchanged) is the recovery."""
+        self._fault_shown = True
+        self.window.deiconify()
+        self.open_settings()
+
+        modal = tk.Toplevel(self.settings_win)
+        modal.title("Model Load Failed")
+        modal.transient(self.settings_win)
+        modal.grab_set()
+
+        tk.Label(modal, text=text, wraplength=int(360 * self.dpi_scale),
+                 justify="left", padx=int(20 * self.dpi_scale),
+                 pady=int(20 * self.dpi_scale)).pack()
+
+        tk.Button(modal, text="OK", command=modal.destroy).pack(
+            pady=(0, int(20 * self.dpi_scale)))
+        modal.protocol("WM_DELETE_WINDOW", modal.destroy)
 
     # Builds the whole dialog inline. Split by backlog B1; remove then.
     def open_settings(self, icon=None, item=None):  # noqa: C901, PLR0915
@@ -1365,7 +1410,13 @@ class VoiceDictationTray:
 
         # Before start_vdict, so the session block has a true Hotkey line.
         self._register_hotkey(config.hotkey)
-        self.start_vdict()
+        if MIC_FAULT_FLAG_PATH.exists():
+            reason = MIC_FAULT_FLAG_PATH.read_text()
+            MIC_FAULT_FLAG_PATH.unlink()
+            self.log("note", f"Settings reopened -- {reason}")
+            self.open_settings()
+        else:
+            self.start_vdict()
 
         # Queued after start_vdict, which already queued the session block
         # itself -- these land after both, not right under the banner.

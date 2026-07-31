@@ -13,7 +13,6 @@ VOCABULARY_TEMPLATE_PATH = (
 # Single source for both processes -- the tray writes this path, the daemon reads it.
 CONFIG_PATH = Path(__file__).parent.parent.parent.parent / "userdata" / "config.json"
 
-# Daemon exit code the tray matches on to open Settings. Both sides must agree.
 EXIT_NO_MICROPHONE = 2
 
 

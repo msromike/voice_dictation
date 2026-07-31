@@ -46,8 +46,9 @@ class STTEngine:
                 device=self.device,
                 compute_type=compute_type)
         except Exception as e:
-            raise RuntimeError(
-                f"Failed to load Whisper model '{self.model_name}': {e}") from e
+            import sys
+            log("model-fault", f"Failed to load Whisper model '{self.model_name}': {e}")
+            sys.exit(1)
 
     def wake_gpu(self):
         """

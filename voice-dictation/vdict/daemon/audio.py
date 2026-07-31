@@ -61,14 +61,14 @@ class AudioCapture:
                 f"Device lookup failed: {last_error}" if last_error else None)
 
     def _exit_no_microphone(self, detail):
-        """Print the standard no-microphone message and exit. Shared by device
+        """Log the standard no-microphone message and exit. Shared by device
         lookup at startup and stream-open failure mid-session."""
         import sys
+        text = "Configured microphone not found"
         if detail:
-            print(f"\033[91m[ERROR] {detail}\033[0m")
-        print("\033[91m[ERROR] Configured microphone not found. Pick a "
-              "different one in Settings, or reconnect the device, then "
-              "click Save & Restart.\033[0m")
+            text += f" ({detail})"
+        text += ". Reconnect the device or pick a different one in Settings."
+        log("mic-fault", text)
         from vdict.common.config import EXIT_NO_MICROPHONE
         sys.exit(EXIT_NO_MICROPHONE)
 
