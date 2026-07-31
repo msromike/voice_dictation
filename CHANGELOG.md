@@ -30,6 +30,11 @@ All notable changes to this project are documented here. Format follows
   comes. The console explains why: "Not transcribed -- hold the button at
   least 0.4s."
 
+- A clear error when the AI model fails to load, instead of a crash. A popup
+  and the output window name the model and the actual error; Settings stays
+  open underneath so you can pick a different model and Save & Restart
+  without relaunching the app.
+
 ### Changed
 
 - Enable Audio Beeps now silences only the start and stop tones. The double beep
@@ -55,6 +60,12 @@ All notable changes to this project are documented here. Format follows
 - The window that shows dictation activity is now called the output window
   throughout. The Settings checkbox reads "Show Output on Startup", previously
   "Show Console on Startup".
+
+- A missing microphone now closes the app entirely instead of leaving it in a
+  half-working state -- an error box with Settings open behind it, but the
+  speech engine already dead. Reconnect the device or pick a different one,
+  then relaunch: Settings reopens automatically with an explanation of what
+  happened, no need to hunt for it.
 
 ### Fixed
 
