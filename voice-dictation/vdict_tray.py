@@ -17,6 +17,8 @@ import shutil
 import os
 import glob
 import json
+import logging
+import logging.handlers
 import tkinter as tk
 from tkinter import scrolledtext, messagebox, filedialog
 from datetime import datetime
@@ -63,6 +65,13 @@ LOG_DIR.mkdir(parents=True, exist_ok=True)
 ERROR_LOG_PATH = LOG_DIR / "tray_error.log"
 MIC_FAULT_FLAG_PATH = Path(__file__).parent.parent / "userdata" / "mic_fault.flag"
 
+# B14 groundwork -- gated on a flag, not a Settings checkbox yet.
+TRANSCRIPT_LOG_ENABLED = False
+TRANSCRIPT_LOG_PATH = LOG_DIR / "transcript_log.txt"
+
+# SWALLOW's first real caller -- no Settings/UI integration yet either.
+transcript_only_mode = False
+
 # Single source for the project URL -- it appears in the console banner, the
 # About box, and the Help menu.
 PROJECT_URL = "https://github.com/msromike/voice_dictation"
@@ -77,17 +86,13 @@ CONSOLE_FONT_MAX = 32
 # can never drift into two different wordings.
 VOCABULARY_RESET_MESSAGE = "vocabulary.txt not found -- restored from template."
 
-# Categories suppressed from window display -- empty until step 7's
-# transcript_only_mode gives it a real caller.
-SWALLOW: set[str] = set()
+def _swallow_set():
+    """Categories currently suppressed from window display."""
+    return {"rec", "done"} if transcript_only_mode else set()
 
 # CategorySpec.color -> the Tk tag that renders it. "none" has no entry --
 # absent from this map means the widget's default foreground.
 COLOR_TAGS = {"dim": "sys_dim", "yellow": "sys_yellow", "red": "sys_red"}
-
-# Dev-only File-menu hook for manual category/text dispatch testing.
-# Flip to False (or delete the block below, per step 8b) to remove.
-LOG_PROBE_ENABLED = True
 
 
 def _summarize_config_error(exc):
@@ -202,6 +207,21 @@ def _write_error_log(context, text):
     with open(ERROR_LOG_PATH, "a", encoding="utf-8") as f:
         f.write("\n" + "=" * 60 + "\n")
         f.write(f"{context}\n{text}")
+
+
+_transcript_logger = logging.getLogger("vdict.transcript")
+_transcript_logger.propagate = False
+_transcript_logger.setLevel(logging.INFO)
+_transcript_handler = logging.handlers.RotatingFileHandler(
+    TRANSCRIPT_LOG_PATH, maxBytes=10 * 1024 * 1024, backupCount=1,
+    encoding="utf-8", delay=True)
+_transcript_handler.setFormatter(logging.Formatter("%(message)s"))
+_transcript_logger.addHandler(_transcript_handler)
+
+
+def transcript_log(text):
+    """Append one raw-text line to transcript_log.txt -- no timestamp, no level."""
+    _transcript_logger.info(text)
 
 
 def _geometry_origin(geometry):
@@ -549,9 +569,6 @@ class VoiceDictationTray:
                               command=self.open_settings)
         file_menu.add_command(label="Hide to Tray", underline=0,
                               command=self.hide_window)
-        if LOG_PROBE_ENABLED:
-            file_menu.add_separator()
-            file_menu.add_command(label="Log Probe...", command=self._open_log_probe)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", underline=1, command=self.exit_app)
         menubar.add_cascade(label="File", underline=0, menu=file_menu)
@@ -626,31 +643,6 @@ class VoiceDictationTray:
         if self._reseed_vocabulary_if_missing():
             self.log("note", VOCABULARY_RESET_MESSAGE)
         os.startfile(VOCABULARY_PATH)
-
-    def _open_log_probe(self):
-        """Dev hook: one dialog with category + text fields, dispatched through self.log()."""
-        dialog = tk.Toplevel(self.window)
-        dialog.title("Log Probe")
-        dialog.transient(self.window)
-        dialog.grab_set()
-
-        tk.Label(dialog, text="Category:").grid(row=0, column=0, sticky="e", padx=5, pady=5)
-        category_var = tk.StringVar()
-        category_entry = tk.Entry(dialog, textvariable=category_var)
-        category_entry.grid(row=0, column=1, padx=5, pady=5)
-        category_entry.focus_set()
-
-        tk.Label(dialog, text="Text:").grid(row=1, column=0, sticky="e", padx=5, pady=5)
-        text_var = tk.StringVar()
-        tk.Entry(dialog, textvariable=text_var).grid(row=1, column=1, padx=5, pady=5)
-
-        def submit(event=None):
-            dialog.destroy()
-            if category_var.get():
-                self.log(category_var.get(), text_var.get())
-
-        tk.Button(dialog, text="OK", command=submit).grid(row=2, column=0, columnspan=2, pady=5)
-        dialog.bind("<Return>", submit)
 
     def _save_log_as(self):
         """Write the console log to a text file.
@@ -817,6 +809,7 @@ class VoiceDictationTray:
                 self.text.config(state=tk.NORMAL)
                 spec = output.CATEGORIES[category] if category is not None else None
                 tags = (COLOR_TAGS[spec.color],) if spec and spec.color in COLOR_TAGS else ()
+                swallow = _swallow_set()
 
                 if self.is_loading_model and category != "loading":
                     self.text.insert(tk.END, "\n")
@@ -824,16 +817,23 @@ class VoiceDictationTray:
                         self.is_loading_model = False
 
                 if category == "loading":
-                    if category not in SWALLOW:
+                    if category not in swallow:
                         self.text.insert(tk.END, text, *tags)
                     self.is_loading_model = True
                     self.window.after(1000, self._animate_dots)
-                elif category not in SWALLOW:
+                elif category not in swallow:
                     if spec and spec.marker:
                         body = f"[{spec.marker}]" + (f" {text}" if text else "")
                     else:
                         body = text
-                    self.text.insert(tk.END, body + "\n", *tags)
+                    # Blank line only when DONE is swallowed too -- bookended,
+                    # the markers already separate consecutive transcripts.
+                    trailer = "\n\n" if category == "transcript" and "done" in swallow else "\n"
+                    self.text.insert(tk.END, body + trailer, *tags)
+
+                if category == "transcript" and TRANSCRIPT_LOG_ENABLED:
+                    transcript_log(text)
+                    transcript_log("")
 
                 if spec and spec.toast and self.window.state() != 'normal':
                     self.icon.notify(text, "Voice Dictation")
@@ -929,21 +929,26 @@ class VoiceDictationTray:
         win32gui.SetForegroundWindow(int(self.window.wm_frame(), 0))
         self.log("note", f"{self.hotkey_name} raised the output window")
 
-    def _show_mic_fault(self, text):
-        """mic-fault's dispatch bundle: raise the window, open Settings as
-        signage underneath, then a blocking modal naming the problem."""
+    def _build_fault_modal(self, title, text):
+        """Shared shape for mic-fault/model-fault: raise the window, open Settings
+        as signage underneath, an application-modal Toplevel naming the problem."""
         self._fault_shown = True
         self.window.deiconify()
         self.open_settings()
 
         modal = tk.Toplevel(self.settings_win)
-        modal.title("No Microphone Detected")
+        modal.title(title)
         modal.transient(self.settings_win)
         modal.grab_set()
 
         tk.Label(modal, text=text, wraplength=int(360 * self.dpi_scale),
                  justify="left", padx=int(20 * self.dpi_scale),
                  pady=int(20 * self.dpi_scale)).pack()
+        return modal
+
+    def _show_mic_fault(self, text):
+        """mic-fault's dispatch bundle -- Close writes the resume flag then force-quits."""
+        modal = self._build_fault_modal("No Microphone Detected", text)
 
         def close():
             MIC_FAULT_FLAG_PATH.write_text(text)
@@ -954,21 +959,9 @@ class VoiceDictationTray:
         modal.protocol("WM_DELETE_WINDOW", close)
 
     def _show_model_fault(self, text):
-        """model-fault's dispatch bundle -- same as mic-fault's, but no flag
-        written; Save & Restart (existing, unchanged) is the recovery."""
-        self._fault_shown = True
-        self.window.deiconify()
-        self.open_settings()
-
-        modal = tk.Toplevel(self.settings_win)
-        modal.title("Model Load Failed")
-        modal.transient(self.settings_win)
-        modal.grab_set()
-
-        tk.Label(modal, text=text, wraplength=int(360 * self.dpi_scale),
-                 justify="left", padx=int(20 * self.dpi_scale),
-                 pady=int(20 * self.dpi_scale)).pack()
-
+        """model-fault's dispatch bundle -- OK just closes the modal; Save & Restart
+        (existing, unchanged) is the recovery."""
+        modal = self._build_fault_modal("Model Load Failed", text)
         tk.Button(modal, text="OK", command=modal.destroy).pack(
             pady=(0, int(20 * self.dpi_scale)))
         modal.protocol("WM_DELETE_WINDOW", modal.destroy)

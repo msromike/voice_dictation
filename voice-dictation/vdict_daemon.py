@@ -17,6 +17,7 @@ from vdict.common.output import log
 import wave
 import os
 import queue
+from datetime import datetime
 import numpy as np
 import sounddevice as sd
 
@@ -158,7 +159,8 @@ def main():  # noqa: PLR0915
     # Closes the session block. Dashes, not the startup header's equals signs --
     # this divides sections, it does not open the log. Blank line after.
     log("ready", f"Voice Dictation v{__version__} READY")
-    log("block", "-" * 60)
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log("block", f" {timestamp} ".center(60, "-"))
     log("block", "")
     play_tone("ready", enabled=audio_feedback)
 

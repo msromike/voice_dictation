@@ -11,6 +11,9 @@ All notable changes to this project are documented here. Format follows
 - A double beep when the speech engine finishes loading, so you know it is ready
   without watching the output window. It also sounds after Save & Restart.
 
+- A timestamp centered in the divider line under READY, so a restart's start
+  time is visible at a glance when scanning back through the output window.
+
 - A hotkey that raises the output window from any application. Bind it in
   Settings under "Output Window Hotkey". Nothing is bound out of the box --
   any combination shipped as a default would collide on somebody's machine and
