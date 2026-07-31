@@ -39,3 +39,6 @@ Durable facts go in a code comment at the point of temptation
 ## Processes
 venv\Scripts\pythonw.exe is a redirector stub -- every logical process appears TWICE.
 Four pythonw = normal. Filter on "vdict", not "voice_dictation".
+
+## Search
+.docs/ is hidden+gitignored -- ripgrep skips it by default; .rgignore re-includes it.
