@@ -51,6 +51,9 @@ ERROR_ALREADY_EXISTS = 183
 # GetSystemMetrics index for the tray/small-icon edge length.
 SM_CXSMICON = 49
 
+# MessageBoxW icon flag, used where Tk itself could be the thing that's broken.
+MB_ICONERROR = 0x10
+
 # Shared by the tray, the Desktop shortcut and the Startup shortcut.
 ICON_PATH = Path(__file__).parent.parent / "images" / "vdict.ico"
 
@@ -194,13 +197,11 @@ def save_settings(config):
         f.write(Config.model_validate(config).model_dump_json(indent=2))
 
 
-def _log_error(context, exc):
-    """Append a caught exception to the error log.
-    For errors raised inside the console handler, where reporting to it would loop."""
+def _write_error_log(context, text):
+    """Append one pre-formatted entry to the error log. Disk-write only, no screen."""
     with open(ERROR_LOG_PATH, "a", encoding="utf-8") as f:
         f.write("\n" + "=" * 60 + "\n")
-        f.write("%s: %s: %s\n" % (context, type(exc).__name__, exc))
-        traceback.print_exc(file=f)
+        f.write(f"{context}\n{text}")
 
 
 def _geometry_origin(geometry):
@@ -381,11 +382,11 @@ class _PTTCapture:
         self.btn_var.set(val)
         self.end(disp)
 
-    def failed(self, exc):
+    def failed(self, text):
         """Nothing about the key was usable. All three surfaces say so."""
         if self.done:
             return
-        _log_error("PTT rebind", exc)
+        self.tray.error_log("PTT rebind", text)
         self.tray.log("error", "Could not bind that key.")
         self.end(self.previous)
 
@@ -402,23 +403,31 @@ class _PTTCapture:
             else:
                 val, disp = f"key:{name}", name.replace("_", " ").title()
             self.tray.window.after(0, lambda: self.accept(val, disp))
-        except Exception as exc:
-            # Bind exc as a default: Python clears the name leaving the block.
-            self.tray.window.after(0, lambda e=exc: self.failed(e))
+        except Exception:
+            # Format now, inside the except block -- sys.exc_info() is gone
+            # by the time the deferred call below actually runs.
+            text = traceback.format_exc()
+            self.tray.window.after(0, lambda t=text: self.failed(t))
         return False
 
     def _on_click(self, x, y, button, pressed):
         """Only BUTTON_MAP binds; anything else is ignored and the capture stays
         open. Left especially -- it is how the dialog itself is operated."""
-        # Deferred for the same reason as start()'s pynput import.
-        from vdict.daemon.keyboard import BUTTON_MAP
+        try:
+            # Deferred for the same reason as start()'s pynput import.
+            from vdict.daemon.keyboard import BUTTON_MAP
 
-        if not pressed or button.name not in BUTTON_MAP:
-            return None
-        disp = (f"Mouse Side ({button.name.upper()})"
-                if button.name in ("x1", "x2")
-                else f"Mouse {button.name.capitalize()}")
-        self.tray.window.after(0, lambda: self.accept(button.name, disp))
+            if not pressed or button.name not in BUTTON_MAP:
+                return None
+            disp = (f"Mouse Side ({button.name.upper()})"
+                    if button.name in ("x1", "x2")
+                    else f"Mouse {button.name.capitalize()}")
+            self.tray.window.after(0, lambda: self.accept(button.name, disp))
+        except Exception:
+            # Format now, inside the except block -- sys.exc_info() is gone
+            # by the time the deferred call below actually runs.
+            text = traceback.format_exc()
+            self.tray.window.after(0, lambda t=text: self.failed(t))
         return False
 
 
@@ -503,23 +512,25 @@ class VoiceDictationTray:
         self.window.report_callback_exception = self._report_callback_exception
 
     def _report_callback_exception(self, exc_type, exc_value, exc_tb):
-        """Log a Tkinter callback error and raise a toast about it"""
-        with open(ERROR_LOG_PATH, "a", encoding="utf-8") as f:
-            f.write("\n" + "=" * 60 + "\n")
-            traceback.print_exception(exc_type, exc_value, exc_tb, file=f)
+        """Log a Tkinter callback error, then exit -- something inside Tk's own
+        callback dispatch already failed, so Tk itself could be broken too."""
+        text = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
+        self.error_log("Tk callback", text)
 
         summary = f"{exc_type.__name__}: {exc_value}"
         if len(summary) > 120:  # noqa: PLR2004 -- display truncation, not a contract
             summary = summary[:117] + "..."
 
-        # Toasts get truncated and are suppressed under Focus Assist, so the
-        # log above is the durable half -- this just tells them to go look.
+        # Native, not messagebox.showerror -- a Tk-based modal risks failing
+        # recursively in exactly the case this handler exists to report.
         try:
-            self.icon.notify(
-                f"{summary}\n\nDetails written to {ERROR_LOG_PATH}",
-                "Voice Dictation error")
+            ctypes.windll.user32.MessageBoxW(
+                None, f"{summary}\n\nDetails written to {ERROR_LOG_PATH}",
+                "Voice Dictation error", MB_ICONERROR)
         except Exception:
             pass
+
+        self._force_quit()
 
     def _build_menu(self):
         """Build the CUA-style menu bar.
@@ -780,6 +791,18 @@ class VoiceDictationTray:
         """Put (category, text) on output_queue -- no wire format needed in-process."""
         self.output_queue.put((category, text))
 
+    def error_log(self, context, text):
+        """Write to the error log, then best-effort dump the same text onto the screen.
+        A screen failure must never undo the disk write already committed above it."""
+        _write_error_log(context, text)
+        try:
+            self.text.config(state=tk.NORMAL)
+            self.text.insert(tk.END, f"\n{context}\n{text}\n")
+            self.text.see(tk.END)
+            self.text.config(state=tk.DISABLED)
+        except Exception:
+            pass
+
     def _read_output(self, stdout):
         """Read subprocess output and queue it"""
         for line in stdout:
@@ -825,8 +848,8 @@ class VoiceDictationTray:
                 self.text.config(state=tk.DISABLED)
         except queue.Empty:
             pass
-        except Exception as e:
-            _log_error("Output update error", e)
+        except Exception:
+            self.error_log("Output update error", traceback.format_exc())
 
     # Dispatches on daemon output markers. Split by backlog B1.
     def _update_output(self):
@@ -842,8 +865,8 @@ class VoiceDictationTray:
                     self._drain_output_queue()
                     if not self._fault_shown:
                         self.log("error", f"vdict_daemon.py exited with code {exit_code}")
-        except Exception as e:
-            _log_error("Exit-check error", e)
+        except Exception:
+            self.error_log("Exit-check error", traceback.format_exc())
         finally:
             # Always reschedule, even if a widget update failed, so the log
             # window can't silently freeze forever on one bad update
@@ -1358,9 +1381,9 @@ class VoiceDictationTray:
         for step, meaning in steps:
             try:
                 step()
-            except Exception as exc:
+            except Exception:
                 any_failed = True
-                self._report_callback_exception(type(exc), exc, exc.__traceback__)
+                self.error_log("Shutdown step", traceback.format_exc())
                 try:
                     self.log("error", f"{step.__name__}: {meaning}")
                 except Exception:
@@ -1454,23 +1477,19 @@ class VoiceDictationTray:
 
 def _log_startup_crash():
     """Write an unhandled startup exception to the error log and show it on screen"""
-    summary = traceback.format_exc().strip().splitlines()[-1]
-
-    with open(ERROR_LOG_PATH, "a", encoding="utf-8") as f:
-        f.write("\n" + "=" * 60 + "\n")
-        traceback.print_exc(file=f)
+    text = traceback.format_exc()
+    summary = text.strip().splitlines()[-1]
+    _write_error_log("Startup crash", text)
 
     # Config has no fallbacks, so a malformed config.json lands here. There is
     # no console yet at this point, so the dialog is the only visible surface.
     try:
-        root = tk.Tk()
-        root.withdraw()
-        messagebox.showerror(
-            "Voice Dictation failed to start",
+        ctypes.windll.user32.MessageBoxW(
+            None,
             f"{summary}\n\nFull details were written to:\n{ERROR_LOG_PATH}\n\n"
             f"If this mentions config.json, delete that file and relaunch "
-            f"to restore the default settings.")
-        root.destroy()
+            f"to restore the default settings.",
+            "Voice Dictation failed to start", MB_ICONERROR)
     except Exception:
         # Never let the error reporter mask the original traceback, which
         # the caller re-raises and the log above already captured.

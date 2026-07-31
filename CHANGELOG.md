@@ -67,7 +67,21 @@ All notable changes to this project are documented here. Format follows
   then relaunch: Settings reopens automatically with an explanation of what
   happened, no need to hunt for it.
 
+- An unexpected error in the app's own interface now shows a plain system
+  dialog and closes the whole app, instead of a notification toast that left
+  it running in a possibly broken state. A crash during startup shows the
+  same kind of dialog. Both work even when the failure is inside the app's
+  own display code, which a toast or a styled dialog could not guarantee.
+
 ### Fixed
+
+- A push-to-talk rebind failure's entry in the error log now contains a real
+  traceback. It previously recorded nothing useful, because the error detail
+  was gone by the time it got written down.
+
+- Binding push-to-talk to a mouse button that fails to register no longer
+  crashes silently in the background. It's now reported the same way a
+  keyboard-side failure already was.
 
 - Exit no longer gets stuck. Previously, if any step of shutting down failed --
   saving the console's state, stopping the daemon, or removing the tray icon --
