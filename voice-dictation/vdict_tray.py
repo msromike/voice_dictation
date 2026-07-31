@@ -18,7 +18,7 @@ import os
 import glob
 import json
 import tkinter as tk
-from tkinter import scrolledtext, messagebox, filedialog
+from tkinter import scrolledtext, messagebox, filedialog, simpledialog
 from datetime import datetime
 import webbrowser
 import re
@@ -36,6 +36,7 @@ from pydantic import ValidationError
 from vdict.common.config import (
     Config, CONFIG_PATH, HotkeyConfig, Pos, VOCABULARY_PATH, VOCABULARY_TEMPLATE_PATH,
     EXIT_NO_MICROPHONE)
+from vdict.common import output
 from vdict.tray import hotkey
 
 try:
@@ -73,6 +74,18 @@ CONSOLE_FONT_MAX = 32
 # can never drift into two different wordings.
 VOCABULARY_RESET_MESSAGE = (
     "[VOCABULARY RESET] vocabulary.txt not found -- restored from template.")
+
+# Categories suppressed from window display -- empty until step 7's
+# transcript_only_mode gives it a real caller.
+SWALLOW: set[str] = set()
+
+# CategorySpec.color -> the Tk tag that renders it. "none" has no entry --
+# absent from this map means the widget's default foreground.
+COLOR_TAGS = {"dim": "sys_dim", "yellow": "sys_yellow", "red": "sys_red"}
+
+# Dev-only File-menu hook for manual category/text dispatch testing.
+# Flip to False (or delete the block below, per step 8b) to remove.
+LOG_PROBE_ENABLED = True
 
 
 def _summarize_config_error(exc):
@@ -458,6 +471,8 @@ class VoiceDictationTray:
         )
         self.text.tag_configure(
             "sys_dim", foreground="#707070")  # Map ANSI dim gray
+        self.text.tag_configure("sys_yellow", foreground="#e5c07b")
+        self.text.tag_configure("sys_red", foreground="#f44747")
         self.text.pack(fill=tk.BOTH, expand=True)
         self.text.config(state=tk.DISABLED)
 
@@ -536,6 +551,9 @@ class VoiceDictationTray:
                               command=self.open_settings)
         file_menu.add_command(label="Hide to Tray", underline=0,
                               command=self.hide_window)
+        if LOG_PROBE_ENABLED:
+            file_menu.add_separator()
+            file_menu.add_command(label="Log Probe...", command=self._open_log_probe)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", underline=1, command=self.exit_app)
         menubar.add_cascade(label="File", underline=0, menu=file_menu)
@@ -610,6 +628,14 @@ class VoiceDictationTray:
         if self._reseed_vocabulary_if_missing():
             self.output_queue.put(VOCABULARY_RESET_MESSAGE)
         os.startfile(VOCABULARY_PATH)
+
+    def _open_log_probe(self):
+        """Dev hook: prompt for a category and text, then dispatch through self.log()."""
+        category = simpledialog.askstring("Log Probe", "Category:", parent=self.window)
+        if not category:
+            return
+        text = simpledialog.askstring("Log Probe", "Text:", parent=self.window) or ""
+        self.log(category, text)
 
     def _save_log_as(self):
         """Write the console log to a text file.
@@ -729,8 +755,6 @@ class VoiceDictationTray:
         # NOT here: it greets once from run(), never again on a restart.
         self._log_session_block(self.process.pid)
 
-        self.notified_slow_boot = False
-
         self.is_loading_model = False
 
         # Start thread to read output
@@ -747,62 +771,44 @@ class VoiceDictationTray:
             self.text.config(state=tk.DISABLED)
             self.window.after(1000, self._animate_dots)
 
+    def log(self, category, text):
+        """Put (category, text) on output_queue -- no wire format needed in-process."""
+        self.output_queue.put((category, text))
+
     def _read_output(self, stdout):
         """Read subprocess output and queue it"""
         for line in stdout:
-            self.output_queue.put(line.rstrip())
+            self.output_queue.put(output.parse(line.rstrip()))
 
     # Dispatches on daemon output markers. Split by backlog B1.
-    def _update_output(self):  # noqa: C901, PLR0912, PLR0915
+    def _update_output(self):  # noqa: C901, PLR0912
         """Update text widget with queued output"""
         try:
             while True:
-                line = self.output_queue.get_nowait()
+                category, text = self.output_queue.get_nowait()
                 self.text.config(state=tk.NORMAL)
+                spec = output.CATEGORIES[category] if category is not None else None
+                tags = (COLOR_TAGS[spec.color],) if spec and spec.color in COLOR_TAGS else ()
 
-                # Check for our hardcoded ANSI dim code
-                is_dim = "\033[90m" in line
-
-                # Strip all ANSI codes so they don't print as literal text
-                clean_line = re.sub(r'\033\[[0-9;]*m', '', line)
-
-                # Handle boot notification reset
-                if "[SYSTEM] INITIATING DOWNLOAD" in clean_line:
-                    self.notified_slow_boot = True
-                    if hasattr(self, 'icon') and self.icon:
-                        self.icon.notify(
-                            "First-time setup: Downloading AI model. This may take a minute...",
-                            "Downloading Model")
-                            
-                # Match both words; the version sits between them. Bare "READY"
-                # is too loose -- transcribed speech flows through this stream.
-                elif "Voice Dictation v" in clean_line and "READY" in clean_line:
-                    if getattr(self, 'is_loading_model', False):
-                        # Close the dotted line
-                        self.text.insert(tk.END, "\n")
-                        self.is_loading_model = False
-                        
-                    if getattr(self, 'notified_slow_boot', False):
-                        if hasattr(self, 'icon') and self.icon:
-                            self.icon.notify(
-                                "Model download complete. Voice Dictation is ready!", "Ready")
-                        self.notified_slow_boot = False
-
-                # "Loading ..." is left unterminated so _animate_dots can append.
-                # Close that run first, or the next line lands mid-dots.
-                if (getattr(self, 'is_loading_model', False)
-                        and not clean_line.startswith("Loading ")):
+                if self.is_loading_model and category != "loading":
                     self.text.insert(tk.END, "\n")
+                    if category == "ready":
+                        self.is_loading_model = False
 
-                if is_dim:
-                    if clean_line.startswith("Loading "):
-                        self.text.insert(tk.END, clean_line, "sys_dim")
-                        self.is_loading_model = True
-                        self.window.after(1000, self._animate_dots)
+                if category == "loading":
+                    if category not in SWALLOW:
+                        self.text.insert(tk.END, text, *tags)
+                    self.is_loading_model = True
+                    self.window.after(1000, self._animate_dots)
+                elif category not in SWALLOW:
+                    if spec and spec.marker:
+                        body = f"[{spec.marker}]" + (f" {text}" if text else "")
                     else:
-                        self.text.insert(tk.END, clean_line + "\n", "sys_dim")
-                else:
-                    self.text.insert(tk.END, clean_line + "\n")
+                        body = text
+                    self.text.insert(tk.END, body + "\n", *tags)
+
+                if spec and spec.toast and self.window.state() != 'normal':
+                    self.icon.notify(text, "Voice Dictation")
 
                 self.text.see(tk.END)
                 self.text.config(state=tk.DISABLED)

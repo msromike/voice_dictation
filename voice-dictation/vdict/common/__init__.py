@@ -1,1 +1,1 @@
-"""Modules shared by both the daemon and the tray: config."""
+"""Modules shared by both the daemon and the tray: config, output."""

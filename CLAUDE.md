@@ -5,8 +5,11 @@ Windows desktop PTT daemon.
 Use the `commit-per-protocol` skill, not the global Commit Protocol.
 
 ## SPOP
-Propose chunks (end with question) -> approved -> implement 1 -> STOP -> "works" -> implement 2 -> STOP
-Never propose+implement same turn.
+Per item: review the code it touches against current disk state -> explain it, grounded in
+that review, not the doc alone -> end with a question naming the item -> approved -> implement
+-> STOP -> report done/problems -> next item.
+Never propose+implement same turn. Never explain an item from the build sheet's text without
+first confirming it against the code as it exists right now.
 
 ## Code
 - crash-fast: no null checks between internal modules
