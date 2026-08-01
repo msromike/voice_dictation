@@ -51,6 +51,15 @@ All notable changes to this project are documented here. Format follows
   left alone. A file that cannot be parsed at all still resets in full, since
   there is nothing left to preserve in that case.
 
+- The missing-microphone message now names the specific microphone Voice
+  Dictation was configured to use, or says so plainly if none was set. Seeing
+  "no microphone detected" for a device you can see is plugged in reads as a
+  broken app; naming it makes clear which one to reconnect.
+
+- The failed-to-load-model message now says what to do about it -- pick a
+  different model or switch to CPU in Settings, then Save & Restart --
+  instead of just naming the underlying error.
+
 - The output window opens with a header naming the push-to-talk mode and
   trigger, the hotkey, the compute device, and the model. The model line
   carries its real size on disk, which is what tells you a large model will not

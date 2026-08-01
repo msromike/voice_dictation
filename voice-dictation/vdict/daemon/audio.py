@@ -36,6 +36,7 @@ class AudioCapture:
         """Resolve the configured input device. Opens no stream.
         Whisper requires sample_rate=16000. required_device matches a name substring."""
         self.sample_rate = sample_rate
+        self.required_device = required_device
         self.recording = False
         self.buffer = []
         self.stream = None
@@ -64,13 +65,15 @@ class AudioCapture:
         """Log the standard no-microphone message and exit. Shared by device
         lookup at startup and stream-open failure mid-session."""
         import sys
-        text = "Configured microphone not found"
+        if self.required_device:
+            text = f'Microphone "{self.required_device}" not found'
+        else:
+            text = "No default microphone found"
         if detail:
             text += f" ({detail})"
         text += ". Reconnect the device or pick a different one in Settings."
         log("mic-fault", text)
-        from vdict.common.config import EXIT_NO_MICROPHONE
-        sys.exit(EXIT_NO_MICROPHONE)
+        sys.exit(1)
 
     def start_capture(self):
         """Start capturing audio from microphone"""

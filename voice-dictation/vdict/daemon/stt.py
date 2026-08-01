@@ -47,7 +47,10 @@ class STTEngine:
                 compute_type=compute_type)
         except Exception as e:
             import sys
-            log("model-fault", f"Failed to load Whisper model '{self.model_name}': {e}")
+            log("model-fault",
+                f"Failed to load Whisper model '{self.model_name}': {e}. "
+                f"Pick a different model or switch to CPU in Settings, "
+                f"then Save & Restart.")
             sys.exit(1)
 
     def wake_gpu(self):

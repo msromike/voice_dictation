@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 # User-editable word list, seeded from the tracked template when absent.
 VOCABULARY_PATH = Path(__file__).parent.parent.parent.parent / "userdata" / "vocabulary.txt"
@@ -12,8 +12,6 @@ VOCABULARY_TEMPLATE_PATH = (
 
 # Single source for both processes -- the tray writes this path, the daemon reads it.
 CONFIG_PATH = Path(__file__).parent.parent.parent.parent / "userdata" / "config.json"
-
-EXIT_NO_MICROPHONE = 2
 
 
 class Pos(BaseModel):
@@ -85,7 +83,12 @@ def load_config():
             f"Config file not found: {CONFIG_PATH}. Launch via run.bat -- "
             f"the tray seeds config.json from the Config model's defaults.")
 
-    return read_config()
+    try:
+        return read_config()
+    except ValidationError as exc:
+        raise RuntimeError(
+            f"config.json is invalid: {exc}. Fix the file, or delete it "
+            f"and relaunch to reseed it from its own defaults.") from exc
 
 
 def load_vocabulary():
