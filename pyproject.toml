@@ -5,7 +5,7 @@ line-length = 100
 # vulture_whitelist.py is bare names by design -- it is vulture input, not code.
 exclude = ["venv", "images", "tools/vulture_whitelist.py"]
 
-# LOAD-BEARING. Must track the floor declared in README.md and setup.bat, NOT
+# LOAD-BEARING. Must track the floor declared in README.md and vdict_install.bat, NOT
 # the installed interpreter. This is what catches syntax newer than we promise
 # to support -- it found six 3.12-only f-strings against a declared 3.10 floor.
 target-version = "py310"

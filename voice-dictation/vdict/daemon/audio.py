@@ -67,11 +67,14 @@ class AudioCapture:
         import sys
         if self.required_device:
             text = f'Microphone "{self.required_device}" not found'
+            suffix = (". Reconnect the device or pick a different one in "
+                      "Settings -- System Default is recommended.")
         else:
             text = "No default microphone found"
+            suffix = ". Reconnect the device or pick a different one in Settings."
         if detail:
             text += f" ({detail})"
-        text += ". Reconnect the device or pick a different one in Settings."
+        text += suffix
         log("mic-fault", text)
         sys.exit(1)
 

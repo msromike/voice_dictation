@@ -1024,7 +1024,7 @@ class VoiceDictationTray:
         if wasapi is None:
             raise RuntimeError(
                 "Windows WASAPI audio backend not available. The sounddevice "
-                "install is incomplete -- rerun setup.bat.")
+                "install is incomplete -- rerun vdict_install.bat.")
 
         mic_names = [dev['name'] for dev in sd.query_devices()
                      if dev['hostapi'] == wasapi

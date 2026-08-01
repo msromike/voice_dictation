@@ -5,7 +5,7 @@ set "PYTHONW_PATH=%~dp0venv\Scripts\pythonw.exe"
 set "VDICT_TRAY=%~dp0voice-dictation\vdict_tray.py"
 
 if not exist "%PYTHONW_PATH%" (
-    echo [ERROR] Virtual environment not found. Please run setup.bat first.
+    echo [ERROR] Virtual environment not found. Please run vdict_install.bat first.
     pause
     exit /b 1
 )

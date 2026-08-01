@@ -22,7 +22,9 @@ echo Installing dependencies...
 echo NOTE: This will download ~1.4GB of NVIDIA CUDA binaries so you don't have to install the toolkit manually. This may take a few minutes depending on your internet speed.
 pip install -r requirements.txt
 echo Creating Desktop and Startup shortcuts...
-call install_startup.bat
-powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut(\"$HOME\Desktop\Voice Dictation.lnk\"); $Shortcut.TargetPath = \"%~dp0run.bat\"; $Shortcut.WorkingDirectory = \"%~dp0\"; $Shortcut.IconLocation = \"%~dp0images\vdict.ico\"; $Shortcut.Save()"
-echo Setup complete! You can now run the app from your Desktop or using run.bat
+call startup_folder_install.bat
+set "PYTHONW_PATH=%~dp0venv\Scripts\pythonw.exe"
+set "VDICT_TRAY=%~dp0voice-dictation\vdict_tray.py"
+powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut(\"$HOME\Desktop\Voice Dictation.lnk\"); $Shortcut.TargetPath = '%PYTHONW_PATH%'; $Shortcut.Arguments = '\"%VDICT_TRAY%\"'; $Shortcut.WorkingDirectory = \"%~dp0\"; $Shortcut.IconLocation = \"%~dp0images\vdict.ico\"; $Shortcut.Save()"
+echo Setup complete! You can now run the app from your Desktop or using vdict_run.bat
 pause

@@ -27,14 +27,14 @@ you install Python, tick **"Add python.exe to PATH"** -- the installer hides it
 at the bottom of the first screen and nothing works without it.
 
 1. Download or clone this repository.
-2. Run `setup.bat`.
+2. Run `vdict_install.bat`.
 3. Wait. It downloads about 1.4GB of NVIDIA CUDA libraries so you do not have
    to install the CUDA toolkit yourself. On a slow connection this takes a
    while.
 4. Launch **Voice Dictation** from the Desktop shortcut it creates.
 
 Setup also adds the app to your Windows startup folder so it runs on login. If
-you do not want that, run `uninstall_startup.bat`.
+you do not want that, run `startup_folder_uninstall.bat`.
 
 The first time you dictate, the app downloads the speech model itself (about
 140MB for the default). You get a notification when it starts and another when
@@ -116,7 +116,7 @@ alt="The Settings window, showing microphone, push-to-talk button and mode, mode
 
 | Setting | Options |
 |---|---|
-| Microphone | System default, or any specific mic |
+| Microphone | Pick yours by name from the list -- no "system default" option |
 | PTT Button Trigger | Click it, then press any key or mouse button to bind it -- left-click excepted |
 | PTT Recording Mode | **Hold** (hold to talk) or **Toggle** (click to start, click to stop) |
 | AI Model Size | tiny.en, base.en, small.en, medium.en, large-v3 |
@@ -231,7 +231,7 @@ Text is delivered by putting it on the clipboard and sending Ctrl+V, which is
 fast and works nearly everywhere. Its drawbacks are in Known Limitations above.
 
 CUDA libraries are found by scanning site-packages rather than requiring a
-system CUDA install, which is why `setup.bat` can pull them in with pip. On GPU,
+system CUDA install, which is why `vdict_install.bat` can pull them in with pip. On GPU,
 pressing the button also fires a silent dummy transcription to wake the card up
 while you are still talking, so the first word is not slower than the rest.
 

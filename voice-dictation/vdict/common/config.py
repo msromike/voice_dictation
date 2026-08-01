@@ -80,7 +80,7 @@ def load_config():
     The tray seeds config.json before this process starts."""
     if not CONFIG_PATH.exists():
         raise RuntimeError(
-            f"Config file not found: {CONFIG_PATH}. Launch via run.bat -- "
+            f"Config file not found: {CONFIG_PATH}. Launch via vdict_run.bat -- "
             f"the tray seeds config.json from the Config model's defaults.")
 
     try:

@@ -132,6 +132,15 @@ All notable changes to this project are documented here. Format follows
   characters are common in Whisper's output. Both processes now communicate
   over UTF-8 explicitly instead of falling back to the system default.
 
+- The installer's Desktop shortcut no longer points at a batch file. It now
+  launches the venv's `pythonw.exe` directly with the tray script as an
+  argument, the same way the Startup-folder shortcut already did -- avoids a
+  console window briefly flashing on launch. Batch files were also renamed
+  for clarity (`setup.bat` to `vdict_install.bat`, `run.bat` to
+  `vdict_run.bat`, `install_startup.bat`/`uninstall_startup.bat` to
+  `startup_folder_install.bat`/`startup_folder_uninstall.bat`), with every
+  reference across the app and README updated to match.
+
 ## [1.0.0] - 2026-07-25
 
 First public release.
