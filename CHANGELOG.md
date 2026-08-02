@@ -87,6 +87,11 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- Settings no longer stays pinned above every other window for as long as
+  it's open. It still pops to the front the moment it appears, but releases
+  that afterward, so switching to another app no longer leaves it floating
+  on top.
+
 - A push-to-talk rebind failure's entry in the error log now contains a real
   traceback. It previously recorded nothing useful, because the error detail
   was gone by the time it got written down.

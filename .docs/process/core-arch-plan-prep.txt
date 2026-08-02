@@ -1,0 +1,27 @@
+VOICE DICTATION - CORE ARCH PREP WORK
+
+Sequenced pre-work for core-arch-plan.txt -- must land before its build
+sheet starts. Drains as each item completes.
+
+
+==============================================================================
+P1. MECHANICAL SPLIT OF open_settings
+==============================================================================
+  - One method per widget section (microphone, PTT config, model/compute,
+    beeps, console-on-boot, hotkey picker), each returning its Tk
+    variable. Window setup its own method. open_settings becomes: window
+    setup, the section calls, then whatever collects the returned values.
+  - No behaviour change -- widgets, defaults, ordering, saved values
+    identical to today.
+  - The collect-and-save step stays inline for this pass; core-arch pulls
+    Save out into its own handler later.
+
+
+==============================================================================
+P2. WRAP stt.transcribe() -- ONE BAD TRANSCRIPTION SHOULDN'T END THE SESSION
+==============================================================================
+  - Wrap the stt.transcribe() call in the PTT loop's per-cycle logic. On
+    exception, log one line, continue to the next cycle.
+  - Core-arch's live reload removes the protection a full restart gives
+    today (a restart kills any in-progress recording too) -- this is the
+    replacement safety net once reload happens in place.

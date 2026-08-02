@@ -1195,6 +1195,9 @@ class VoiceDictationTray:
         # height naturally
         settings_win.geometry(f"+{x}+{y}")
         settings_win.deiconify()  # Show the window at the correct position
+        settings_win.update_idletasks()
+        settings_win.attributes("-topmost", False)
+        settings_win.focus_force()
 
     def _build_hotkey_row(self, parent):
         """Label and picker button for the output-window hotkey.

@@ -1,0 +1,873 @@
+VOICE DICTATION - BUILD SHEET: UNIFIED OUTPUT LOGGING
+
+This build sheet and output-logging-categories-results.csv are self-
+sufficient -- the plan and categories docs they were extracted from are
+gone. Do not go looking for them in git history to fill a gap. If
+something here doesn't stand on its own, flag it for the human reviewer
+instead of reconstructing it from an old draft.
+
+DEVIATION FROM build-sheet-format: launch-gated verification is not held to
+the final step only. Each step that introduces a can't-be-faked condition
+(cannot be exercised through the test hook built in step 2) carries its own
+VERIFY item for that condition, in addition to step 8's full regression
+sweep. Justified by output-logging-plan.txt's MIGRATION SCOPE: "Verify each
+tier's full bundle through it [the test hook] as soon as that tier is built,
+not at the end." Approved 2026-07-30.
+
+
+==============================================================================
+STEP 1  DISPATCH CORE
+==============================================================================
+UNVERIFIED
+  [x] Whether transcribed speech can ever contain an embedded newline --
+      decided rather than tested: never observed in six months of real
+      use, and can't be deliberately forced (it would only come from a
+      model hallucination, not from anything dictated). Not worth chasing
+      with a spike. log() replaces one with a space if it ever occurs (see
+      1c) -- cheap boundary handling for an external, non-deterministic
+      input source, kept regardless of the answer. Exception tracebacks
+      are NOT a concern here -- per DURABLE ERROR LOGGING, they never
+      cross log()'s wire format at all, only error_log()'s separate,
+      non-wire-format path.
+  [x] output_queue has exactly one consumer -- _update_output's
+      self.output_queue.get_nowait(). Confirmed by grep, no other call
+      site reads from it.
+  [x] "category|text".split("|", 1) is safe regardless of what text
+      contains, including a literal "|" -- maxsplit=1 only ever splits at
+      the first occurrence, so text is never re-split. No risk to design
+      around.
+  [x] Toast dispatch's "window not visible" check has no existing
+      mechanism to reuse -- today's two content-sniff toasts fire
+      unconditionally whenever self.icon exists, no visibility check at
+      all. Build one from self.window.state() != 'normal' (covers both
+      withdrawn-to-tray and iconic/minimized), matching the pattern
+      already used in _remember_geometry and the window map/unmap
+      handlers.
+
+  [x] 1a  output_queue's item shape changes from raw string to (category,
+          text) tuple -- every item below depends on this.
+  [x] 1b  vdict/common/output.py: category vocabulary table (header, block,
+          rec, done, note, error, transcript, ready, download, loading) ->
+          color (dim/yellow/red/none), marker (REC/DONE/NOTE/ERROR/none),
+          box (default False), toast-eligible (default False except
+          download/ready). rec and done both resolve dim/REC and dim/DONE
+          respectively -- kept as two categories, not one, so marker stays
+          a pure function of category (see plan's RULES). mic-fault/
+          model-fault rows added in step 5.
+          header and download changed from none to dim -- decided
+          2026-07-31, live-testing found via Log Probe: intent is
+          everything system-generated is dim/yellow/red, transcript is the
+          one deliberate bright-white exception (the user's own dictated
+          text, not app output). header and download were "none" only
+          because their original ANSI codes (bright-white banner, unstyled
+          download line) didn't map cleanly to the four-color vocabulary --
+          not because they were meant to read as bright as transcript.
+  [x] 1c  Daemon-side log(category, text): emits "category|text" to
+          stdout (the wire format). If text contains an embedded newline,
+          replace it with a single space (never strip to nothing -- that
+          risks jamming two fragments together with no space) before
+          framing the line, and ALSO emit a second, separate
+          log("note", "Unexpected line break detected and removed from
+          the output -- if this keeps happening, it's worth a bug
+          report.") call right after -- never inline markup inside the
+          original text itself, which must stay copy-paste clean per
+          transcript's own rule. This makes the rare case self-announcing
+          instead of silently mangling text with no visible sign anything
+          happened.
+  [x] 1d  Tray-side self.log(category, text): puts (category, text)
+          directly on output_queue -- same process, no wire-format string
+          needed.
+  [x] 1e  _read_output: parses "category|text" off the pipe, first "|"
+          only, puts (category, text) on output_queue. No "|" present ->
+          (None, raw_text), displayed unstyled.
+  [x] 1f  _update_output rewritten as a single dispatch on category, no
+          content-sniffing. is_loading_model becomes dispatch-set state
+          (loading category sets it; ready clears it). notified_slow_boot
+          is dropped entirely -- decided 2026-07-31: ready's toast (1i) is
+          unconditional on toast-eligible + window-hidden, no longer gated
+          on a prior slow download. Beat keeping the old gate, which would
+          reintroduce one category's dispatch depending on another
+          category's state, against the table-driven design's own
+          pure-function rule. The loading category's own insert must omit
+          the trailing newline (matching _animate_dots' expectation that
+          the line stays open for it to append dots to) and must schedule
+          _animate_dots itself, same as today's content-sniff branch did.
+          The ready category's insert must close that open line with a
+          bare "\n" first, whenever is_loading_model is still True, before
+          inserting its own text -- otherwise the READY banner lands mid-
+          dots.
+          Marker rendering: "[MARKER] text", bracket always present and
+          unchanging regardless of category, never a colon after the
+          bracket -- bare "[REC]"/"[DONE]" when text is empty -- decided
+          2026-07-31: beat a bare marker with no delimiter, for console
+          scannability (a consistent bracketed token reads as a
+          structural tag at a glance, same as [INFO]/[WARN]/[ERROR]
+          elsewhere); beat a colon after the bracket, redundant
+          punctuation on top of a delimiter that already does the job.
+  [dropped] 1g  Deferred-until-ready mechanism (ready_seen flag + hold list)
+          -- dropped 2026-07-31: no category in the system needs it.
+          Checked every category and every later step in this doc for a
+          consumer; none exists -- ready_seen appeared nowhere but this
+          line. mic-fault/model-fault were the one plausible candidate,
+          but 5d/5i dispatch their modal immediately off the normal
+          per-line drain, no wait-for-ready involved, and both categories
+          sit on code paths where "ready" is structurally unreachable
+          anyway (both exit the process before the ready banner could
+          ever print). This item's "also flush from the exit-check
+          branch" half isn't left homeless either -- 5j independently
+          re-runs the normal per-line dispatch right after exit-code
+          detection, for a real, verified reason (a delivery-timing race,
+          not a deliberate hold). Nothing here needs relocating. Beat
+          building an unused mechanism speculatively -- if a future step
+          genuinely needs held-until-ready output, add it then, scoped to
+          what actually needs it.
+  [x] 1h  Swallow check: set-based against category, not one hardcoded
+          name. Build with an empty default set now -- step 7's
+          transcript_only_mode is its first real caller.
+  [x] 1i  Toast dispatch: fires only when category is toast-eligible and
+          self.window.state() != 'normal' at dispatch time. download/
+          ready are the only toast-eligible categories at this step.
+  [x] 1j  Colorization: pure function of category via the 1b table.
+
+GATE: imports clean, lint clean, table lookup resolves for all 10 core
+categories with no KeyError. No real call site is wired yet (steps 3/4) --
+full behavioral verification is step 2's test hook, not this step.
+
+
+==============================================================================
+STEP 2  TEST HOOK
+==============================================================================
+PRECONDITION
+  [ ] Every box in STEP 1 is [x]. Stop and close it if not.
+
+UNVERIFIED
+  [x] Whether pystray's icon.notify() has any side effect beyond the
+      visible toast when called repeatedly -- spiked ahead of step 2 with
+      a disposable script (10 calls, 2s apart, real app icon). Confirmed
+      clean: each toast displayed with no error. Windows paces its own
+      display queue (dismissing one let the next appear, not in lockstep
+      with the script's 2s interval), but nothing was dropped, suppressed,
+      or stacked wrong. No further action needed in 2b.
+
+  [x] 2a  tools/log_probe.py: headless script, no app launch. (1) imports
+          vdict/common/output.py's category table, iterates every defined
+          category, prints color/marker/box/toast-eligible -- fails loud
+          (KeyError) on anything missing. (2) imports the daemon's
+          log(category, text) directly, calls it once with an embedded
+          newline in text, prints the resulting wire-format line to
+          confirm newline stripping/replacement.
+  [x] 2b  Tray-side dev hook: temporary File-menu item ("Log Probe..."),
+          gated behind a module-level flag for one-line removal later,
+          using tkinter.simpledialog to prompt for category + text, then
+          calling self.log(category, text) directly.
+
+VERIFY (this step's can't-be-faked item, per the approved deviation)
+  [x] 2b's actual rendering -- color, marker, box, toast, swallow -- for
+      every category defined so far. Requires the running tray. Mike runs
+      it, reports per category. Confirmed 2026-07-31, all 10 categories via
+      Log Probe: color and marker correct for each; swallow held (nothing
+      suppressed, consistent with the empty set); box untestable (no
+      category has box=True until step 5); toast deferred to real daemon
+      usage, not testable through this hook (window must be visible to
+      open Log Probe, but toast only fires when it's hidden). header and
+      download's color changed from none to dim during this pass -- see
+      1b's updated decision record.
+
+GATE: 2a runs clean, every category resolves, wire-format line matches
+spec exactly. Temporary artifacts to track for step 8's cleanup:
+tools/log_probe.py, vdict_tray.py's dev-only menu item + handler -- both
+removed at closeout.
+
+
+==============================================================================
+STEP 3  DAEMON MIGRATION
+==============================================================================
+PRECONDITION
+  [ ] Every box in STEP 2 is [x]. Stop and close it if not.
+
+  [x] 3a  vdict_daemon.py: replace every hand-ANSI-wrapped print() with
+          log(category, text) per the CSV -- category now carries color,
+          so every \033[90m/\033[91m/\033[0m wrapper is stripped, not
+          translated:
+            _output_callback's "Output stream status: {status}"
+                -> log("note", f"Output stream status: {status}")
+            main()'s "Loading model" (stt.load() call site)
+                -> log("loading", "Loading model")  (bare -- see 3b)
+            main()'s "Voice Dictation v{__version__} READY" banner
+                -> log("ready", f"Voice Dictation v{__version__} READY")
+            main()'s "-" * 60 separator, right after the READY banner
+                -> log("block", "-" * 60)
+            main()'s blank print() closing that block
+                -> log("block", "")
+            main()'s "[{cycle}] Recording..." (right after ptt.wait_for_press)
+                -> log("rec", "")
+            main()'s "[{cycle}] Error: Timeout reached." (toggle-mode branch)
+                -> log("note", "Timeout reached.")
+            main()'s "[{cycle}] Closed (Timeout)." (same branch, next line)
+                -> log("done", "")
+            main()'s "Not transcribed -- hold the button at least 0.4s."
+                -> log("note", "Not transcribed -- hold the button at
+                   least 0.4s.") + log("done", "") -- added 2026-07-31,
+                   live-testing found the original CSV disposition left
+                   too-short as the only aborted-cycle shape with no
+                   closing DONE (timeout gets one for the same "nothing
+                   transcribed" reason). Beat leaving the asymmetry as
+                   specified: "every REC gets a matching DONE, no
+                   exceptions" is a simpler rule than carrying forward an
+                   inconsistency that was only invisible before because
+                   the old inline "[{cycle}] Closed" text made REC/DONE-
+                   equivalents much less visually prominent than the new
+                   bracket markers do.
+            main()'s print(text) transcribing the actual speech
+                -> log("transcript", text)
+            main()'s "[{cycle}] Error: No speech detected."
+                -> log("note", "No speech detected.")
+            main()'s "[{cycle}] Closed." (normal-completion path)
+                -> log("done", "")
+  [x] 3b  Delete the comment above main()'s "Loading model" print ("Must
+          keep the 'Loading ' prefix -- the tray matches on it to animate
+          dots") -- describes the content-sniffing behavior step 1 already
+          removed. is_loading_model is now set by the loading category
+          dispatching, not by prefix matching; _animate_dots itself is
+          unchanged.
+  [x] 3c  The "Stopped" print inside main()'s except KeyboardInterrupt
+          stays a plain, uncategorized print() -- untouched, per plan's
+          OUT OF SCOPE.
+  [x] 3d  audio.py's _audio_callback: "Audio stream status: {status}"
+          -> log("note", f"Audio stream status: {status}").
+          _exit_no_microphone's two mic-fault prints NOT touched here --
+          deferred to step 5, mic-fault doesn't exist as a category until
+          then.
+  [x] 3e  stt.py's load(): "[SYSTEM] INITIATING DOWNLOAD: {self.model_name}"
+          -> log("download", f"Initiating download: {self.model_name}") --
+          drops the redundant [SYSTEM]/INITIATING DOWNLOAD wording per the
+          CSV.
+  [x] 3f  keyboard.py: delete all 7 `if self.debug: print(...)` blocks, the
+          `debug=False` __init__ parameter, and self.debug -- confirmed
+          dead, PTTListener's one construction site (vdict_daemon.py's
+          `PTTListener(button=config.ptt.button)`) never passes debug=.
+  [x] 3g  vdict_daemon.py's _resolve_output_device(): two sys.exit("...")
+          calls (WASAPI backend missing, no default WASAPI output device)
+          -- missed entirely by the original inventory sweep. stderr is
+          merged into stdout at the Popen call, so these currently leak
+          raw unstyled text to the tray. Both are real, rare, unfixable-
+          in-Settings faults (no output-device picker exists) -- route
+          each through log("error", text) then sys.exit(1) (bare, no
+          message string -- log() already said it), matching
+          _exit_no_microphone's established log-then-exit pattern rather
+          than raising. Add both as new rows to
+          output-logging-categories.txt and
+          output-logging-categories-results.csv -- found during step 3's
+          own drafting, not in the original 47-site count.
+
+VERIFY (this step's can't-be-faked item, per the approved deviation)
+  [x] One real PTT cycle of each shape -- normal completion, toggle-mode
+      timeout, too-short (<0.4s), no-speech -- watched end-to-end: rec/done
+      markers, note-colored lines, and the transcript line all render
+      correctly, in order. Requires the running app. Mike runs it, reports.
+      Confirmed 2026-07-31, all four shapes run against the real migrated
+      daemon: normal completion (REC/transcript/DONE), no-speech (REC/NOTE-
+      yellow/DONE), toggle-mode timeout (REC/NOTE-yellow/DONE, required a
+      temporary Settings switch to toggle mode), too-short (REC/NOTE-
+      yellow -- found missing its own DONE bookend here, fixed same day,
+      see 3a's updated entry, then re-confirmed working).
+
+GATE: no \033[ ANSI escape remains anywhere in vdict_daemon.py, audio.py,
+stt.py, or keyboard.py. No sys.exit(string) remains in _resolve_output_
+device -- both routed through log() first. keyboard.py's dead-code removal
+doesn't change PTTListener's public button-press behavior. ruff/pyright/
+vulture clean.
+Confirmed 2026-07-31: two \033[ sites remain, both expected exceptions
+already accounted for -- vdict_daemon.py's Stopped print (3c, permanent)
+and audio.py's _exit_no_microphone (3d, deferred to step 5). vulture found
+two new dead-code sites caused by this step's own edits (PTTListener.
+button_name, orphaned once 3f deleted its only reader; vdict_daemon.py's
+cycle variable, orphaned once 3a dropped cycle numbers from every log line)
+-- both deleted, re-verified clean, not logged as defects since nothing
+future needs them.
+
+
+==============================================================================
+STEP 4  TRAY MIGRATION
+==============================================================================
+PRECONDITION
+  [ ] Every box in STEP 3 is [x]. Stop and close it if not.
+
+  [x] 4a  _PTTCapture.failed(): "Error: could not bind that key"
+          -> self.tray.log("error", "Could not bind that key."). Delete
+          reject() entirely -- its only caller is failed(), and its only
+          remaining job once the messagebox is dropped is
+          self.end(self.previous); failed() calls that directly instead.
+  [x] 4b  VOCABULARY_RESET_MESSAGE drops its "[VOCABULARY RESET]" prefix
+          (bare "vocabulary.txt not found -- restored from template.").
+          Both call sites (_open_vocabulary, run()'s boot path) switch to
+          self.log("note", VOCABULARY_RESET_MESSAGE) -- one shared
+          constant, now shared category too.
+  [x] 4c  _log_session_block(): delete the _dim(line)-if-dim-else-line
+          wrapping -- category carries color now. 5 lines (Started/Mode/
+          Trigger/Compute/Model) -> self.log("block",
+          _summary_line(label, value)). Hotkey line -> self.log("error" if
+          is_fault else "block", _summary_line("Hotkey", hotkey_value)).
+          Opening blank line -> self.log("block", "").
+  [x] 4d  _raise_window(): "[HOTKEY] {name} -- output window raised"
+          -> self.log("note", f"{self.hotkey_name} raised the output
+          window").
+  [x] 4e  _run_shutdown_steps(): "[SHUTDOWN ERROR] {step}: {meaning}"
+          -> self.log("error", f"{step.__name__}: {meaning}").
+  [x] 4f  run()'s startup banner: 4 separate lines (top border, title,
+          URL/license, bottom border), currently one shared \033[97m/
+          \033[0m spanning all four -> 4 separate self.log("header", line)
+          calls, ANSI stripped, category colors each independently.
+  [x] 4g  run()'s settings-reset block: vocabulary_reseeded ->
+          self.log("note", VOCABULARY_RESET_MESSAGE) (4b's constant).
+          reset_reason loop -> self.log("note", line) per line, bracket
+          dropped. Follow-up -> self.log("note", "Config Reset. Open
+          Settings from the tray icon to reconfigure."). Closing blank
+          line -> self.log("block", "").
+  [x] 4h  Confirm, don't reimplement: the download/ready content-sniff
+          toasts are already retired by step 1's _update_output rewrite
+          (1f) and generic toast dispatch (1i). Nothing left to do here --
+          verify only.
+
+VERIFY (this step's can't-be-faked items, per the approved deviation)
+  [dropped] "Bind an already-taken key" -- dropped 2026-07-31: doesn't
+      describe a reachable scenario. _PTTCapture.failed() isn't a conflict
+      detector -- the PTT button uses pynput's passive global hook, which
+      never claims OS-level exclusive ownership of a key, so there is
+      nothing for Windows to conflict with. failed() only fires when
+      pynput itself can't resolve a pressed key into a usable name, an
+      internal parsing failure, not a collision -- not reachable by key
+      choice, only by deliberate injection. Step 6's own VERIFY already
+      covers that correctly ("Force a PTT-rebind exception (inject a
+      deliberate error into _on_key...)"), so this step's row was
+      redundant with an unreachable trigger condition. The real,
+      OS-checked conflict detection in this app is the output-window
+      hotkey's RegisterHotKey call, covered by the row below.
+  [x] Session block's Hotkey line in both states (working vs. conflicting)
+      -- confirm dim vs. red rendering. Both confirmed 2026-07-31: working
+      state renders dim on a normal boot; conflicting state confirmed by
+      externally holding Ctrl+Alt+Shift+V via a standalone RegisterHotKey
+      script (same combo as the configured hotkey) before boot, forcing a
+      genuine registration failure -- Hotkey line rendered red/ERROR
+      correctly.
+  [x] Delete vocabulary.txt, trigger both call sites (File > Vocabulary,
+      and a fresh boot) -- confirm identical NOTE-yellow rendering.
+      Confirmed 2026-07-31, both paths. Found and fixed a real, unrelated
+      pre-existing bug along the way: templates/vocabulary.txt (the seed
+      template itself) was entirely missing from the repo, so the File >
+      Vocabulary path threw FileNotFoundError instead of reseeding.
+      Recreated from a surviving copy Mike had; boot path never hit it
+      because it happened to run while userdata/vocabulary.txt already
+      existed. Provenance (was it ever committed, or lost somehow) not
+      investigated -- worth confirming it's tracked in git going forward.
+  [x] Corrupt config.json, boot -- confirm the settings-reset NOTE lines
+      render correctly. Confirmed 2026-07-31: three fields corrupted
+      (audio.feedback, ptt.mode, stt.device) with valid-JSON/wrong-type or
+      wrong-value each, hitting the per-field heal path -- multiple NOTE
+      lines rendered correctly, followed by the Config Reset follow-up
+      line. Backed up and restored config.json around the test.
+  Requires the running app. Mike runs it, reports.
+
+GATE: no \033[ ANSI escape or bracket-tag ([VOCABULARY RESET], [HOTKEY],
+[SHUTDOWN ERROR], [SETTINGS RESET]) remains anywhere in vdict_tray.py's
+log-producing call sites in scope. _PTTCapture.reject() no longer exists.
+ruff/pyright/vulture clean.
+Confirmed 2026-07-31: grepped vdict_tray.py for \033[, all four bracket
+tags, and "reject" -- zero hits on all. ruff/pyright clean; vulture shows
+only the already-logged box finding (D14).
+
+
+==============================================================================
+STEP 5  INTERVENTION TIER
+==============================================================================
+PRECONDITION
+  [ ] Every box in STEP 4 is [x]. Stop and close it if not.
+
+MIC-FAULT
+  [x] 5a  vdict/common/output.py: add mic-fault and model-fault rows to the
+          category table (deferred from step 1's 1b) -- both ERROR marker,
+          red, box=True.
+  [x] 5b  audio.py's _exit_no_microphone: fold both prints into one
+          log("mic-fault", text) call -- detail folded in as a
+          parenthetical only when present, e.g. "Configured microphone not
+          found (Device lookup failed: {last_error}). Reconnect the device
+          or pick a different one in Settings." Update
+          output-logging-categories-results.csv rows 15/16 to reflect the
+          merge (one row, not two).
+  [x] 5c  vdict_tray.py: define MIC_FAULT_FLAG_PATH = userdata/
+          mic_fault.flag, alongside ERROR_LOG_PATH's existing LOG_DIR
+          constants.
+  [x] 5d  mic-fault's dispatch bundle at _update_output: raise the output
+          window if minimized, call self.open_settings() FIRST -- it's
+          idempotent (lifts the existing window if already open, builds
+          fresh if not), and self.settings_win won't exist yet if this
+          fault fires before Settings was ever opened (e.g. mic unplugged
+          mid-session with Settings closed). Then an application-modal
+          Toplevel (grab_set(), not grab_set_global) parented on
+          self.settings_win, naming the problem, piping in the dispatched
+          text. One button, Close; the title-bar X (WM_DELETE_WINDOW) does
+          the same. open_settings() itself needs no widget-level changes
+          -- the grab already makes it inert underneath.
+  [x] 5e  Close handler: MIC_FAULT_FLAG_PATH.write_text(reason), then
+          self._force_quit() -- same unconditional, no-prompt exit path
+          exit_app() uses, bypassing its askokcancel gate.
+  [x] 5f  run(): before deciding whether to call start_vdict(), check
+          MIC_FAULT_FLAG_PATH.exists(). If present: read it, delete it
+          immediately (read-and-consume -- no separate "did it resolve"
+          tracking; a fresh flag gets written if it fails again), skip
+          start_vdict() this launch, call open_settings() instead (normal,
+          fully interactive), log("note", f"Settings reopened -- {reason}")
+          so the user has context. _register_hotkey() still runs either
+          way -- independent of whether the daemon starts.
+          Bug found and fixed 2026-07-31, live-testing this exact path:
+          is_loading_model was only ever initialized inside start_vdict(),
+          which this branch skips entirely by design -- so
+          _drain_output_queue crashed with AttributeError on its very
+          first line, every 100ms tick, silently swallowed by its own
+          except Exception safety net. Nothing rendered at all: no banner,
+          no note line, output window genuinely empty. Fixed by moving
+          is_loading_model's initialization to __init__ (alongside
+          self.process/self.output_queue), keeping start_vdict()'s own
+          reset for restart-safety, same pattern already used for
+          _exit_reported. Checked _drain_output_queue for any other
+          attribute assuming start_vdict() already ran -- none found;
+          everything else it touches is set unconditionally in __init__.
+
+MODEL-FAULT
+  [x] 5h  Identify model/compute failure's actual signal -- stt.py's
+          load() (download fails, invalid model name) and STTEngine's
+          device selection (CUDA requested but unavailable). stt.py's
+          load() currently does `raise RuntimeError(...) from e` on
+          failure -- an uncaught RuntimeError prints a full Python
+          traceback to stderr before the process dies, which leaks raw
+          behind the clean model-fault modal (stderr is merged into
+          stdout at the Popen call). Replace the raise with
+          log("model-fault", text) then sys.exit(1) inside the except
+          block -- same log-then-exit pattern as audio.py's
+          _exit_no_microphone, never raise.
+  [x] 5i  model-fault's dispatch bundle: raise the output window if
+          minimized, call self.open_settings() FIRST (same reasoning as
+          5d -- model-fault on first boot means Settings was never
+          opened), application-modal Toplevel (grab_set()) parented on
+          self.settings_win, naming the model and the error, one OK/Close
+          button that closes only the modal -- Settings stays open and
+          fully interactive underneath, no flag written. save_and_restart()
+          (existing, unchanged) is the recovery path.
+
+RACE FIX
+  [x] 5j  _update_output: factor the per-line drain loop (queue.get_nowait
+          in a while True, per-category dispatch) into its own method,
+          _drain_output_queue. Call it once normally.
+          Revised 2026-07-31: the original fix ("call it again immediately
+          after exit_code is confirmed not None") was a heuristic -- one
+          extra poll, betting the reader thread has caught up, not a
+          guarantee. Replaced with an actual guarantee: start_vdict's local
+          reader_thread becomes self.reader_thread, and the exit-check
+          branch calls self.reader_thread.join(timeout=0.5) the moment
+          exit_code is confirmed not None, before the final
+          _drain_output_queue() call and before deciding on the generic
+          "[vdict_daemon.py exited with code N]" fallback. The reader
+          thread's own loop (for line in stdout: ...) terminates exactly
+          when the pipe closes -- the real signal that no more lines are
+          coming, not an assumption that one more poll is enough. Confirmed
+          this only touches start_vdict's declaration and the exit-check
+          block -- reader_thread has no other references in the file, and
+          _stop_daemon's process.wait() guarantees the old reader thread
+          has already finished by the time a restart creates a new one, so
+          reassigning self.reader_thread is safe. Blocking the Tk thread
+          for up to 0.5s only happens once, at the rare moment the daemon
+          actually exits -- never during the normal 100ms polling cycle.
+  [x] 5k  Delete the exit_code == EXIT_NO_MICROPHONE branch entirely (CSV
+          row 40) -- mic-fault's own dispatch (5d) now covers window-raise
+          + Settings + box; the exit-code special case is redundant.
+  [x] 5k-i  Delete the stale "Both sides must agree" comment on
+          EXIT_NO_MICROPHONE in config.py -- relocated here 2026-07-31 from
+          its original slot after 5f, PLAN PREMISE BREAK: the comment's own
+          claim ("nothing reads the value now except audio.py's own
+          sys.exit() call") was still false at that point in the sequence
+          -- vdict_tray.py's exit-code branch (deleted by 5k, directly
+          above) was still reading it too. True only once 5k actually
+          lands, so the item moves to right after it, keeping 5h-5l's
+          existing letters untouched rather than renumbering the section.
+  [x] 5l  The remaining generic fallback (self.text.insert(tk.END,
+          f"\n[vdict_daemon.py exited with code {exit_code}]\n")) still
+          needs to exist, for a daemon death with no specific category
+          dispatched at all -- but it bypasses self.log() entirely today,
+          a genuine miss from the original inventory (this line lives
+          inside _update_output's own mechanism, which was out of
+          inventory scope, but it produces real user-visible text, not
+          just plumbing). Route it through
+          self.log("error", f"vdict_daemon.py exited with code {exit_code}")
+          instead of a direct self.text.insert().
+
+VERIFY (this step's can't-be-faked items, per the approved deviation)
+  [x] Unplug/disable the configured microphone, launch -- confirm one
+      merged mic-fault line, output window raised, Settings visible but
+      genuinely inert (try clicking something in it while the modal is
+      up), Close exits the whole app. Confirmed 2026-07-31.
+  [x] Relaunch with the mic still bad -- confirm Settings opens
+      interactively this time, no modal cycle, the note line explains why.
+      Confirmed 2026-07-31 -- first attempt found a real bug: is_loading_model
+      was only ever set inside start_vdict(), which this path skips
+      entirely, so _drain_output_queue crashed silently on every tick and
+      nothing rendered at all. Fixed (see 5f's entry), re-confirmed working.
+  [x] Fix the mic in Settings, Save & Restart -- confirm normal startup,
+      flag file gone. Confirmed 2026-07-31.
+  [x] Trigger a model/download failure -- confirm the modal names the
+      right thing, Close leaves Settings usable, Save & Restart recovers
+      without restarting the tray. Confirmed 2026-07-31 -- exact model name
+      and underlying error rendered correctly, OK left Settings open and
+      usable, Save & Restart recovered cleanly. Found and fixed a real bug
+      from this test: the generic exit fallback (5l) fired redundantly
+      right after both mic-fault's and model-fault's own specific error
+      line, since it never checked whether a fault was already reported.
+      Added self._fault_shown (same init/reset pattern as _exit_reported),
+      set by _show_mic_fault/_show_model_fault, checked before 5l's
+      fallback logs anything.
+  Requires the running app. Mike runs it, reports.
+
+GATE: no code path reads the exit code for EXIT_NO_MICROPHONE detection.
+MIC_FAULT_FLAG_PATH is read-and-deleted exactly once per launch. Neither
+5d nor 5i creates its modal without calling open_settings() first. stt.py's
+load() never raises on failure -- log() then sys.exit(1) only. Both
+mic-fault and model-fault categories resolve in the step 2 test hook (box,
+marker, color) even before 5d/5i's actual modal wiring is exercised live.
+ruff/pyright/vulture clean.
+Confirmed 2026-07-31: grepped for EXIT_NO_MICROPHONE tree-wide -- only
+audio.py's own sys.exit() reads it. tools/log_probe.py's EXPECTED_CATEGORIES
+was stale (never updated for mic-fault/model-fault) -- fixed, both now
+confirmed box=True/ERROR/red. Found and fixed a real gap during this GATE
+check: 5d/5i's dispatch never actually read spec.box, hardcoding category
+checks instead -- D14's box finding was still live because of it, not
+resolved by 5a alone as expected. Gated the checks behind spec.box; vulture
+fully clean (zero findings), D14 closed for real. ruff/pyright clean.
+
+
+==============================================================================
+STEP 6  ERROR_LOG REWORK
+==============================================================================
+PRECONDITION
+  [x] Every box in STEP 5 is [x]. Stop and close it if not.
+
+UNVERIFIED
+  [x] error_log needs to live somewhere _log_startup_crash can also reach
+      it -- _log_startup_crash fires before the tray object exists, so it
+      can't call a tray method. Not left open: resolved by design in 6a,
+      a module-level _write_error_log() helper both paths call.
+
+  [x] 6a  Module-level _write_error_log(context, text): the disk-write
+          half only (open ERROR_LOG_PATH, append, dashes + context +
+          text). error_log(self, context, text) becomes a tray method that
+          calls _write_error_log first, then best-effort dumps text raw
+          into self.text, wrapped in its own try/except so a screen
+          failure can never undo the disk write. _log_startup_crash calls
+          _write_error_log directly (module-level, no tray instance
+          needed) -- one disk-write implementation, not four.
+  [x] 6c  _PTTCapture._on_key's except block: call traceback.format_exc()
+          synchronously, inside the except block, before deferring --
+          defer the resulting text through window.after(0, ...), not the
+          exception object. failed()'s signature changes from
+          failed(self, exc) to failed(self, text); it calls
+          self.tray.error_log("PTT rebind", text) instead of
+          _log_error("PTT rebind", exc).
+  [x] 6d  _PTTCapture._on_click: currently has no exception handling at
+          all -- any error here crashes the pynput mouse thread silently.
+          Add a try/except with the identical synchronous-capture-then-
+          defer treatment as 6c, deferring to the same failed(text).
+  [x] 6e  _update_output's two except Exception blocks (the queue-drain
+          try and the exit-check try): format traceback.format_exc()
+          inline, call self.error_log("Output update error", text) /
+          self.error_log("Exit-check error", text) directly, undeferred --
+          per plan, these two safety-valve sites never route through
+          anything they exist to catch the failure of.
+  [x] 6f  _report_callback_exception: format
+          traceback.format_exception(exc_type, exc_value, exc_tb), call
+          self.error_log("Tk callback", text) directly (the third safety-
+          valve site). Delete the icon.notify toast entirely -- redundant
+          once a blocking modal exists. The modal itself must be
+          ctypes.windll.user32.MessageBoxW, NOT messagebox.showerror --
+          this handler exists specifically because something inside Tk's
+          own callback dispatch already failed, so Tk itself could be the
+          thing that's broken; a Tk-based modal risks failing recursively
+          in exactly the case it exists to report. Same MB_ICONERROR
+          reasoning as 6g, just mid-mainloop instead of pre-launch. Then
+          self._force_quit() -- whole app exits, not just the engine, same
+          unconditional no-prompt path as step 5's mic-fault Close and
+          exit_app()'s underlying mechanism. No flag file -- unprimed
+          exit, unlike mic-fault.
+          Folded in 2026-07-31, found during this item's own review:
+          _run_shutdown_steps' except block already calls
+          self._report_callback_exception(...) directly whenever one of
+          its own housekeeping steps fails. Once this item adds
+          self._force_quit() to _report_callback_exception, that becomes
+          a real recursion -- _force_quit -> _run_shutdown_steps -> a step
+          fails -> _report_callback_exception -> _force_quit -> ... same
+          "safety-valve sites never route through anything they exist to
+          catch the failure of" rule 6e was already justified by, just
+          missed for this fourth site. Fix folded into this item rather
+          than handled separately: _run_shutdown_steps' except block
+          changes from self._report_callback_exception(type(exc), exc,
+          exc.__traceback__) to self.error_log("Shutdown step",
+          traceback.format_exc()) -- log-and-continue, no exit call,
+          matching "one failure never blocks the rest" already in its own
+          docstring.
+  [x] 6b  Delete _log_error (module-level) entirely. Delete
+          _report_callback_exception's and _log_startup_crash's inline
+          disk-write blocks, replaced per 6a. Moved here 2026-07-31 from
+          its original slot after 6a -- PLAN PREMISE BREAK: at that
+          position, _log_error still had three live callers (failed(),
+          _drain_output_queue's and _update_output's except blocks) not
+          migrated until 6c/6e, and _report_callback_exception's inline
+          block wasn't replaced until 6f. Safe only once both have landed.
+  [x] 6g  _log_startup_crash: replace tk.Tk() + messagebox.showerror with
+          ctypes.windll.user32.MessageBoxW(None, message, "Voice
+          Dictation failed to start", MB_ICONERROR) -- no Tkinter
+          dependency, since Tk itself could be what's broken. Same message
+          content as today (exception summary, ERROR_LOG_PATH location,
+          config.json-deletion hint). Disk-write-first via 6a is
+          unchanged.
+
+VERIFY (this step's can't-be-faked items, per the approved deviation)
+  [x] Force a PTT-rebind exception (inject a deliberate error into
+      _on_key or _on_click) -- confirm error_log's text is a real
+      traceback, not a stale/empty one, and the screen-dump appears.
+      Confirmed 2026-07-31 via a temporary raise RuntimeError("Test PTT
+      rebind fault") at the top of _on_key's try block, reverted after:
+      real traceback shown under [PTT rebind], [ERROR] Could not bind
+      that key. shown, tray_error.log matched.
+  [x] Force a Tk callback exception -- confirm no toast, a native
+      MessageBoxW stop-icon modal appears (not a Tk window), whole app
+      exits (tray and daemon both), error log written. Confirmed
+      2026-07-31 via a temporary raise at the top of _show_about
+      (Help > About is a plain unwrapped Tk menu-command callback, a
+      genuine trigger site, not synthetic), reverted after: native
+      "Voice Dictation error" MessageBoxW, correct icon/message/log-path
+      text, no toast, app exited fully.
+  [x] Force a startup crash (e.g. hand-corrupt config.json into a shape
+      that raises before the tray exists) -- confirm a native MessageBoxW
+      appears (not a Tk window), error log written, message content
+      matches. Confirmed 2026-07-31 via a temporary raise at the top of
+      VoiceDictationTray.__init__ (a hand-corrupted config.json was
+      considered but not used -- load_settings()'s per-field healing and
+      wholesale-reset paths weren't fully verified to actually raise
+      rather than silently reset, so a synthetic guaranteed trigger was
+      used instead), reverted after: native "Voice Dictation failed to
+      start" MessageBoxW, correct exception/log-path/config.json-hint
+      text, no tray icon ever appeared.
+  Requires the running app. Mike runs it, reports.
+
+GATE: _log_error no longer exists. Exactly one disk-write implementation
+(_write_error_log), called from exactly two places (error_log,
+_log_startup_crash). No except block anywhere defers a raw exception
+object across a thread/callback boundary -- every deferral carries
+already-formatted text. Both _report_callback_exception and
+_log_startup_crash use ctypes.windll.user32.MessageBoxW, not
+messagebox.showerror -- neither can depend on Tk being healthy.
+ruff/pyright/vulture clean.
+Confirmed 2026-07-31: grepped for _log_error -- zero hits anywhere in the
+tree, only _write_error_log remains. _write_error_log has exactly two
+callers (error_log at its own definition site, _log_startup_crash).
+Grepped every window.after(0, ...) deferral site (five, all in
+_PTTCapture) -- none carries a raw exception object, only pre-formatted
+text (failed(t)) or no exception at all (end/accept). Both
+_report_callback_exception and _log_startup_crash confirmed on
+ctypes.windll.user32.MessageBoxW, messagebox.showerror no longer called
+by either. ruff/pyright/vulture clean on the whole tree (found during 6f's
+own review and folded in: _run_shutdown_steps' except block no longer
+routes through _report_callback_exception, closing a recursion risk that
+step's own self._force_quit() addition would otherwise have introduced).
+
+
+==============================================================================
+STEP 7  TRANSCRIPT_LOG
+==============================================================================
+PRECONDITION
+  [x] Every box in STEP 6 is [x]. Stop and close it if not.
+
+  [x] 7a  vdict_tray.py: TRANSCRIPT_LOG_ENABLED = False (module-level
+          constant, default off -- B14's own text: "low priority alone,"
+          depends on B13 existing as a reason to want the data). No
+          Settings/UI integration -- the View-menu toggle stays
+          unbuilt, per plan's OUT OF SCOPE.
+  [x] 7b  TRANSCRIPT_LOG_PATH = LOG_DIR / "transcript_log.txt", alongside
+          ERROR_LOG_PATH's existing pattern.
+  [x] 7c  transcript_log(text): a dedicated logging.getLogger("vdict.
+          transcript") (new import -- logging isn't used in vdict_tray.py
+          today), propagate=False so nothing leaks to root, one
+          logging.handlers.RotatingFileHandler(TRANSCRIPT_LOG_PATH,
+          maxBytes=10*1024*1024, backupCount=1), Formatter("%(message)s")
+          -- no timestamp, no level, raw text only. transcript_log(text)
+          = that logger's .info(text).
+          Three additions found necessary/warranted during this item's own
+          review, 2026-07-31: (1) setLevel(logging.INFO) -- a fresh logger
+          inherits the root's default WARNING level, which would silently
+          swallow every .info(text) call without this; not optional, the
+          function would otherwise run and write nothing. (2)
+          encoding="utf-8" on the handler -- every other file write in this
+          app is explicit UTF-8 (vocabulary.txt, the error log, the Save
+          As export); D15 exists because config.json is the one place
+          that isn't, and transcribed speech can contain any Unicode text.
+          (3) delay=True on the handler -- without it, constructing
+          RotatingFileHandler at import time creates transcript_log.txt on
+          disk immediately even while TRANSCRIPT_LOG_ENABLED stays False;
+          tray_error.log and mic_fault.flag both only appear once
+          something real happens, delay=True matches that.
+  [x] 7d  Wire into _update_output's dispatch: when category == "transcript"
+          and TRANSCRIPT_LOG_ENABLED, call transcript_log(text) in
+          addition to whatever the window does with it -- independent of
+          window display, per RULES.
+          Found live during VERIFY, 2026-07-31: consecutive entries with
+          nothing between them were hard to tell apart or copy individually.
+          Fixed by calling transcript_log("") right after transcript_log
+          (text) -- a second, separate one-line call, so transcript_log()
+          itself still writes exactly one raw line per call, unchanged.
+          Unconditional, no swallow-state dependency, since transcript_log
+          entries never had REC/DONE bookends to begin with.
+  [x] 7e  transcript_only_mode = False (module-level constant, same
+          groundwork-only pattern as 7a) -- the swallow check's first real
+          caller, deferred here from step 1's 1h.
+  [x] 7f  Wire the swallow check: when transcript_only_mode is True, the
+          active swallow set is {"rec", "done"}; otherwise empty. Swallow
+          suppresses window display only -- transcript_log (7d) and any
+          other category-driven behavior still run independently of
+          whether the line was swallowed from the window.
+          Found live during VERIFY, 2026-07-31: same run-together problem
+          as 7d, but in the window. Fixed with a conditional trailer on the
+          transcript category's own insert -- "\n\n" only when "done" is
+          itself in the active swallow set, else the normal "\n". Bookended
+          (normal mode), REC/DONE already separate consecutive transcripts
+          and the extra blank line isn't wanted; only missing when DONE
+          itself is swallowed.
+
+VERIFY (this step's can't-be-faked items, per the approved deviation)
+  [x] Flip TRANSCRIPT_LOG_ENABLED to True temporarily, dictate a few
+      utterances, confirm transcript_log.txt gets exactly one raw-text
+      line per utterance, no decoration. Flip back after. Confirmed
+      2026-07-31 -- also caught the run-together defect above live, fixed,
+      re-confirmed by reading transcript_log.txt directly: old entries
+      (pre-fix) back-to-back, new entries each followed by a blank line.
+  [x] Flip transcript_only_mode to True temporarily, confirm rec/done
+      lines disappear from the window while transcript/note/error lines
+      still show, and transcript_log still writes even though rec/done
+      are swallowed. Flip back after. Confirmed 2026-07-31 -- tested
+      together with TRANSCRIPT_LOG_ENABLED in one pass rather than
+      separately, since the two are designed to be independent and running
+      them together directly proves that independence. Both flags reverted
+      to False after; normal mode re-confirmed clean, no stray blank line
+      when REC/DONE are visible.
+  Requires the running app. Mike runs it, reports.
+
+GATE: both flags default off, no code path makes them reachable from the
+UI yet. transcript_log.txt's format is exactly one line per call, no
+prefix. ruff/pyright/vulture clean.
+Confirmed 2026-07-31: both TRANSCRIPT_LOG_ENABLED and transcript_only_mode
+verified False in the working tree, both temporary True edits reverted.
+ruff, pyright, vulture, and check_docstrings all clean on the whole tree.
+
+
+==============================================================================
+STEP 8  CLOSEOUT
+==============================================================================
+PRECONDITION
+  [x] Every box in STEP 7 is [x]. Stop and close it if not.
+
+  [x] 8a  Full regression pass via tools/log_probe.py against the fully-
+          migrated code -- exercise every category one more time, not
+          just the dispatch table in isolation. Do this before 8b deletes
+          the tool. Confirmed 2026-07-31: all 12 categories resolve
+          cleanly, values match final design (mic-fault/model-fault both
+          red/ERROR/box=True, ready/download both toast=True, transcript
+          stays color=none). Newline handling confirmed: embedded newline
+          replaced with a space, self-announcing note line fires.
+  [x] 8b  Delete temporary artifacts: tools/log_probe.py, vdict_tray.py's
+          dev-only "Log Probe..." menu item + handler and its gating flag
+          (step 2's 2b). Confirmed 2026-07-31: all four removed
+          (LOG_PROBE_ENABLED, the File-menu item, _open_log_probe,
+          tools/log_probe.py itself), ruff/pyright/vulture clean.
+  [x] 8c  Grep the whole daemon+tray tree for any remaining raw print()/
+          output_queue.put()/messagebox.*/icon.notify() call NOT going
+          through log()/self.log()/error_log -- per RULES' "no code
+          prints or queues output outside that function" and MIGRATION
+          SCOPE's "zero bypasses remain anywhere." Anything found is
+          either an already-named out-of-scope site in
+          output-logging-categories-results.csv (gates, _show_about,
+          __main__ already-running, _confirm_bare_key, exit_app,
+          _force_quit's showerror -- all disposition=keep) or a miss that
+          needs migrating now.
+          Confirmed 2026-07-31: grepped the whole tree for print(/
+          output_queue.put(/messagebox./icon.notify( -- every hit is
+          either canonical infrastructure (log()'s own print,
+          self.log()/_read_output's own queue.put, the toast dispatch) or
+          one of the named out-of-scope sites above, verified one by one
+          against the CSV. Zero unaccounted-for bypasses.
+  [x] 8d  Re-measure _update_output's and main()'s complexity (defects.txt
+          D12) against the finished code, same report the commit skill
+          runs. Close D12 only if the real number says so; if not, update
+          D12's text with the current numbers rather than leaving it
+          stale. Not closed 2026-07-31 -- real numbers still show live
+          suppressions. D12 updated instead: _update_output itself is now
+          clean (5j's refactor moved its complexity to the new
+          _drain_output_queue, C901=15/PLR0912=15, which inherited the
+          noqa); main() unchanged (C901=8, PLR0915=55); open_settings
+          unchanged (C901=17, PLR0915=117); run() newly noted at C901=9,
+          grown past D12's own informal bar since STEP 4, not yet a real
+          gate violation. All noqa comments confirmed still bare, no
+          reason attached, matching D12's original finding.
+  [x] 8e  Add model_config to tools/vulture_whitelist.py, if not already
+          done in an earlier commit -- D12's own stated scope. Confirmed
+          2026-07-31: already present (added earlier this session), no
+          action needed.
+  [x] 8f  backlog.txt B14: confirm its text still matches reality now that
+          transcript_log/transcript_only_mode are actually built, not
+          just designed -- reword if needed. Toggle itself stays open,
+          unbuilt. Reworded 2026-07-31: fixed the dead output-logging-
+          plan.txt citation (-> STEP 7, 7c/7d), changed "designed and
+          built" to a plain past-tense fact, added the encoding="utf-8"
+          detail. transcript_only_mode was never a named backlog item
+          (only 1h/7e's own groundwork) -- nothing to reconcile there.
+  [x] 8g  Confirm nothing here contradicts build-v2.txt's STEP 0 (0b:
+          Tier A/B matching SEVERITY TIERS) -- the actual check is
+          build-v2's own job when it's picked up, not redone here.
+          Confirmed 2026-07-31: compared STEP 5's actual mic-fault/
+          model-fault build against build-v2's Tier A (5a-5h) and Tier B
+          (5i) point by point -- signage mode, application-modal, one
+          Close button, flag-file-not-config-key with reason string, flag
+          lifecycle, suppressed-exit-on-flagged-launch, Tier B interactive
+          Settings/no flag/Save & Restart recovery all match exactly. One
+          gap found (5c's topmost-flicker raise, Settings currently stays
+          permanently topmost) is pre-existing, not introduced by this
+          sheet -- open_settings()'s topmost handling was never touched
+          here, and 5c is already correctly scoped as build-v2's own
+          unbuilt item. No contradiction.
+
+VERIFY (closing regression pass)
+  [x] One full real session start to finish: launch, dictate several
+      utterances of each shape (normal, timeout, too-short, no-speech),
+      trigger a hotkey rebind conflict, trigger mic-fault, trigger
+      model-fault, corrupt vocabulary.txt, corrupt config.json, exit
+      normally, exit via mic-fault's Close, force an unanticipated
+      exception -- confirm every category's marker/color/box/toast
+      matches the plan, nothing missed. Requires the running app. Mike
+      runs it, reports.
+      Confirmed 2026-07-31 via cumulative per-step VERIFY testing rather
+      than one single continuous session -- PTT cycle shapes (STEP 3),
+      hotkey conflict/corrupt vocabulary.txt/corrupt config.json (STEP 4),
+      mic-fault/model-fault and exit via mic-fault's Close (STEP 5),
+      unanticipated exceptions (STEP 6), transcript log/display (STEP 7),
+      plus two pieces confirmed fresh today that no earlier step covered:
+      normal menu Exit (confirmed working), and toast notification (ready
+      category, window hidden -- confirmed live: correct text, double
+      beep, matches CHANGELOG). Every category's marker/color/box/toast
+      now has a live confirmation on record somewhere in this sheet.
+
+GATE: zero raw print()/output_queue.put()/messagebox/icon.notify() calls
+outside log()/error_log's dispatch, except the explicitly out-of-scope
+CSV sites. D12 closed or its text current. ruff/pyright/vulture clean on
+the whole tree. git status shows only the intended files changed -- no
+leftover log_probe.py, no leftover dev-menu code.
+Confirmed 2026-07-31: ruff/pyright/vulture/check_docstrings all clean.
+D12 not closed, text current (8d). git status shows exactly tools/
+log_probe.py deleted and voice-dictation/vdict_tray.py modified -- nothing
+leftover, nothing unexpected. Zero raw bypasses confirmed in 8c.
+
+OUTPUT-LOGGING-BUILD-SHEET.TXT CLOSED 2026-07-31. All 8 steps complete.

@@ -2,38 +2,149 @@ VOICE DICTATION - PLAN: CORE ARCHITECTURE (ORCHESTRATOR REFACTOR)
 
 Reference for the core-arch build sheet.
 
+BLOCKERS -- resolve before build sheet, not during:
+  - log()'s new mechanism. What replaces print()+reparse for getting
+    output from a worker thread onto the console widget. Not decided yet.
+  - Whisper/GPU-cleanup spike -- whether swapping WhisperModel objects in
+    place actually releases GPU/CUDA memory cleanly across repeated
+    loads. Same treatment PortAudio got: source plus real hardware
+    verification, not source alone. Not verified yet.
+  - What absorbs a device swap while a recording is already in progress
+    (rebuild() racing an active start_capture()). B22 covers a bad
+    transcribe() call, not a stream replaced out from under an active
+    recording. Not resolved.
+
 
 ==============================================================================
 ARCHITECTURE
 ==============================================================================
-  - One process, one entry point (the orchestrator). Audio capture, STT/
-    model, PTT listener, and the global hotkey each run on their own thread.
-  - Tk owns the main thread and is the only thing that touches widgets;
-    everything else reaches it through .after(), same pattern the hotkey
-    thread already uses.
-  - Settings is a pure view -- returns the raw snapshot of what the user
-    picked, no diffing inside it.
+  - One process, one entry point. The orchestrator's decision logic -- what
+    changed, is it recoverable, what to reload -- runs on the main thread,
+    as Tk callbacks (Settings' Save handler, a worker reporting back). It
+    is not a separate thread coordinating Tk from outside.
+  - Audio capture (audio.py's AudioCapture), STT/model (stt.py's
+    STTEngine), the PTT listener (keyboard.py's PTTListener), and the
+    global hotkey (hotkey.py) each run on their own thread. Tk owns the
+    main thread and is the only thing that touches widgets; every worker
+    thread reaches it through .after(). Settings-to-orchestrator needs no
+    such bridge -- same thread already.
+  - Settings (today's vdict_tray.py open_settings()) is a pure view --
+    returns the raw snapshot of what the user picked, no diffing inside it.
+  - The Save handler (today's save_and_restart()) is a separate actor
+    from Settings, same dialog, same thread, different code. Settings'
+    job ends at returning the snapshot; the handler around it is
+    orchestrator code -- it writes to disk and dispatches to consumers.
   - No central diff step. Each consumer decides for itself, at the point it
     would act, whether its own slice changed -- cheap stuff (beep volume)
     just reapplies, expensive stuff (model reload) checks first.
+  - Modules needing both hot-path work and Settings-driven reconfiguration
+    expose two entry points, not one -- a work entry point the PTT/daemon
+    thread calls (transcribe(), start_capture()) and a reconfigure entry
+    point the orchestrator calls (reload(), rebuild()). Same object,
+    different callers, different threads.
   - No cross-process signaling needed anywhere -- that whole problem (how
     does the daemon know Save happened) dissolves because there is no
     longer a process boundary to cross.
 
 
 ==============================================================================
+CONFIG PERSISTENCE
+==============================================================================
+  - JSON only at the disk boundary -- config.json in, config.json out,
+    same as today. In memory it's always the same object --
+    vdict.common.config.Config, the existing pydantic model, not a new
+    type -- passed by reference, never serialized just to move between
+    Settings, the Save handler, and consumers.
+  - Written at checkpoints -- Save, window hidden, geometry settled --
+    same pattern _save_console_state()/_remember_geometry() already use
+    for window position today.
+  - One shared, live Config object instead of six independent stale reads
+    fixes B12 (Settings overwriting a change made elsewhere while open)
+    and D9 (six load_settings() call sites) as a side effect.
+  - Every checkpoint write uses the same atomic write (temp file, then
+    os.replace()) -- already required by B1, applies to all of them here,
+    not just Save.
+  - load_settings()'s existing per-field healing (missing file seeds
+    fresh, invalid JSON resets wholesale, one bad field heals via
+    pydantic without touching the rest) replaces load_config()'s
+    raise-on-any-of-these -- one shared function, Trey owns it.
+  - ptt.button gets a real validator (checked against BUTTON_MAP plus
+    the key: pattern) instead of staying a bare str. An invalid value
+    becomes a genuine pydantic ValidationError, caught by the same
+    per-field healing above -- resets to the default ("middle"), logs
+    a note. No fault type, no modal, no Settings-routing needed.
+
+
+==============================================================================
+LIVE-READ SETTINGS (no reconfigure entry point)
+==============================================================================
+  - Today, main() reads config once at startup and hoists values into
+    local variables before the loop starts -- nobody re-reads config.json
+    again, which is why every change needs Save & Restart today. This
+    section is what replaces that.
+  - The orchestrator holds one live Config instance for the whole process
+    lifetime. The Save handler mutates its fields in place -- it never
+    replaces the object with a new instance. Every thread needing a live
+    value holds a reference to that same object, not a copy.
+  - Consumers read the field directly, at the point of use, every time --
+    play_tone() reads the live value right where it's called. No entry
+    point, no flag, nothing to call.
+  - Safe without a lock: attribute get/set on a shared object is atomic
+    under the GIL.
+  - Inventory (B1's CONFIG RE-READ tier): vocabulary.txt, audio.feedback,
+    ptt.mode, keyboard.preserve_clipboard.
+  - Persistence is still the Save handler's job, same checkpoint
+    mechanism as CONFIG PERSISTENCE -- mutating the field live doesn't
+    write it to disk by itself.
+  - vocabulary.txt specifically: parsed fresh on every PTT cycle, not
+    hoisted once like today's prompt = load_vocabulary() before the
+    loop. Every successful read also copies what was just read into
+    vocabulary.txt.bak -- costs the same as the read itself.
+  - Recovery priority if vocabulary.txt is missing at read time: restore
+    from vocabulary.txt.bak if it exists (preserves curated words), else
+    reseed from the template. Either way, log a note -- never silent.
+  - The reseed-if-missing logic consolidates into one shared helper in
+    vdict/common/config.py, replacing two separate implementations that
+    only existed because tray and daemon used to be different processes
+    (vdict_tray.py's _reseed_vocabulary_if_missing, which copies from the
+    template, and load_vocabulary()'s current raise-if-missing). Both the
+    tray's boot-time reseed and File > Vocabulary's reseed become thin
+    callers of the same function the live-read path uses.
+
+
+==============================================================================
 MODEL RELOAD / AUDIO DEVICE
 ==============================================================================
-  - Orchestrator calls the reload directly when Settings' returned snapshot
-    shows a change -- not "Save causes it."
-  - Download, if needed, happens as part of that same action, with its own
+COMMON TO BOTH
+  - Two-entry-point pattern (see ARCHITECTURE): STTEngine gets
+    reload(config) alongside its existing transcribe()/wake_gpu();
+    AudioCapture gets rebuild(config) alongside start_capture()/
+    stop_capture(). Two real methods per class, not a branch inside one --
+    different names on purpose, so "reload" always means the model and
+    "rebuild" always means the device.
+  - Orchestrator calls both reconfigure entry points unconditionally,
+    every time Settings returns -- not gated on the orchestrator
+    detecting a change itself. Whether real work happens is each
+    method's own decision.
+  - One shared flag protects the PTT loop's single gate -- don't start a
+    new cycle. Either reload() or rebuild() can set it before starting
+    real work; whichever set it clears it in a finally covering both
+    success and failure. start_capture() only reads it, checked once,
+    before starting a new cycle. Not two independent flags -- there's
+    only one decision being protected.
+
+BLOCK A -- MODEL (STTEngine.reload)
+  - Download, if needed, happens as part of this same call, with its own
     progress feedback, before the reload itself runs.
-  - Concurrency: a flag blocks a new PTT cycle from starting while a reload
-    is in flight -- no lock around model access.
+  - Uses the shared flag from COMMON -- sets it before starting real
+    work, clears it in a finally regardless of outcome.
   - The contrived edge case (reload while a recording is already in
-    progress) is not specially handled -- it's absorbed by B22's existing
-    "wrap transcribe(), log one line, continue," which is now a real
-    dependency of this design, not just leftover scope.
+    progress) is absorbed by B22's "wrap transcribe(), log one line,
+    continue" -- now a real dependency of this design, not leftover scope.
+
+BLOCK B -- AUDIO DEVICE (AudioCapture.rebuild)
+  - Uses the shared flag from COMMON -- sets it before swapping the
+    device, clears it in a finally regardless of outcome.
 
 
 ==============================================================================
@@ -45,18 +156,35 @@ FATAL VS RECOVERABLE
     _report_callback_exception's existing pattern -- native MessageBoxW,
     not Tk, since Tk itself might be compromised), a bug-report link.
   - User re-clicking the desktop icon is the accepted recovery gesture.
-  - "Getting fancy" about in-place recovery is a noted future direction,
-    not spec'd now.
   - threading.excepthook gets built (cheap, catches silent
     thread-death-by-exception).
-  - A full probe/telemetry watchdog does not -- judged over-engineering
-    against a still-hypothetical failure mode. Revisit if real hangs
-    actually show up.
+  - Every unhandled exception feeds the same path: threading.excepthook
+    (background threads), the generalized _report_callback_exception
+    pattern (main thread, Tk and .after() callbacks alike), and a raw
+    try/except around startup itself before Tk exists (today's
+    _log_startup_crash). Three catch points, one destination.
+  - The generic fatal category is called fatal, not daemon-crash -- that
+    name presupposed a process split that's going away. Red, ERROR
+    marker, box=True, same modal mechanism as mic-fault/model-fault.
+    Concrete triggers: missing Python dependencies, any unhandled
+    exception. Unlike mic-fault/model-fault, it has exactly one outcome
+    -- nothing Settings can fix for either, so the modal never routes
+    there. Message, bug-report link, exit.
 
 
 ==============================================================================
 WHAT SURVIVES / WHAT DOESN'T
 ==============================================================================
+This list is preliminary, not exhaustive -- built during this plan's
+conversational review, not a full codebase search. It is not a verified
+audit and it is not licensed to be trusted blind: before executing a
+step, grep for callers and imports rather than assuming this inventory
+is complete, and confirm each listed file against its current state
+before touching it. A real problem found anywhere during actual work --
+listed here or not -- gets reported and logged the same as anywhere
+else. "Already covered by the plan" is not a reason to go quiet on a
+finding.
+
   Untouched: hotkey.py, keyboard.py, portaudio_io.py, config.py, all of
   vdict_tray.py's actual widget-building code.
 
@@ -75,18 +203,42 @@ WHAT SURVIVES / WHAT DOESN'T
 
 
 ==============================================================================
+LOGGING MIGRATION
+==============================================================================
+Full detail: output-logging-build-sheet.txt and output-logging-categories-
+results.csv, restored to .docs/process/ from git history for this purpose
+-- not comprehensive here on purpose, that's what they're for.
+
+  - GENERAL RULE: when a function or branch gets rewritten or removed by
+    this refactor, any log() call inside it must be explicitly carried
+    into whatever replaces it. Logging does not survive by default just
+    because the code around it does -- check it at every site being
+    touched, don't assume it follows along.
+  - Survives unchanged: the CATEGORIES table (color/marker/box/toast),
+    error_log()'s disk-write-first pattern, transcript_log()'s dedicated
+    logger. None of these need to change in their own definitions, only
+    in how they get called.
+  - At real risk: vdict_daemon.py holds roughly a dozen log() call sites
+    (loading, ready, block, rec/note/done, transcript, plus
+    _resolve_output_device()'s two error calls) that all need a home in
+    whatever the new thread-body version of this file looks like.
+  - _log_session_block() currently reports the daemon subprocess's PID
+    and fires on every start/restart -- under this design a restart is
+    rare (unrecoverable fault only), so this block's trigger point and
+    content need redefining, not just relocating verbatim.
+  - mic-fault/model-fault survive as categories, but their modal/dispatch
+    bundles don't carry over as-is -- they need to match FATAL VS
+    RECOVERABLE's recoverable-vs-unrecoverable split. Already flagged
+    from the input-device side (input-device-plan-defects.txt item 2);
+    same rework, cross-referenced here from the logging side.
+  - log()'s actual new mechanism is still the BLOCKERS item at the top --
+    this section doesn't resolve that, it's why that blocker matters.
+
+
+==============================================================================
 SUPERSEDES
 ==============================================================================
   - build-v2-plan.txt / build-v2-build-sheet.txt -- stays untouched, dealt
     with in its own proper true-up later.
   - B1 as backlog.txt describes it -- its four tiers survive as the
     orchestrator's dispatch table, not a separate layer.
-
-
-==============================================================================
-STILL OPEN -- NEEDS A SPIKE BEFORE IT'S LOAD-BEARING
-==============================================================================
-  - Whether swapping WhisperModel objects in place actually releases
-    GPU/CUDA memory cleanly across repeated loads -- same treatment
-    PortAudio got (source plus real hardware verification, not source
-    alone).

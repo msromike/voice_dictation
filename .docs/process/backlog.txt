@@ -684,6 +684,12 @@ they don't each need their own backlog item. Sub-items drain individually.
     rebuild ships first -- this documents real, confirmed behavior of that
     feature, not something to write in ahead of it.
 
+  - Windows-default-device recommendation: once input-device-plan.txt's
+    NO SYSTEM DEFAULT design ships, the README's advice to set your mic
+    as Windows default becomes actively wrong, not just stale -- needs
+    removing/correcting then. GATE: input-device rebuild ships first,
+    same as the exclusive-mode sub-item above.
+
 
 ==============================================================================
 B17. SETTINGS MODEL DROPDOWN -- POPULATE FROM faster_whisper, NOT HARDCODED
