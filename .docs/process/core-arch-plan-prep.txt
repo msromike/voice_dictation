@@ -5,19 +5,6 @@ sheet starts. Drains as each item completes.
 
 
 ==============================================================================
-P1. MECHANICAL SPLIT OF open_settings
-==============================================================================
-  - One method per widget section (microphone, PTT config, model/compute,
-    beeps, console-on-boot, hotkey picker), each returning its Tk
-    variable. Window setup its own method. open_settings becomes: window
-    setup, the section calls, then whatever collects the returned values.
-  - No behaviour change -- widgets, defaults, ordering, saved values
-    identical to today.
-  - The collect-and-save step stays inline for this pass; core-arch pulls
-    Save out into its own handler later.
-
-
-==============================================================================
 P2. WRAP stt.transcribe() -- ONE BAD TRANSCRIPTION SHOULDN'T END THE SESSION
 ==============================================================================
   - Wrap the stt.transcribe() call in the PTT loop's per-cycle logic. On
@@ -121,8 +108,8 @@ TARGET STRUCTURE
 Pieces move into the existing vdict/tray/ package (currently just
 hotkey.py), not a new location. Rough count of genuinely distinct
 concerns currently tangled into one file: app bootstrap, tray icon/menu,
-console/output window, Settings dialog (already being split internally by
-P1), the Save/orchestrator logic (Tray itself), hotkey capture UI
+console/output window, Settings dialog (already split into per-section
+methods), the Save/orchestrator logic (Tray itself), hotkey capture UI
 (_PTTCapture -- distinct from vdict/tray/hotkey.py's low-level Win32
 wrapper), fault-modal dispatch, error logging, window geometry
 persistence, misc UI (About box, Save-As-log, help menu sync). Already
@@ -137,7 +124,7 @@ CONFIG PERSISTENCE and LIVE-READ SETTINGS -- not tray-side concerns
 either.
 
 SCALE WARNING -- WHY THIS ISN'T ONE MORE TERSE PREP BULLET
-P1-P3 are each one function or one mechanical move. This is splitting
+P2 and P3 are each one function or one mechanical move. This is splitting
 1520 lines into roughly a dozen files -- same sound principle as those,
 much more surface area for something subtle to go wrong: shared state two
 new modules both secretly need, an import cycle, something that looked

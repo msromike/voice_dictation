@@ -236,6 +236,9 @@ def _geometry_parts(geometry):
 # config.json stt.device -> display name. Settings and the session block share it.
 DEVICE_LABELS = {"cpu": "CPU", "cuda": "GPU (CUDA)"}
 
+# config.json audio.device's empty-string value, shown as a real option in Settings.
+DEFAULT_MIC_LABEL = "System Default"
+
 # Tk event.state bits, measured on Windows. Alt is bit 17, NOT the X11 Mod1
 # 0x0008 you would guess from Ctrl landing on its X11 value.
 TK_SHIFT, TK_CTRL, TK_ALT = 0x0001, 0x0004, 0x20000
@@ -966,28 +969,15 @@ class VoiceDictationTray:
             pady=(0, int(20 * self.dpi_scale)))
         modal.protocol("WM_DELETE_WINDOW", modal.destroy)
 
-    # Builds the whole dialog inline. Split by backlog B1; remove then.
-    def open_settings(self, icon=None, item=None):  # noqa: C901, PLR0915
-        """Open settings dialog to configure PTT mode and audio"""
-        # Several independent paths reach this -- the tray menu, the first-run
-        # tutorial, and missing-microphone recovery -- so never stack windows.
-        existing = getattr(self, "settings_win", None)
-        if existing is not None:
-            try:
-                if existing.winfo_exists():
-                    existing.lift()
-                    return
-            except tk.TclError:
-                pass  # Widget already torn down; fall through and rebuild
-
+    def _build_settings_window(self):
+        """Toplevel, its frame, and the title banner. Withdrawn until placement is set.
+        Returns (settings_win, main_frame)."""
         settings_win = tk.Toplevel(self.window)
         self.settings_win = settings_win
         settings_win.withdraw()  # Hide immediately to prevent position flash
         settings_win.title("Settings")
         settings_win.resizable(False, False)
         settings_win.attributes("-topmost", True)
-
-        config, _ = load_settings()
 
         # Create an inner frame for clean, scaled outer padding
         main_frame = tk.Frame(
@@ -1000,22 +990,21 @@ class VoiceDictationTray:
                 self.dpi_scale))
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # UI Elements
-        
         from tkinter import ttk
-        
+
         # Add a professional banner to stretch the window width and look clean
         title_label = tk.Label(main_frame, text="Voice Dictation Settings",
                                font=("Segoe UI", 12, "bold"))
         title_label.pack(pady=(0, int(5 * self.dpi_scale)))
-        
+
         separator = ttk.Separator(main_frame, orient='horizontal')
         separator.pack(fill='x', pady=(0, int(15 * self.dpi_scale)))
 
-        # 1. Microphone
-        import sounddevice as sd
+        return settings_win, main_frame
 
-        DEFAULT_MIC_LABEL = "System Default"
+    def _build_microphone_row(self, parent, config):
+        """Label and dropdown for the input device. Returns the picked Tk StringVar."""
+        import sounddevice as sd
 
         # Enumerate WASAPI only. The legacy PortAudio backends list each mic
         # again, add default-device aliases, and truncate names to 31 chars.
@@ -1036,38 +1025,43 @@ class VoiceDictationTray:
         if saved_mic and saved_mic not in mic_names:
             mic_names.append(saved_mic)
 
-        tk.Label(main_frame, text="Microphone:").pack()
+        tk.Label(parent, text="Microphone:").pack()
         mic_var = tk.StringVar(
             value=saved_mic if saved_mic else DEFAULT_MIC_LABEL)
         tk.OptionMenu(
-            main_frame, mic_var, DEFAULT_MIC_LABEL, *mic_names).pack(
+            parent, mic_var, DEFAULT_MIC_LABEL, *mic_names).pack(
             pady=(0, int(15 * self.dpi_scale)))
+        return mic_var
 
-        # 2. PTT Config
-        tk.Label(main_frame, text="PTT Button Trigger:").pack()
+    def _build_ptt_row(self, parent, config):
+        """Button-trigger picker and recording-mode dropdown.
+        Returns (button_var, button_display_var, mode_var)."""
+        tk.Label(parent, text="PTT Button Trigger:").pack()
         button_var = tk.StringVar(value=config.ptt.button)
         button_display_var = tk.StringVar(value=_format_bind(button_var.get()))
-        
+
         bind_btn = tk.Button(
-            main_frame, 
-            textvariable=button_display_var, 
+            parent,
+            textvariable=button_display_var,
             width=20,
             command=lambda: self._rebind_key(button_var, button_display_var, bind_btn)
         )
         bind_btn.pack(pady=(0, int(15 * self.dpi_scale)))
 
-        tk.Label(main_frame, text="PTT Recording Mode:").pack()
+        tk.Label(parent, text="PTT Recording Mode:").pack()
         mode_var = tk.StringVar(value=config.ptt.mode.capitalize())
         tk.OptionMenu(
-            main_frame, mode_var, "Toggle", "Hold").pack(
+            parent, mode_var, "Toggle", "Hold").pack(
             pady=(
                 0, int(
                     15 * self.dpi_scale)))
+        return button_var, button_display_var, mode_var
 
-        # 3. AI Model & Compute
-        tk.Label(main_frame, text="AI Model Size:").pack()
+    def _build_model_row(self, parent, config):
+        """Model-size and compute-device pickers. Returns (ai_model_var, device_var)."""
+        tk.Label(parent, text="AI Model Size:").pack()
         ai_model_var = tk.StringVar(value=config.stt.model)
-        tk.OptionMenu(main_frame,
+        tk.OptionMenu(parent,
                       ai_model_var,
                       "tiny.en",
                       "base.en",
@@ -1082,14 +1076,14 @@ class VoiceDictationTray:
                 import os
                 import glob
                 import site
-                
+
                 old_path = os.environ.get("PATH", "")
                 for sp in site.getsitepackages() + [site.getusersitepackages()]:
                     nvidia_bins = glob.glob(os.path.join(sp, "nvidia", "*", "bin"))
                     if nvidia_bins:
                         os.environ["PATH"] = ";".join(nvidia_bins) + ";" + old_path
                         break
-                        
+
                 import ctranslate2
                 count = ctranslate2.get_cuda_device_count()
                 os.environ["PATH"] = old_path
@@ -1099,31 +1093,56 @@ class VoiceDictationTray:
 
         has_cuda = _has_cuda()
 
-        tk.Label(main_frame, text="Compute Device:").pack()
-        reverse_device_mapping = {v: k for k, v in DEVICE_LABELS.items()}
+        tk.Label(parent, text="Compute Device:").pack()
         device_var = tk.StringVar(value=DEVICE_LABELS[config.stt.device])
 
-        dev_menu = tk.OptionMenu(main_frame, device_var, "CPU", "GPU (CUDA)")
+        dev_menu = tk.OptionMenu(parent, device_var, "CPU", "GPU (CUDA)")
         if not has_cuda:
             # Hardware Fallback: Disable GPU option if no CUDA device exists
             dev_menu["menu"].entryconfigure("GPU (CUDA)", state="disabled")
             if device_var.get() == "GPU (CUDA)":
                 device_var.set("CPU")
         dev_menu.pack(pady=(0, int(15 * self.dpi_scale)))
+        return ai_model_var, device_var
 
-        # 4. Audio Beeps
+    def _build_beeps_row(self, parent, config):
+        """Audio-feedback checkbox. Returns the Tk BooleanVar."""
         audio_var = tk.BooleanVar(value=config.audio.feedback)
         tk.Checkbutton(
-            main_frame, text="Enable Audio Beeps", variable=audio_var).pack(
+            parent, text="Enable Audio Beeps", variable=audio_var).pack(
             pady=(0, int(15 * self.dpi_scale)))
-            
-        # 5. Open Console on Boot
+        return audio_var
+
+    def _build_console_boot_row(self, parent, config):
+        """"Show output window on startup" checkbox. Returns the Tk BooleanVar."""
         open_console_var = tk.BooleanVar(value=config.ui.open_console_on_boot)
         tk.Checkbutton(
-            main_frame, text="Show Output Window on Startup", variable=open_console_var).pack(
+            parent, text="Show Output Window on Startup", variable=open_console_var).pack(
             pady=(0, int(15 * self.dpi_scale)))
+        return open_console_var
 
-        # 6. Output window hotkey
+    def open_settings(self, icon=None, item=None):  # noqa: PLR0915
+        """Open settings dialog to configure PTT mode and audio"""
+        # Several independent paths reach this -- the tray menu, the first-run
+        # tutorial, and missing-microphone recovery -- so never stack windows.
+        existing = getattr(self, "settings_win", None)
+        if existing is not None:
+            try:
+                if existing.winfo_exists():
+                    existing.lift()
+                    return
+            except tk.TclError:
+                pass  # Widget already torn down; fall through and rebuild
+
+        settings_win, main_frame = self._build_settings_window()
+
+        config, _ = load_settings()
+
+        mic_var = self._build_microphone_row(main_frame, config)
+        button_var, button_display_var, mode_var = self._build_ptt_row(main_frame, config)
+        ai_model_var, device_var = self._build_model_row(main_frame, config)
+        audio_var = self._build_beeps_row(main_frame, config)
+        open_console_var = self._build_console_boot_row(main_frame, config)
         hotkey_binding = self._build_hotkey_row(main_frame)
 
         def _get_pos():
@@ -1140,6 +1159,7 @@ class VoiceDictationTray:
             config.ptt.mode = cast(Literal["hold", "toggle"], mode_var.get().lower())
             config.audio.feedback = audio_var.get()
             config.stt.model = ai_model_var.get()
+            reverse_device_mapping = {v: k for k, v in DEVICE_LABELS.items()}
             config.stt.device = cast(
                 Literal["cpu", "cuda"], reverse_device_mapping[device_var.get()])
             config.hotkey = HotkeyConfig(**hotkey_binding)
