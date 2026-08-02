@@ -10,6 +10,8 @@ that review, not the doc alone -> end with a question naming the item -> approve
 -> STOP -> report done/problems -> next item.
 Never propose+implement same turn. Never explain an item from the build sheet's text without
 first confirming it against the code as it exists right now.
+Item boundary = risk seam, not feature size. Cross-process state (tray/daemon) or a required
+ordering (reinit before resolve) -> own item, never bundled, even if one line would cover it.
 
 ## Code
 - crash-fast: no null checks between internal modules
