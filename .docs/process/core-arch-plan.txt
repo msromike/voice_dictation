@@ -10,9 +10,29 @@ BLOCKERS -- resolve before build sheet, not during:
     loads. Same treatment PortAudio got: source plus real hardware
     verification, not source alone. Not verified yet.
   - What absorbs a device swap while a recording is already in progress
-    (rebuild() racing an active start_capture()). B22 covers a bad
-    transcribe() call, not a stream replaced out from under an active
-    recording. Not resolved.
+    (rebuild() racing an active start_capture()) -- a bad transcribe()
+    call is already handled, but a stream replaced out from under an
+    active recording is a different failure entirely. Not resolved.
+
+
+==============================================================================
+OPEN ISSUES -- worth tracking, does not gate the build sheet
+==============================================================================
+  - Field audit incomplete. Every config field needs classifying against
+    the real reconfigure categories (instant-cast, Model, Audio Device,
+    Listener, or genuinely no mechanism needed) -- PTT button and the
+    output-window hotkey are both confirmed Listener-category fields that
+    weren't in the original inventory. Finish this when the build sheet
+    gets drafted, not as a separate pre-step.
+  - Hotkey extensibility. hotkey.py's existing register()/unregister()
+    (one thread, one Windows message pump) generalizes cheaply to
+    multiple registered hotkeys -- _HOTKEY_ID=1 is the only thing
+    limiting it to one today. Worth doing now so future hotkeys (e.g.
+    toggle transcription without raising the window) are cheap to add,
+    not a rewrite. PTT stays on its own separate pynput mechanism
+    permanently -- different OS tool for a genuinely different job
+    (press/release tracking, mouse-button support), not something that
+    unifies with hotkey.py.
 
 
 ==============================================================================
@@ -63,11 +83,14 @@ CONFIG PERSISTENCE
     and D9 (six load_settings() call sites) as a side effect.
   - Every checkpoint write uses the same atomic write (temp file, then
     os.replace()) -- already required by B1, applies to all of them here,
-    not just Save.
+    not just Save. Every one of those writes is explicit encoding="utf-8",
+    matching every other file operation in the app -- config.json's
+    reads/writes are the one place that wasn't (D15), relying on
+    Windows' platform-default locale encoding instead.
   - load_settings()'s existing per-field healing (missing file seeds
     fresh, invalid JSON resets wholesale, one bad field heals via
     pydantic without touching the rest) replaces load_config()'s
-    raise-on-any-of-these -- one shared function, Trey owns it.
+    raise-on-any-of-these -- one shared function, Tray owns it.
   - ptt.button gets a real validator (checked against BUTTON_MAP plus
     the key: pattern) instead of staying a bare str. An invalid value
     becomes a genuine pydantic ValidationError, caught by the same
@@ -127,11 +150,12 @@ COMMON TO BOTH
     detecting a change itself. Whether real work happens is each
     method's own decision.
   - One shared flag protects the PTT loop's single gate -- don't start a
-    new cycle. Either reload() or rebuild() can set it before starting
-    real work; whichever set it clears it in a finally covering both
-    success and failure. start_capture() only reads it, checked once,
-    before starting a new cycle. Not two independent flags -- there's
-    only one decision being protected.
+    new cycle. reload(), rebuild(), or a cycle's own pending-delivery
+    confirmation can each set it before starting real work; whichever set
+    it clears it in a finally covering both success and failure.
+    start_capture() only reads it, checked once, before starting a new
+    cycle. Not three independent flags -- there's only one decision being
+    protected, three things that can hold it closed.
 
 BLOCK A -- MODEL (STTEngine.reload)
   - Download, if needed, happens as part of this same call, with its own
@@ -139,8 +163,9 @@ BLOCK A -- MODEL (STTEngine.reload)
   - Uses the shared flag from COMMON -- sets it before starting real
     work, clears it in a finally regardless of outcome.
   - The contrived edge case (reload while a recording is already in
-    progress) is absorbed by B22's "wrap transcribe(), log one line,
-    continue" -- now a real dependency of this design, not leftover scope.
+    progress) is absorbed by wrapping the transcribe() call so one bad
+    transcription logs one line and continues instead of ending the
+    session -- now a real dependency of this design, not leftover scope.
 
 BLOCK B -- AUDIO DEVICE (AudioCapture.rebuild)
   - Uses the shared flag from COMMON -- sets it before swapping the

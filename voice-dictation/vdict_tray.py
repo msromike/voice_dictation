@@ -66,7 +66,7 @@ ERROR_LOG_PATH = LOG_DIR / "tray_error.log"
 MIC_FAULT_FLAG_PATH = Path(__file__).parent.parent / "userdata" / "mic_fault.flag"
 
 # B14 groundwork -- gated on a flag, not a Settings checkbox yet.
-TRANSCRIPT_LOG_ENABLED = False
+TRANSCRIPT_LOG_ENABLED = True
 TRANSCRIPT_LOG_PATH = LOG_DIR / "transcript_log.txt"
 
 # SWALLOW's first real caller -- no Settings/UI integration yet either.
@@ -213,7 +213,7 @@ _transcript_logger = logging.getLogger("vdict.transcript")
 _transcript_logger.propagate = False
 _transcript_logger.setLevel(logging.INFO)
 _transcript_handler = logging.handlers.RotatingFileHandler(
-    TRANSCRIPT_LOG_PATH, maxBytes=10 * 1024 * 1024, backupCount=1,
+    TRANSCRIPT_LOG_PATH, maxBytes=100 * 1024 * 1024, backupCount=5,
     encoding="utf-8", delay=True)
 _transcript_handler.setFormatter(logging.Formatter("%(message)s"))
 _transcript_logger.addHandler(_transcript_handler)
