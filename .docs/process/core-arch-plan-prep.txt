@@ -90,6 +90,23 @@ self-contained and wasn't. Needs its own plan and build sheet before real
 coding starts, same discipline core-arch and input-device-plan.txt both
 already got, not folded into a single prep-item paragraph.
 
+WINDOW GEOMETRY PERSISTENCE -- DESIGN DECISION 2026-08-02
+Registry, not one-off per-window save calls: each window registers once
+(e.g. track(window, config_field)); a single save_all(config) call asks
+the registry for every currently-open tracked window's live position and
+writes all of them in one shot. Called at process exit only.
+
+No crash-safety requirement -- losing an unsaved drag to a crash is
+accepted, so no per-move or per-settle disk write is needed, only an
+in-memory cache of the live geometry (same idea as today's
+_remember_geometry) plus one flush at exit.
+
+This is what closes D20's bug class by construction, not by enumeration:
+a new window is covered by one track() call, not a new shutdown-step edit
+someone has to remember. Build against today's load/save-on-exit pattern;
+the API doesn't change shape once core-arch's shared live Config object
+lands, only what save_all(config) is handed.
+
 
 ==============================================================================
 P5. FOLD FIRST-RUN ONBOARDING INTO CORE-ARCH-PLAN.TXT'S ARCHITECTURE
