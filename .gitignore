@@ -17,7 +17,6 @@ __pycache__/
 pyrightconfig.json
 .github/copilot-instructions.md
 .github/instructions/
-.docs/
 .reference/
 
 # Project Specific

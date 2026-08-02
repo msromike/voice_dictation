@@ -1,0 +1,58 @@
+VOICE DICTATION - SPIKE NOTES
+
+Findings from real investigation, kept for reference. Not a task list.
+
+
+WHISPER (faster-whisper, large-v3, cuda)
+
+Short clips (~140-180ms) of real captured audio can produce confident,
+plausible-but-false text ("Let's go.", "Thank you.") instead of an empty
+result. Pure synthetic silence or random noise of the same length does not
+reproduce this -- only real mic transients did.
+
+transcribe() latency does not scale with clip length. 10ms-2000ms clips all
+took ~190-200ms after model warm-up. First call after model load pays a
+one-time ~500-700ms warm-up cost, unrelated to input length.
+
+Two concurrent transcribe() calls on the same loaded model instance do not
+crash or corrupt output, but serialize -- a concurrent pair takes ~2x one
+call's time, no parallel speedup.
+
+MIN_RECORDING_SAMPLES stays at 6400 (0.4s): it already filters the exact
+duration range where hallucination was observed.
+
+
+AUDIO PLAYBACK (sounddevice/WASAPI)
+
+sd.play() opens a new WASAPI stream per call -- that stream-open is what
+causes an audible click on every play. A single persistent sd.OutputStream,
+written to repeatedly, has no click.
+
+WASAPI auto_convert (sd.WasapiSettings(auto_convert=True)) correctly
+resamples a fixed-rate source (tested 192000 Hz) down to a device's native
+rate (tested 48000 Hz) -- correct duration and pitch, confirmed both from a
+live numpy array and from a real WAV file round-tripped through disk.
+
+A crashed process (unhandled exception, stream never closed) does not lock
+the output device -- Windows reclaims the WASAPI session on process exit,
+confirmed by immediately reopening the same device from a fresh process.
+
+An open but unfed WASAPI stream was suspected to click on the next real
+write after idling. WRONG, or at least incomplete: feeding it silence
+continuously (never idle) did not fix it. The artifact persists -- a brief
+burst of white noise, not a clean click/pop, landing specifically right
+after a tone plays. White noise (not a pop) points at a buffer underrun
+(driver has nothing valid to output for an instant) rather than a waveform
+discontinuity. Leading theory: the writer thread is a blocking-write push
+model (Python decides when to hand off each chunk); a pull model (PortAudio
+calls back for more data on its own real-time thread, same pattern already
+used for microphone input) would remove the Python-scheduling dependency
+entirely. Not yet implemented or confirmed.
+
+Checked and ruled out as causes: np.empty() uninitialized memory (never
+used anywhere in this codebase -- everything is np.zeros/.astype()),
+dtype mismatch (every array reaching .write() confirmed float32, matching
+the stream's own dtype="float32"). Confirmed real but likely too small to
+be the cause: the shipped tones' fade-out never reaches exactly 0 at the
+last sample (off-by-one in the fade math, ~0.05% of full scale residual) --
+worth fixing whenever the WAV assets get regenerated, not the prime suspect.

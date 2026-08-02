@@ -1,0 +1,92 @@
+VOICE DICTATION - PLAN: CORE ARCHITECTURE (ORCHESTRATOR REFACTOR)
+
+Reference for the core-arch build sheet.
+
+
+==============================================================================
+ARCHITECTURE
+==============================================================================
+  - One process, one entry point (the orchestrator). Audio capture, STT/
+    model, PTT listener, and the global hotkey each run on their own thread.
+  - Tk owns the main thread and is the only thing that touches widgets;
+    everything else reaches it through .after(), same pattern the hotkey
+    thread already uses.
+  - Settings is a pure view -- returns the raw snapshot of what the user
+    picked, no diffing inside it.
+  - No central diff step. Each consumer decides for itself, at the point it
+    would act, whether its own slice changed -- cheap stuff (beep volume)
+    just reapplies, expensive stuff (model reload) checks first.
+  - No cross-process signaling needed anywhere -- that whole problem (how
+    does the daemon know Save happened) dissolves because there is no
+    longer a process boundary to cross.
+
+
+==============================================================================
+MODEL RELOAD / AUDIO DEVICE
+==============================================================================
+  - Orchestrator calls the reload directly when Settings' returned snapshot
+    shows a change -- not "Save causes it."
+  - Download, if needed, happens as part of that same action, with its own
+    progress feedback, before the reload itself runs.
+  - Concurrency: a flag blocks a new PTT cycle from starting while a reload
+    is in flight -- no lock around model access.
+  - The contrived edge case (reload while a recording is already in
+    progress) is not specially handled -- it's absorbed by B22's existing
+    "wrap transcribe(), log one line, continue," which is now a real
+    dependency of this design, not just leftover scope.
+
+
+==============================================================================
+FATAL VS RECOVERABLE
+==============================================================================
+  - Orchestrator's call, no watchdog/survivor process.
+  - Unrecoverable means the whole stack exits -- red error, "Unrecoverable
+    error" modal, log captured to disk first (generalizing
+    _report_callback_exception's existing pattern -- native MessageBoxW,
+    not Tk, since Tk itself might be compromised), a bug-report link.
+  - User re-clicking the desktop icon is the accepted recovery gesture.
+  - "Getting fancy" about in-place recovery is a noted future direction,
+    not spec'd now.
+  - threading.excepthook gets built (cheap, catches silent
+    thread-death-by-exception).
+  - A full probe/telemetry watchdog does not -- judged over-engineering
+    against a still-hypothetical failure mode. Revisit if real hangs
+    actually show up.
+
+
+==============================================================================
+WHAT SURVIVES / WHAT DOESN'T
+==============================================================================
+  Untouched: hotkey.py, keyboard.py, portaudio_io.py, config.py, all of
+  vdict_tray.py's actual widget-building code.
+
+  Already-planned changes (unaffected by the merge decision itself):
+  audio.py, stt.py -- retry-loop removal, sys.exit() removal, portaudio_io
+  wiring.
+
+  Genuinely restructured: output.py's log()/parse() (the wire format goes
+  away, CATEGORIES metadata stays), vdict_daemon.py's main() (becomes a
+  thread body, not a process entry point), vdict_tray.py's
+  subprocess-management code (removed), MIC_FAULT_FLAG_PATH (likely gone
+  entirely).
+
+  Watch, don't rewrite: portaudio_io.py's same-thread constraint on
+  reinit() -- was free by construction, now has to be enforced on purpose.
+
+
+==============================================================================
+SUPERSEDES
+==============================================================================
+  - build-v2-plan.txt / build-v2-build-sheet.txt -- stays untouched, dealt
+    with in its own proper true-up later.
+  - B1 as backlog.txt describes it -- its four tiers survive as the
+    orchestrator's dispatch table, not a separate layer.
+
+
+==============================================================================
+STILL OPEN -- NEEDS A SPIKE BEFORE IT'S LOAD-BEARING
+==============================================================================
+  - Whether swapping WhisperModel objects in place actually releases
+    GPU/CUDA memory cleanly across repeated loads -- same treatment
+    PortAudio got (source plus real hardware verification, not source
+    alone).

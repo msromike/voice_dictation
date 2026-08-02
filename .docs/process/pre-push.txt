@@ -1,0 +1,102 @@
+VOICE DICTATION - PRE-PUSH CHECKLIST
+
+Run in order before the first push, and again before any release tag after it.
+
+
+==============================================================================
+P1. DOCS DRAINED
+==============================================================================
+backlog.txt and defects.txt both empty.
+
+==============================================================================
+P2. AUTOMATED CHECKS
+==============================================================================
+All four at zero:
+
+    venv\Scripts\ruff.exe check .
+    venv\Scripts\pyright.exe
+    venv\Scripts\vulture.exe voice-dictation tools\vulture_whitelist.py --min-confidence 60
+    venv\Scripts\python.exe tools\check_docstrings.py
+
+False positives live in tools\vulture_whitelist.py.
+
+
+==============================================================================
+P3. VERSION AND CHANGELOG
+==============================================================================
+__version__ in vdict_tray.py bumped.
+CHANGELOG.md [Unreleased] promoted to a dated version matching it.
+
+
+==============================================================================
+P4. README AND MEDIA
+==============================================================================
+No stale menu labels or button text. Grep the README for any string the code
+no longer uses.
+
+No placeholder media -- images\demo.gif.
+
+Every image in images\ matches the current UI.
+
+Help links (PROJECT_URL, used in the About dialog, Help menu, and startup
+header) point to github.com/msromike/voice_dictation and 404 until this
+push completes -- no action needed, just confirm they resolve once the
+repo is public.
+
+==============================================================================
+P5. BATCH FILES -- GREP, THEN ACTUALLY RUN THEM
+==============================================================================
+A passing grep proves the filenames are spelled right. It does not prove
+the scripts work -- a shortcut created with a syntax or quoting bug still
+"succeeds" with no error and points at nothing useful. Both checks matter,
+neither one alone is enough.
+
+STATIC FIRST -- cheap, catches obvious naming staleness fast:
+
+    grep -rn "\.bat" --include="*.md" --include="*.bat" --include="*.py" \
+        --include="*.toml" --include="*.txt" .
+
+Cross-check every hit's filename against what's actually in the repo root.
+CHANGELOG.md entries describing past releases are exempt -- historical
+record, not live documentation.
+
+THEN RUN EVERY BATCH FILE FOR REAL -- Mike runs, reports:
+  vdict_install.bat and startup_folder_install.bat -- already covered by
+    P8's clean-clone install, not duplicated here.
+  vdict_run.bat -- already covered by P7's smoke test, not duplicated here.
+  startup_folder_uninstall.bat -- NO coverage anywhere else in this
+    checklist. Run it, then confirm the VoiceDictation.lnk shortcut is
+    actually gone from the Startup folder afterward -- not just that the
+    script exited without an error.
+
+Found the hard way 2026-08-01: four files renamed, twelve stale text
+references across nine files, including a call to a batch file that no
+longer existed -- the grep above would have caught every one of those.
+None of tonight's bugs were the "runs fine, does the wrong thing" kind,
+but that category exists and only running the script for real catches it.
+
+
+==============================================================================
+P6. REPO HYGIENE
+==============================================================================
+Nothing staged carrying an absolute local path or personal information.
+
+.docs is gitignored on main. The docs branch stays local -- a pre-push hook
+blocks refs/heads/docs.
+
+
+==============================================================================
+P7. SMOKE TEST IN THE WORKING TREE
+==============================================================================
+Launch vdict_run.bat, which runs from venv and not a global Python.
+
+
+==============================================================================
+P8. CLEAN-CLONE INSTALL
+==============================================================================
+Clone to an empty folder. Run vdict_install.bat, then startup_folder_install.bat.
+
+Verify both shortcuts carry the icon. Launch from the Desktop shortcut
+
+Must be a CLONE, not the working tree. vdict_install.bat run in place
+reuses the existing venv and proves nothing about a fresh install.

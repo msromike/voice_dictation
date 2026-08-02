@@ -1,0 +1,98 @@
+VOICE DICTATION - DEFECTS
+
+Behavior that is wrong NOW. Drains to empty.
+Not-yet-built work -> backlog.txt.
+Docs describing planned-but-unbuilt behavior are not defects. Docs describing
+something cancelled are.
+
+
+D7. vdict_tray.py crams tray icon, Settings dialog, console window and hotkey
+    registration into one file. Surfaced while counting config-model-build's
+    call sites -- one file absorbing the whole blast radius of an unrelated
+    refactor is the tell. Not a behavior bug, a module-boundary one. Formal
+    split build sheet AFTER config-model-build and build-v2 both land --
+    not before, not folded into either.
+
+D9. load_settings() is called from SIX places in vdict_tray.py
+    (_log_session_block, open_settings, _build_hotkey_row, _rebind_on_close,
+    _save_console_state, run), each an independent fresh read of config.json.
+    No shared in-memory config anywhere in the class. Same shotgun-surgery
+    shape as the ptt/stt alias finding in config-model-build -- one thing,
+    touched independently in six places.
+
+    Only run() captures and reports reset_reason. The other five discard it
+    with `config, _ = load_settings()` -- a corrupt config.json reset at any
+    of those five happens completely silently.
+
+    CAUGHT LIVE: corrupted config.json while the app was running, then
+    exited. _save_console_state's load_settings() call caught the corruption,
+    reset the file, and discarded reset_reason -- silently. The NEXT session's
+    boot found an already-valid file and had nothing to report, even though a
+    reset genuinely happened one session earlier.
+
+    NOT a simple fix: _rebind_on_close's fresh read is deliberate, not
+    redundant -- "Settings is gone -- put the hotkey back from whatever is on
+    disk now. Saved or abandoned, disk already holds the right answer." A
+    single shared self.config would need to preserve that discard-on-close
+    behavior specially, not just get read once and trusted.
+
+    TWO CANDIDATE FIXES, not decided: (a) small -- report reset_reason at all
+    six sites, no architecture change. (b) bigger -- one shared self.config,
+    handling the discard-on-close case on purpose. (b) is adjacent to D7 --
+    same file, same "too much happening in one place" root cause.
+
+D11. "speech-to-text" / "stt" terminology should say "Whisper" instead --
+     faster-whisper is very unlikely to ever be swapped out. Display-text
+     only, e.g. stt.py's own docstring; NOT the code identifiers (SttConfig,
+     STTEngine, config.json's stt key) -- renaming those needs a migration
+     path so existing users' saved model/device choice does not reset.
+
+D12. Lint/complexity cleanup, deferred to its own session -- not fixed
+     piecemeal:
+       - Suppressions with no reason: vdict_daemon.py main (PLR0915),
+         vdict_tray.py open_settings (C901, PLR0915), vdict_tray.py
+         _drain_output_queue (C901, PLR0912). Write the reason and what
+         removes it, or fix the finding.
+       - Complexity outliers, whole tree: open_settings (C901=17,
+         PLR0915=117, build-v2 step 4 splits it), _drain_output_queue
+         (C901=15, PLR0912=15), run() (C901=9, no suppression yet -- under
+         the real max-complexity=10 gate, but above this list's own
+         informal 7). Nothing else above 7 as of 2026-07-31.
+     Re-measured 2026-07-31 (step 8d) against the real thresholds
+     (pyproject.toml: max-complexity=10, max-branches=12, max-statements=
+     50), not the artificial threshold=1 report: _update_output itself
+     (formerly the site of this defect) is now clean, C901=5, no
+     suppression needed -- 5j's refactor split its complexity out into the
+     new _drain_output_queue, which inherited the noqa. run() grew to 9
+     since this defect was first logged (STEP 4's header/mic-fault-flag
+     additions) -- not yet a real gate violation, but worth tracking here
+     since it crossed this list's own bar.
+     SEQUENCING: after build-v2 and everything else open. Last in line on
+     purpose.
+
+D13. exit_app's messagebox.askokcancel("Close Voice Dictation", ...) has no
+     icon= argument, so it shows Tkinter's default QUESTION icon (blue
+     circle, question mark) implicitly. Every other messagebox call in the
+     file states its icon outright (_confirm_bare_key sets icon=WARNING).
+     Inconsistent, and not a deliberate choice -- just what askokcancel
+     defaults to when nothing is specified.
+
+D16. vulture flags portaudio_io.py's five public functions (reinit,
+     resolve_by_name, open_probe, start_hold, stop_hold) as unused --
+     correctly, nothing in the tracked repo calls them yet. Not suppressed:
+     they're real, complete, and deliberately un-wired, since hooking them
+     into AudioCapture is explicit build-sheet work (input-device-plan.txt),
+     not this commit. Authorized past this gate 2026-08-01, not fixed --
+     vulture will keep flagging these every commit until the build-sheet
+     wiring lands and gives them real callers. Drains when that happens.
+
+D15. config.json's reads and writes have no explicit encoding -- five sites
+     in vdict_tray.py (load_settings()'s three open(CONFIG_PATH, "w") calls,
+     its CONFIG_PATH.read_text(), and save_settings()'s
+     open(CONFIG_PATH, "w")), all relying on Windows' platform-default
+     locale encoding. Inconsistent with every other file operation in the
+     app, which are all explicit encoding="utf-8" (vocabulary.txt, the
+     error log, the Save As log export). Only matters if a config value
+     itself contains non-ASCII text (a microphone device name with unusual
+     characters, for instance) -- found while confirming the transcript
+     pipeline itself is UTF-8-safe end-to-end (it is; this is the one gap).

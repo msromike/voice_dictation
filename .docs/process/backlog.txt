@@ -1,0 +1,741 @@
+VOICE DICTATION - BACKLOG
+
+Work not yet done. Drains to empty.
+Wrong-now -> defects.txt.
+
+Queue: config model landed, output-logging done. build-v2-build-sheet.txt
+       is next -- STEP 0 closed, build-v2-defects.txt drained, ready for
+       STEP 1 whenever Mike starts it. Then B1 -> B3. B5-B12 unordered.
+
+
+==============================================================================
+B1. SETTINGS TIERING / DECOUPLE SETTINGS FROM MODEL RELOAD
+==============================================================================
+Status: designed 2026-07-26, not started
+Gate:   none. Not testable until the tree launches at all.
+
+SUPERSEDES: the vocabulary change watcher, cancelled and must NOT be built.
+
+Freshened 2026-07-31 against the current daemon/tray/common split -- file
+paths and line numbers below were written against the old single vdict.py
+and are corrected; the underlying diagnosis and proposal are unchanged.
+
+THE DIAGNOSIS
+There are two couplings here, stacked:
+  1. Every setting is coupled to PROCESS LIFETIME -- vdict_daemon.py's main()
+     reads config once via load_config() and hoists values into locals
+     (ptt_mode, audio_feedback, prompt) before its while True: loop starts,
+     which then runs forever without re-reading.
+  2. Process lifetime is coupled to MODEL LOAD -- any restart re-runs
+     STTEngine.load(), which is the expensive GPU step.
+
+Result: changing ANY setting pays the full model reload. Today that includes
+moving the Settings window, because ui.settings_pos is written on the same
+save path. It also includes opening Settings and clicking Save having changed
+nothing whatsoever.
+
+Breaking coupling 1 dissolves most of the problem. Coupling 2 is irreducible
+for exactly two settings.
+
+THE KEY EVIDENCE (this is the non-obvious bit)
+initial_prompt is a PER-CALL ARGUMENT to STTEngine.transcribe(). The
+vocabulary string (read once via load_vocabulary(), from vocabulary.txt --
+NOT a config.json field) is handed in fresh on every single transcription.
+It is NOT baked into the loaded model. So the app currently forces a GPU
+model reload to change a string that is passed as a function argument on
+every call.
+
+Vocabulary is the CHEAPEST setting in the app to make live, not the most
+expensive. It only looks expensive because it's hoisted into a local before
+main()'s loop starts, same as everything else.
+
+THE TIERS
+  TRAY-ONLY -- daemon never reads these; restarting for them is pure waste
+    ui.settings_pos, ui.open_console_on_boot, ui.first_run,
+      ui.console_geometry, ui.console_font_size
+    hotkey.modifiers, hotkey.vk, hotkey.name
+    (check: grep -n "config\.ui\.\|config\.hotkey\." vdict_daemon.py --
+     zero hits confirms the daemon never touches either)
+
+  CONFIG RE-READ -- one stat() per dictation, no restart of anything
+    vocabulary.txt (via load_vocabulary(), passed as initial_prompt)
+    audio.feedback  (beeps)
+    ptt.mode        (hold/toggle)
+    keyboard.preserve_clipboard -- already read fresh off
+      self.preserve_clipboard inside KeyboardInjector.inject() on every
+      call, not just at construction. Cheapest one here: no rebind needed,
+      just stop hoisting it once and let the daemon update the live
+      instance's attribute per re-read.
+
+  IN-PROCESS REBIND -- reconstruct one object, GPU untouched
+    ptt.button      (rebuild PTTListener)
+    audio.device    (rebuild AudioCapture)
+
+  MODEL RELOAD -- the actual pain point. Irreducible.
+    stt.model
+    stt.device
+
+Two settings of eleven justify a restart prompt. Nine do not.
+
+THE MECHANISM
+At the top of each PTT cycle, re-read config.json, compare against last-seen,
+apply what changed in place. One stat() per dictation, not per audio frame.
+No IPC channel -- the file IS the channel.
+
+Only a model or compute delta needs to surface to the tray as "this one needs
+a restart".
+
+THE SETTINGS DIALOG
+  - Button becomes "Save", not "Save & Restart". Every string naming the old
+    label goes stale the same day:
+        grep -rn "Save & Restart" README.md voice-dictation/
+  - On save, diff the config. If nothing in the MODEL RELOAD tier changed,
+    just save and log a dim output line naming what changed.
+  - If model or compute changed:
+
+        Title:  Restart Required
+        Body:   These changes need the speech engine restarted:
+
+                  - AI Model Size
+                  - Compute Device
+
+                Restart now?
+        Yes / No
+
+    Yes -> restart.
+    No  -> save anyway, and log: "Settings saved. Not active until restart:
+           AI Model Size, Compute Device."
+
+    THE "No" BRANCH MATTERS. Without that log line someone switches to
+    large-v3, clicks No, and then reports that accuracy did not improve.
+    Record the divergence rather than hiding it.
+
+  - Prompt BEFORE settings_win.destroy(), not after as the current code
+    orders it, so the dialog parents correctly.
+
+BLOCKING DEFECT THIS EXPOSES
+vdict_tray.py's save_settings() opens config.json with "w" -- truncate,
+then write. Non-atomic. Harmless today because nothing reads it concurrently.
+The moment the daemon re-reads config on a loop, the tray can be mid-write
+when the daemon reads and json.load gets truncated JSON.
+
+Fix: write to a temp file and os.replace(), which is atomic on Windows within
+a volume. This MUST land WITH the live-reload, not after it.
+
+RIDE-ALONG: HONEST RESTART MARKER -- already fixed, removed 2026-07-31.
+Was: start_vdict() re-injecting the full welcome banner on every daemon
+restart, making the output window look wiped. Confirmed resolved by a
+different, already-shipped mechanism: the banner now only ever prints once
+from run(); start_vdict() instead calls _log_session_block() on every
+start including restarts, which reprints the Started/Mode/Trigger/Compute/
+Model/Hotkey header -- not the compact "Engine restarted (PID)" rule this
+item originally proposed, but it closes the same gap (a changed model or
+compute device shows up in the log on restart instead of being taken on
+trust). No further action needed here.
+
+OPEN DECISION, HALF SETTLED 2026-08-01
+audio.device: YES, worth building -- input-device-plan.txt's entire
+fast-restart design (PortAudio-only, model untouched) depends on this tier
+existing. No longer open for that one.
+
+ptt.button: still open. Is it worth building the same tier for, or does it
+stay in the restart bucket? Set-once in practice; a process restart ALWAYS
+reloads the model regardless, so rebinding a button alone still pays the
+full GPU cost unless audio.device's rebind work is reused/extended to
+cover it too -- not decided.
+
+KNOCK-ON
+vocabulary.txt and README already say edits take effect on the next dictation.
+Until this lands they do not, and there is no menu item to force it -- File >
+Restart Engine was removed. Editing vocabulary.txt appears to do nothing.
+Do not restore Restart Engine to fix that; it was removed on purpose.
+
+
+==============================================================================
+B3. TONE VOLUME CONTROL
+==============================================================================
+Status: agreed 2026-07-26, not started
+Gate:   AFTER B1. Not before -- see sequencing below.
+
+THE PROBLEM
+Tone volume is hardcoded. vdict.py:
+    generate_tone(TONE_START, freq=783.99, duration_ms=80, volume=0.22275)
+    generate_tone(TONE_STOP,  freq=523.25, duration_ms=90, volume=0.18225)
+Ear-tuned constants from one machine, imposed on every user.
+
+WHY NOT JUST USE THE WINDOWS VOLUME MIXER
+The daemon is pythonw.exe, the tray is ALSO pythonw.exe, and the venv
+redirector stub means each appears TWICE. The mixer shows up to four
+identical "pythonw" entries with no way to tell them apart.
+
+THE WORK
+  - The Config model gains two volumes, 0-100, defaults matching the
+    current 0.22275 and 0.18225 so existing behaviour is unchanged.
+  - Settings dialog gains two sliders, start tone and stop tone. Zero is off,
+    which is how someone silences one and keeps the other.
+  - play_tone scales by them.
+  - The timeout double-tone is 523.25Hz at 0.18225 -- same frequency and
+    volume as the stop tone, and it fires only after a 120s toggle timeout.
+    It follows the stop slider. No third control.
+  - The two defaults are not equal because equal amplitude at 784Hz reads
+    louder than at 523Hz. Do not normalise them.
+
+  Tones are pre-generated WAVs at import. A volume change means regenerating
+  them -- milliseconds, so it can be live rather than restart-gated.
+
+  Move it to vdict/tones.py -- generation, play_tone, the file constants.
+  ~80 of vdict.py's 222 lines, and importing vdict.py currently writes three
+  WAVs to temp. Carry this comment with it:
+      # winsound refuses SND_MEMORY with SND_ASYNC. Async playback needs a file.
+  Without it someone rewrites the temp files into memory, and the only
+  in-memory path is synchronous -- an 80ms block on the dictation loop.
+  The three WAVs are never cleaned up.
+
+SEQUENCING -- WHY AFTER B1
+Live volume needs B1's per-cycle config re-read. Regenerating tones on a
+config change is milliseconds, but that mechanism does not exist until B1.
+Restart-gated instead of live, this could go any time after build-v2 step 4
+splits the dialog.
+
+
+==============================================================================
+B5. DEMO CAPTURE FOR README
+==============================================================================
+Status: partially done. Screenshots DONE. Demo clip OUTSTANDING.
+Target: before the repo is shown to anyone
+
+DONE
+  - images/tray.png     -- tray icon and menu, cropped
+  - images/settings.png -- the Settings window
+  Both are wired into README.md as clickable HTML thumbnails, 370px and 300px
+  respectively, in the "Using it" section.
+
+OUTSTANDING
+  images/demo.gif is still the ORANGE PLACEHOLDER. It is referenced from
+  README.md immediately after the "Why you might want it" bullets, so the
+  placeholder is currently visible to anyone reading the file.
+
+  What to capture: roughly 5 seconds -- hold the button, speak a sentence,
+  text lands at the cursor. Ideally in something recognizable (VS Code, a
+  browser search box).
+
+FORMAT: MP4, NOT GIF.
+  GitHub strips <video> tags from rendered markdown, so an MP4 committed to
+  the repo will never play inline. The only upload path that works:
+    1. Push the repo.
+    2. Drag the MP4 into a GitHub issue comment box (do not submit the issue).
+    3. GitHub uploads it and hands back a
+       github.com/user-attachments/assets/... URL.
+    4. Paste that URL into README.md.
+  This REQUIRES the repo to be pushed first, or the file hosted from another
+  repo. It is therefore blocked on the same push that unblocks B7.
+
+  Because the final asset is an MP4 at a remote URL, the images/demo.gif
+  reference in README.md gets REPLACED, not filled in. The placeholder file
+  can be deleted at that point.
+
+Notes:
+  - Keep it short. Large media is slow on mobile.
+  - Image files live in images/ at the repo root, which IS tracked. Do not put
+    them in .docs (this folder is ignored).
+
+
+==============================================================================
+B6. CLIPBOARD DELIVERY STAYS -- MAKE IT ROBUST
+==============================================================================
+Status: redesigned 2026-07-26. Supersedes the "replace with SendInput" plan.
+Gate:   none. Independent of B1.
+
+THE DECISION
+Clipboard + Ctrl+V remains the delivery model. The clipboard is ALWAYS
+restored. Not a setting, not a fallback, not a mode.
+
+Reversal of the original B6, which was to replace clipboard delivery with
+SendInput outright. The short version is that two synthetic
+keystrokes get accepted where fifty do not, and KEYEVENTF_UNICODE is ignored
+entirely by DirectInput-style clients.
+
+THE WORK
+The restore is timed today -- sleep(0.05) after Ctrl+V, then put the old
+clipboard back. A slow target reads after the restore and pastes the wrong
+thing. Delayed rendering replaces the guess with the actual read signal.
+
+  1. Message-only window in the daemon. CreateWindowEx with HWND_MESSAGE as
+     parent, on its own thread running a GetMessage loop.
+  2. OpenClipboard(hwnd), EmptyClipboard, SetClipboardData(CF_UNICODETEXT,
+     None), CloseClipboard. Then send Ctrl+V.
+  3. WM_RENDERFORMAT arrives when the target reads the clipboard. Serve the
+     text with SetClipboardData, then restore the old clipboard.
+  4. Timeout backstop. An elevated target or a window where Ctrl+V is not
+     paste never reads, so WM_RENDERFORMAT never arrives and the restore has
+     to happen anyway.
+  5. Delete keyboard.preserve_clipboard from the Config model and
+     config.json. It is the only key in the "keyboard" block, so the block
+     goes with it.
+  6. Delete KeyboardInjector's preserve_clipboard arg and the call site in
+     vdict.py.
+
+RULES THAT ARE EASY TO GET WRONG
+  - Do NOT OpenClipboard inside the WM_RENDERFORMAT handler. The requesting
+    application holds it open and the call fails. Call SetClipboardData alone.
+  - WM_RENDERALLFORMATS, sent when the owner is being destroyed, is the
+    opposite: open the clipboard first.
+  - Clipboard calls belong on the window's thread. The owner is whichever
+    HWND last called EmptyClipboard.
+  - The target's GetClipboardData blocks while the handler runs. Keep it
+    short.
+  - Message-only windows miss broadcast messages. WM_RENDERFORMAT is sent
+    directly to the owner, so it arrives.
+
+The flag was ALSO inverted against its name -- preserve_clipboard=true meant
+"do NOT restore the user's clipboard". Deleting it resolves that without a
+rename.
+
+WHY NO OPTION
+Leaving the transcription on the clipboard was considered and rejected. The
+recovery case it served -- a long dictation delivered with no cursor in a field
+-- is already covered: vdict.py:208 prints the transcription to the output window, so
+it can be copied out of the log.
+
+WHAT THIS DOES NOT FIX
+  - Elevated windows still reject input from a non-elevated process. Windows
+    UIPI. Keep the README note.
+  - Anywhere Ctrl+V is not paste: vim normal mode, terminals bound to
+    Ctrl+Shift+V, remapped shortcuts.
+
+Both stay in README Known limitations. The "It replaces your clipboard" entry
+comes OUT when this lands -- that is the one this item fixes.
+
+SendInput IS NOT DEAD
+Retained as a possible second delivery mode, user-selected, never automatic.
+Not scheduled. The original design notes are in git history for
+this entry.
+
+TESTING
+Cannot be verified headlessly. Hands-on dictation into VS Code, a browser
+address bar, a terminal, and Notepad as the control. Then copy something,
+dictate, and paste -- the original clipboard must come back.
+
+
+==============================================================================
+B7. GITHUB DISCOVERABILITY
+==============================================================================
+Status: discussed 2026-07-26, not applied. README wording still needs another
+        pass before any of this is written in.
+
+THE CORE FINDING
+The README describes the app accurately but never uses the words people type
+into a search box. Counts across the whole file as of 2026-07-26:
+
+    offline                 0
+    speech to text          0    (and "speech-to-text" 0)
+    speech recognition      0
+    voice typing            0
+    open source             0
+    privacy / private       0
+
+    dictation               5
+    Whisper                 6
+    transcri*               6
+
+It says "Nothing leaves your machine" and "runs on your own PC" -- which mean
+offline and privacy without ever saying either word. Someone searching
+"offline speech to text windows" cannot find this repo.
+
+This is the whole opportunity and it needs no puffery. It is naming the thing
+accurately, not inflating it. Every missing term above is literally true of
+the app.
+
+
+--- PUSH-DAY CHECKLIST (blocked: no remote, repo does not exist yet) ---
+
+These are higher impact than anything in the README file itself.
+
+3.1 REPO TOPICS
+    The single biggest lever. Topics power github.com/topics/<x> browsing and
+    are weighted in GitHub's own search. Limit 20; currently zero.
+    Proposed set (19 of the 20 allowed):
+      speech-to-text, dictation, whisper, faster-whisper, push-to-talk,
+      speech-recognition, voice-typing, offline, privacy, windows, python,
+      stt, system-tray, accessibility, ai, llm, transcription, no-cloud,
+      game-chat
+    Set via repo settings, or: gh repo edit --add-topic <t>
+
+    USE-CASE SURFACES -- prose in the README, not topics. These are the
+    phrases people actually type: dictate into any app, email, IDE, browser,
+    Discord, game chat.
+
+    ONE TOPIC SLOT LEFT. Candidate: pystray. The tray is a working example of
+    a Windows system-tray app in Python -- pystray and tkinter, the daemon's
+    stdout captured in-window, menus, DPI scaling, error dialogs. Someone
+    searching for that has little to copy from and would land here even with
+    no interest in dictation. Worth a factual line in the README; not
+    "our awesome tray".
+
+3.2 REPO DESCRIPTION
+    The About blurb. Heavily weighted in GitHub search and it is the snippet
+    shown in search results. Should carry the category keywords the H1 has no
+    room for. Currently unset.
+
+3.3 A TAGGED RELEASE
+    Release pages are indexed separately from the repo and give people a
+    download target instead of a clone.
+
+3.4 PROJECT_URL IS A 404
+    vdict_tray.py:39 points at github.com/msromike/voice_dictation, which does
+    not exist. Help > Documentation, F1, and the About box all open a dead
+    link today. Resolves itself on push -- but ONLY if the repo name matches
+    exactly. Verify after pushing.
+
+
+--- README CHANGES (do-able now, deliberately deferred) ---
+
+3.5 FIRST ~155 CHARACTERS
+    Google uses them as the meta description. Today that is the "Hold a
+    button, talk..." sentence: memorable, and containing not one search term.
+    Keep it as the hook, then follow it with one flat sentence naming the
+    category -- offline speech-to-text / voice dictation for Windows, Whisper,
+    no account.
+
+3.6 WEAVE THE SIX MISSING TERMS INTO EXISTING PROSE
+    Not a keyword block. Edit sentences that are already there. Example:
+      "Nothing leaves your machine."
+        becomes
+      "Nothing leaves your machine -- it works fully offline."
+    Same sentence, same tone, now findable.
+
+3.7 ALT TEXT
+    The three images already have descriptive, keyword-bearing alt text. No
+    change needed. Just do not lose it in a future rewrite.
+
+3.8 "SIMILAR PROJECTS" SECTION -- UNDECIDED, HAS TONE RISK
+    Links to Talon, WhisperWriter, and Windows Voice Access with an honest
+    line on when to prefer each. "Dragon NaturallySpeaking alternative" is
+    high-intent search traffic, and naming your competition reads as
+    confidence rather than bragging.
+    BUT: this is the only item here that ADDS a claim rather than renaming an
+    existing one, which is why it was left undecided.
+
+
+--- EXPLICITLY REJECTED ---
+Badges, keyword footers, emoji headings, awesome-list submissions before the
+repo has any history. They read as AI slop and cost more than the traffic is
+worth. Badges are SEO-worthless besides.
+
+
+==============================================================================
+B8. WINDOW CONTROLS -- MINIMIZE, X AND EXIT SHOULD DIFFER
+==============================================================================
+Status: agreed 2026-07-26, not started
+Gate:   none.
+
+THE PROBLEM
+X kills the daemon. vdict_tray.py maps WM_DELETE_WINDOW to exit_app, so closing
+the output window stops dictation. The confirm dialog exists to guard a
+behavior users do not expect; conventional actions do not need one.
+
+ALREADY TRIED AND REJECTED
+X -> tray while minimize -> tray. That was the pre-release behavior. Two
+controls, one outcome. Do not go back to it.
+
+THE ARRANGEMENT
+  Minimize -> taskbar, native behavior. Not configurable.
+  X        -> hide to tray. Default.
+           -> exit, when ui.close_button_exits is on.
+  Exit     -> tray menu and File > Exit, both of which already exist
+
+THE WORK
+  - Remove the <Unmap> binding and _on_unmap so minimize is native.
+  - Repoint WM_DELETE_WINDOW from exit_app to hide_window, or to exit_app
+    when ui.close_button_exits is set.
+  - The Config model gains ui.close_button_exits, default False.
+  - Settings gains "Close button exits the app". The label names X, not the
+    minimize button.
+  - Drop the confirm dialog from exit_app. Nothing left to guard: X no longer
+    exits by default, and turning the setting on is a deliberate choice.
+
+_save_console_state already runs inside hide_window. Geometry tracking is bound
+to <Configure> and is unaffected.
+
+Re-verify the hotkey raises a taskbar-minimized output window.
+
+SIDE EFFECT, WANTED
+An open output window means a taskbar button exists, which answers "I lost the
+tray icon". The app only disappears when the user asks it to.
+
+
+==============================================================================
+B9. DETECT A PASTE INTO AN ELEVATED WINDOW INSTEAD OF LOSING IT SILENTLY
+==============================================================================
+Status: agreed 2026-07-26, not started
+Gate:   none. Touches keyboard.py, not audio.
+
+THE PROBLEM
+Dictate into a window running as administrator and Windows UIPI silently
+discards the synthetic Ctrl+V. The transcription is gone, nothing errors,
+nothing is logged, and the user is left thinking the app misheard him.
+
+README already lists this under Known limitations. That covers the fact; it
+does nothing at the moment it happens.
+
+THE DETECTION
+Pre-flight check on the foreground window, before pasting:
+  GetForegroundWindow -> GetWindowThreadProcessId ->
+  OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION)
+Failure with ERROR_ACCESS_DENIED means the target runs at higher integrity
+than we do and the keystrokes will be eaten.
+
+pywin32 is ALREADY a dependency. No new package.
+
+THE MESSAGE
+  The active window is running as administrator. Voice Dictation cannot
+  type into it. Your text is on the clipboard -- paste it with Ctrl+V.
+
+The text genuinely IS on the clipboard at that moment, so this is a working
+fallback rather than an apology.
+
+REJECTED
+Reading SendInput's return value, which is the most direct signal -- it
+returns the count of events actually inserted, zero with ERROR_ACCESS_DENIED.
+pyautogui.hotkey discards that return value, so using it means doing the
+paste through ctypes. That is B6 territory, where SendInput is
+already retained as a possible second delivery mode. Do not open it here.
+
+
+==============================================================================
+B10. PTT PRESS AND RELEASE ARE LEVEL FLAGS, NOT EDGES
+==============================================================================
+Slipping off the hold button and re-pressing leaves it unclear whether a
+recording is running. Nothing consumes press_event or release_event, so a fast
+release+repress inside one cycle either erases the release and merges two
+recordings into one, or drops a fragment and starts over. Same finger
+movement, two outcomes, no way to tell which. Beeps were added to compensate.
+
+FIX
+wait_for_press consumes the press -- clear the event after returning True --
+and the release handler stops clearing press_event.
+
+
+==============================================================================
+B11. FIRST-RUN ONBOARDING, SETTINGS TIED TO OUTPUT
+==============================================================================
+
+FIRST RUN -- REFRAMED 2026-08-01 as a real onboarding refactor, not three
+sequential message boxes. Gated on ui.first_run, kept deliberately
+independent of audio.device's own state (input-device-plan.txt's AT-LAUNCH
+FAIL condition is for a RETURNING user whose device went missing -- not
+this). Decoupling the two means onboarding can be re-tested by toggling
+one flag, without having to null out a real, working device config to
+force it.
+
+ONE Welcome dialog, not a sequence:
+  - States the microphone requirement plainly -- not optional, needs a
+    pick before anything works. This is the one hard requirement in the
+    tour; everything else below is already decided for them.
+  - PTT trigger default (middle mouse button) -- explains how to use the
+    app at all, since nothing else teaches this.
+  - Output window hotkey -- unset by default, real discoverability gap
+    (hide the window, no way back except the tray icon) -- nudge to bind
+    one while already in Settings.
+  - Compute device and model size -- mention a sensible default exists,
+    point at Settings if they want to change it.
+  - Minor settings (beeps, etc.) -- barely worth a sentence, they'll find
+    them in Settings regardless.
+  Then opens Settings once, same as before -- not three separate boxes
+  each ending in "you can change this in Settings."
+
+Depends on knowing whether a device is already configured (same
+enumerate/resolve mechanism as input-device-plan.txt), but does NOT reuse
+that plan's fault modal -- a first-time user isn't told "can't find your
+device," which presupposes a prior choice they never made. Two different
+dialogs, sharing only the underlying check.
+
+Not designed in detail yet -- exact copy, dialog structure, and whether
+ui.first_run needs any changes beyond staying as-is are build-sheet work.
+
+SETTINGS TIED TO OUTPUT
+  open_settings calls show_window first, ahead of the existing-window return.
+  hide_window closes Settings through its on_close.
+  Closing Settings does not touch the output window.
+  README says "Opens Settings without opening the output window first". Now
+  wrong.
+
+HOTKEY UNSET
+No hotkey configured does nothing. Registration returning false gets one
+output line naming the combination.
+
+
+==============================================================================
+B13. PUNCTUATION-RESTORATION POST-PROCESS -- UPTALK PRODUCES RUN-ONS
+==============================================================================
+Whisper's punctuation prediction reads rising terminal intonation (uptalk)
+as "not finished" rather than a completed statement, even across genuine
+pauses -- produces long run-on transcripts with little or no punctuation
+for speakers with this pattern.
+
+Candidate fix: a small, dedicated punctuation-restoration model (not a
+second LLM) running as a local post-process on the transcribed text --
+ELECTRA-small or CNN-BiLSTM class models exist for exactly this, quantized
+versions reportedly 1/40th the size of a comparable Transformer and
+several times faster, low enough latency to feel instant. Text-only, so
+it never sees the intonation that confuses Whisper in the first place.
+
+Not evaluated yet -- no specific model chosen, nothing installed or
+tested against real transcripts. Version 1.1 candidate, not sooner.
+
+V1.1 ships with whatever the chosen model's defaults are. B14 may later
+add a way to tune it -- not needed here, and not built until the defaults
+are actually shown to fall short in real use.
+
+
+==============================================================================
+B12. SETTINGS DIALOG -- ESCAPE, CONFIG WRITES, WINDOW POSITION
+==============================================================================
+
+ESCAPE
+settings_win.bind("<Escape>", lambda e: on_close())
+Escape does nothing today.
+
+Every teardown routes through on_close. Never settings_win.destroy() direct --
+on_close writes the position, and the hotkey re-registers there.
+
+CONFIG WRITES
+open_settings loads config once at open. on_close and save_and_restart both
+write that snapshot back, erasing whatever was saved while the dialog was open.
+Hide the output window or Ctrl+scroll its text size with Settings open, then
+close Settings, and that state reverts.
+
+Both writers re-read config immediately before writing.
+
+WINDOW POSITION
+_is_on_screen rejects an origin within 100px of the right edge or 60px of the
+bottom, so a dialog parked low snaps to the default corner on reopen.
+
+Clamp into winfo_vroot* rather than rejecting -- ::tk::PlaceWindow in
+tk.tcl is the reference. Applies to settings_pos and to console_geometry,
+which carries the same bug.
+
+YANK
+  _is_on_screen                  no callers once both sites clamp
+  ctypes GetSystemMetrics 76-79  only used there; import ctypes stays
+  _geometry_origin               check -- clamping needs w/h, not just origin
+
+
+==============================================================================
+B14. LOG TRANSCRIPTS TO A FILE -- CORPUS FOR TUNING B13
+==============================================================================
+A View-menu toggle (working title: "Log Transcripts") that appends every
+transcribed utterance to a local file, building a real corpus of the
+user's own speech over time -- useful for tuning whatever punctuation-
+restoration approach B13 eventually picks, since parameters tuned against
+someone else's speech won't necessarily fit anyone else's cadence.
+
+Mechanism built 2026-07-31 as part of the unified output-logging
+redesign (output-logging-build-sheet.txt STEP 7, 7c/7d) --
+transcript_log(text), a dedicated logger with one RotatingFileHandler
+(maxBytes=10MB, backupCount=1, encoding="utf-8"), LOG_DIR /
+"transcript_log.txt". Gated on TRANSCRIPT_LOG_ENABLED (a module
+constant, not a Settings checkbox) -- what's left here is only the
+View-menu toggle itself, still not built.
+
+Depends on B13 existing as a reason to want the data; low priority alone.
+
+V1.2 TUNING WORKFLOW, only if B13's shipped defaults prove insufficient:
+a separate, explicit tuning session -- PTT disabled, Whisper unloaded, the
+largest local Ollama model that fits loaded in its place. Ollama reads the
+B14 transcript corpus, runs it through B13's model, evaluates the output,
+and iterates -- a guided, step-by-step interaction is fine, does not need
+to be fully autonomous. Human reviews the result (e.g. opens the
+transformed text file) before anything is "locked in." Whatever gets
+decided is written back as B13's tuning parameters, Ollama unloads,
+Whisper reloads, dictation resumes.
+
+Human-in-the-loop review is what makes this trustworthy -- without it,
+"tuned" only means "Ollama liked its own output," not "matches what was
+actually said."
+
+Two different amounts of work hiding under "write tuning parameters,"
+not yet distinguished because B13 has no chosen model yet: adjusting a
+handful of hyperparameters/thresholds (Ollama reasoning over candidates,
+genuinely tractable) versus actually fine-tuning the small model's
+weights (a real training loop with a loss function -- Ollama could help
+produce labeled examples for that, but would not run the training itself).
+
+Prototype as a standalone sidecar script first, not in-app. Cheapest way
+to prove the risky part (does this actually improve punctuation quality)
+without touching vdict_tray.py's menu, process management, or model-
+loading code at all. Integrate into the app later only if it earns it --
+could just as easily stay a documented external tool in the README.
+
+
+==============================================================================
+B16. README ACCURACY & SEO -- CATCH-ALL
+==============================================================================
+Catch-all for "is this README claim true / worth adding" discussions, so
+they don't each need their own backlog item. Sub-items drain individually.
+
+  - Multilingual dictation: Whisper/large-v3 is multilingual and the code
+    already auto-detects language, but nobody has tested it end to end.
+    Don't claim it in the README until someone actually verifies it.
+
+  - Exclusive-mode conflict: Known Limitations should note that if another
+    app holds the mic in WASAPI exclusive mode, dictation fails until that
+    app releases it or a different device is picked. GATE: input-device
+    rebuild ships first -- this documents real, confirmed behavior of that
+    feature, not something to write in ahead of it.
+
+
+==============================================================================
+B17. SETTINGS MODEL DROPDOWN -- POPULATE FROM faster_whisper, NOT HARDCODED
+==============================================================================
+Status: discussed 2026-07-31, not started
+Gate:   none. Touches open_settings's model OptionMenu only.
+
+THE PROBLEM
+open_settings hardcodes five model names ("tiny.en", "base.en", "small.en",
+"medium.en", "large-v3") in the OptionMenu. faster_whisper actually supports
+18 (confirmed by reading faster_whisper/utils.py's _MODELS dict directly),
+including multilingual variants of every size (tiny/base/small/medium
+without .en) that our dropdown never offers, and newer additions
+(large-v3-turbo, turbo, the distil-* family) it can't pick up without a
+code change on our end. A boundary we don't control (the library's own
+naming conventions) is currently duplicated by hand instead of read.
+
+THE FIX
+    from faster_whisper.utils import available_models
+    models = [m for m in available_models() if m.endswith(".en") or m.startswith("large")]
+
+Keeps the same fast-English-vs-accurate-multilingual split the current
+five imply, auto-updates if the library adds a new .en or large variant,
+without dumping all 18 raw options (including turbo/distil oddities) on
+the user.
+
+RISK, ACCEPTED
+available_models() lives in faster_whisper.utils -- an internals module,
+not documented public API. A future library version could restructure it
+without warning; worst case the dropdown needs a fix, not a crash. Low
+probability, low severity, judged worth it against the drift risk of
+hand-maintaining the list.
+
+
+==============================================================================
+B19. SETTINGS -- MIC LEVEL METER
+==============================================================================
+Status: proposed 2026-08-01, not started
+Gate:   none. Independent, optional -- not required for the input-device
+        rebuild to work.
+
+When a device is highlighted/selected in the device dropdown, show a live
+dB level meter so the user can SEE it's actually receiving signal before
+committing to it. Direct, empirical confirmation instead of trusting any
+indirect signal (Windows default-device state, our own resolution logic,
+anything else) -- exactly the kind of check that would have saved real
+confusion tonight.
+
+Mainly for the "semi-maven" -- someone who picked a device that opens fine
+but isn't actually wired up right (routing, wrong jack, disabled channel)
+and has no way to tell without dictating and seeing nothing happen.
+
+Mechanism: open a short-lived stream on whatever's currently highlighted,
+read amplitude from the callback, render a bar. Not built, not designed
+in detail.
