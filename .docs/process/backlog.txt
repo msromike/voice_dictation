@@ -53,6 +53,155 @@ THE WORK
 
 
 ==============================================================================
+B8. WINDOW CONTROLS -- MINIMIZE, X AND EXIT SHOULD DIFFER -- REFINEMENT
+==============================================================================
+The confirm dialog needs icon=WARNING.
+
+THE PROBLEM
+X kills the daemon. vdict_tray.py maps WM_DELETE_WINDOW to exit_app, so closing
+the output window stops dictation. The confirm dialog exists to guard a
+behavior users do not expect; conventional actions do not need one.
+
+ALREADY TRIED AND REJECTED
+X -> tray while minimize -> tray. That was the pre-release behavior. Two
+controls, one outcome. Do not go back to it.
+
+THE ARRANGEMENT
+  Minimize -> taskbar, native behavior. Not configurable.
+  X        -> hide to tray. Default.
+           -> confirm dialog (icon=WARNING), then exit, when
+              ui.close_button_exits is on.
+  Exit     -> tray menu and File > Exit, both already exist, no dialog --
+              deliberate, conventional actions, nothing to guard.
+
+THE WORK
+  - Remove the <Unmap> binding and _on_unmap so minimize is native.
+  - Repoint WM_DELETE_WINDOW from exit_app to hide_window, or to a
+    confirm-then-exit path when ui.close_button_exits is set.
+  - The Config model gains ui.close_button_exits, default False.
+  - Settings gains "Close button exits the app". The label names X, not the
+    minimize button.
+  - exit_app needs to know which entry point called it. The confirm dialog,
+    icon=WARNING, fires only on the X-triggered path -- that's the one case
+    where a conventional-feeling gesture still has an easy-to-forget
+    consequence (the setting was flipped once, muscle memory doesn't know
+    it's on). Tray menu Exit and File > Exit call the same underlying quit
+    logic without the dialog.
+
+exit_app's entry-point-aware gating sits on _force_quit/_run_shutdown_steps,
+which core-arch-plan-prep.txt's P4 already marks as disappearing, not
+relocated, once the daemon subprocess merges away -- this logic gets
+re-pointed at core-arch's shutdown sequence then, not rebuilt.
+
+_save_console_state already runs inside hide_window. Geometry tracking is bound
+to <Configure> and is unaffected.
+
+Re-verify the hotkey raises a taskbar-minimized output window.
+
+SIDE EFFECT, WANTED
+An open output window means a taskbar button exists, which answers "I lost the
+tray icon". The app only disappears when the user asks it to.
+
+
+==============================================================================
+B11. SETTINGS AND THE OUTPUT WINDOW SHOULD OPEN AND CLOSE TOGETHER -- REFINEMENT
+==============================================================================
+open_settings doesn't show the output window -- Settings can be open with
+no visible feedback while dictating. hide_window doesn't close Settings if
+it's open either. Neither currently happens; README's "Opens Settings
+without opening the output window first" is accurate today, becomes wrong
+once this lands.
+
+Fix: open_settings calls show_window first, ahead of the existing-window
+return. hide_window calls Settings' on_close if a settings_win exists.
+Closing Settings on its own does not touch the output window -- one
+direction only.
+
+
+==============================================================================
+B14. LOG TRANSCRIPTS TO A FILE -- REFINEMENT
+==============================================================================
+A View-menu toggle (working title: "Log Transcripts") exposing user
+control over transcript logging -- useful on its own (a plain record of
+what was dictated), and separately feeds the real corpus B13 and B21 are
+both waiting on before their own ROI can be judged. Not gated on either
+shipping; the toggle has value independent of what, if anything, ends up
+built on top of the data.
+
+Mechanism built 2026-07-31 as part of the unified output-logging
+redesign (output-logging-build-sheet.txt STEP 7, 7c/7d) --
+transcript_log(text), a dedicated logger with one RotatingFileHandler
+(maxBytes=100MB, backupCount=5, encoding="utf-8"), LOG_DIR /
+"transcript_log.txt". Gated on TRANSCRIPT_LOG_ENABLED (a module
+constant, not a Settings checkbox) -- what's left here is only the
+View-menu toggle itself, still not built.
+
+V1.2 TUNING WORKFLOW, only if B13's shipped defaults prove insufficient:
+a separate, explicit tuning session -- PTT disabled, Whisper unloaded, the
+largest local Ollama model that fits loaded in its place. Ollama reads the
+B14 transcript corpus, runs it through B13's model, evaluates the output,
+and iterates -- a guided, step-by-step interaction is fine, does not need
+to be fully autonomous. Human reviews the result (e.g. opens the
+transformed text file) before anything is "locked in." Whatever gets
+decided is written back as B13's tuning parameters, Ollama unloads,
+Whisper reloads, dictation resumes.
+
+Human-in-the-loop review is what makes this trustworthy -- without it,
+"tuned" only means "Ollama liked its own output," not "matches what was
+actually said."
+
+Two different amounts of work hiding under "write tuning parameters,"
+not yet distinguished because B13 has no chosen model yet: adjusting a
+handful of hyperparameters/thresholds (Ollama reasoning over candidates,
+genuinely tractable) versus actually fine-tuning the small model's
+weights (a real training loop with a loss function -- Ollama could help
+produce labeled examples for that, but would not run the training itself).
+
+Prototype as a standalone sidecar script first, not in-app. Cheapest way
+to prove the risky part (does this actually improve punctuation quality)
+without touching vdict_tray.py's menu, process management, or model-
+loading code at all. Integrate into the app later only if it earns it --
+could just as easily stay a documented external tool in the README.
+
+
+==============================================================================
+B17. SETTINGS MODEL DROPDOWN -- CURATED LIST, NOT AUTO-GENERATED -- REFINEMENT
+==============================================================================
+open_settings hardcodes five models ("tiny.en", "base.en", "small.en",
+"medium.en", "large-v3"). faster_whisper currently supports 19, read from
+faster_whisper.utils._MODELS -- count drifts, don't hardcode it in prose.
+
+Auto-generating via filter (endswith(".en") or startswith("large")) was
+rejected -- verified against the real dictionary, it also pulls in
+"distil-medium.en" and "distil-small.en" by accident.
+
+Fix: keep it a curated static list, human-picked. Same five as today is
+the safe default; adding large-v3-turbo is a build-sheet call, not
+decided here. Write the population logic so B22's escape hatch can reuse
+the same available_models() call, filtered differently.
+
+No gate, no P-item -- independent of P1's mechanical open_settings split.
+
+
+==============================================================================
+B20. RELAUNCH RAISES THE RUNNING INSTANCE INSTEAD OF JUST SAYING SO -- REFINEMENT
+==============================================================================
+The mutex check (vdict_tray.py:1502-1514) already detects a second launch
+attempt -- currently just shows "already running" and exits, leaving the
+user to find the tray icon themselves. Standard single-instance behavior
+elsewhere is to bring the running instance forward instead.
+
+Fix: the second process finds the running instance's window via
+FindWindow (withdraw() hides the HWND, doesn't destroy it -- still
+findable by title) and posts a registered custom message. The running
+instance needs its own message-only window and thread to receive it,
+same technique hotkey.py already uses for a different purpose -- on
+receipt, hop to the Tk thread via .after() and call show_window(). Drop
+the "already running" messagebox once this lands; raising the window IS
+the acknowledgment.
+
+
+==============================================================================
 B5. README, MEDIA & DISCOVERABILITY -- PRE-PUSH
 ==============================================================================
 Consolidates the old B5 (demo capture), B7 (GitHub discoverability), and B16
@@ -238,72 +387,6 @@ transcript shows -- busy tone, earlier press not absorbed into next cycle.
 
 
 ==============================================================================
-B8. WINDOW CONTROLS -- MINIMIZE, X AND EXIT SHOULD DIFFER -- REFINEMENT
-==============================================================================
-The confirm dialog needs icon=WARNING.
-
-THE PROBLEM
-X kills the daemon. vdict_tray.py maps WM_DELETE_WINDOW to exit_app, so closing
-the output window stops dictation. The confirm dialog exists to guard a
-behavior users do not expect; conventional actions do not need one.
-
-ALREADY TRIED AND REJECTED
-X -> tray while minimize -> tray. That was the pre-release behavior. Two
-controls, one outcome. Do not go back to it.
-
-THE ARRANGEMENT
-  Minimize -> taskbar, native behavior. Not configurable.
-  X        -> hide to tray. Default.
-           -> confirm dialog (icon=WARNING), then exit, when
-              ui.close_button_exits is on.
-  Exit     -> tray menu and File > Exit, both already exist, no dialog --
-              deliberate, conventional actions, nothing to guard.
-
-THE WORK
-  - Remove the <Unmap> binding and _on_unmap so minimize is native.
-  - Repoint WM_DELETE_WINDOW from exit_app to hide_window, or to a
-    confirm-then-exit path when ui.close_button_exits is set.
-  - The Config model gains ui.close_button_exits, default False.
-  - Settings gains "Close button exits the app". The label names X, not the
-    minimize button.
-  - exit_app needs to know which entry point called it. The confirm dialog,
-    icon=WARNING, fires only on the X-triggered path -- that's the one case
-    where a conventional-feeling gesture still has an easy-to-forget
-    consequence (the setting was flipped once, muscle memory doesn't know
-    it's on). Tray menu Exit and File > Exit call the same underlying quit
-    logic without the dialog.
-
-exit_app's entry-point-aware gating sits on _force_quit/_run_shutdown_steps,
-which core-arch-plan-prep.txt's P4 already marks as disappearing, not
-relocated, once the daemon subprocess merges away -- this logic gets
-re-pointed at core-arch's shutdown sequence then, not rebuilt.
-
-_save_console_state already runs inside hide_window. Geometry tracking is bound
-to <Configure> and is unaffected.
-
-Re-verify the hotkey raises a taskbar-minimized output window.
-
-SIDE EFFECT, WANTED
-An open output window means a taskbar button exists, which answers "I lost the
-tray icon". The app only disappears when the user asks it to.
-
-
-==============================================================================
-B11. SETTINGS AND THE OUTPUT WINDOW SHOULD OPEN AND CLOSE TOGETHER -- REFINEMENT
-==============================================================================
-open_settings doesn't show the output window -- Settings can be open with
-no visible feedback while dictating. hide_window doesn't close Settings if
-it's open either. Neither currently happens; README's "Opens Settings
-without opening the output window first" is accurate today, becomes wrong
-once this lands.
-
-Fix: open_settings calls show_window first, ahead of the existing-window
-return. hide_window calls Settings' on_close if a settings_win exists.
-Closing Settings on its own does not touch the output window -- one
-direction only.
-
-
-==============================================================================
 B13. PUNCTUATION-RESTORATION POST-PROCESS -- UPTALK PRODUCES RUN-ONS -- NEW FEATURE
 ==============================================================================
 Whisper's punctuation prediction reads rising terminal intonation (uptalk)
@@ -350,71 +433,6 @@ comes.
 
 
 ==============================================================================
-B14. LOG TRANSCRIPTS TO A FILE -- REFINEMENT
-==============================================================================
-A View-menu toggle (working title: "Log Transcripts") exposing user
-control over transcript logging -- useful on its own (a plain record of
-what was dictated), and separately feeds the real corpus B13 and B21 are
-both waiting on before their own ROI can be judged. Not gated on either
-shipping; the toggle has value independent of what, if anything, ends up
-built on top of the data.
-
-Mechanism built 2026-07-31 as part of the unified output-logging
-redesign (output-logging-build-sheet.txt STEP 7, 7c/7d) --
-transcript_log(text), a dedicated logger with one RotatingFileHandler
-(maxBytes=100MB, backupCount=5, encoding="utf-8"), LOG_DIR /
-"transcript_log.txt". Gated on TRANSCRIPT_LOG_ENABLED (a module
-constant, not a Settings checkbox) -- what's left here is only the
-View-menu toggle itself, still not built.
-
-V1.2 TUNING WORKFLOW, only if B13's shipped defaults prove insufficient:
-a separate, explicit tuning session -- PTT disabled, Whisper unloaded, the
-largest local Ollama model that fits loaded in its place. Ollama reads the
-B14 transcript corpus, runs it through B13's model, evaluates the output,
-and iterates -- a guided, step-by-step interaction is fine, does not need
-to be fully autonomous. Human reviews the result (e.g. opens the
-transformed text file) before anything is "locked in." Whatever gets
-decided is written back as B13's tuning parameters, Ollama unloads,
-Whisper reloads, dictation resumes.
-
-Human-in-the-loop review is what makes this trustworthy -- without it,
-"tuned" only means "Ollama liked its own output," not "matches what was
-actually said."
-
-Two different amounts of work hiding under "write tuning parameters,"
-not yet distinguished because B13 has no chosen model yet: adjusting a
-handful of hyperparameters/thresholds (Ollama reasoning over candidates,
-genuinely tractable) versus actually fine-tuning the small model's
-weights (a real training loop with a loss function -- Ollama could help
-produce labeled examples for that, but would not run the training itself).
-
-Prototype as a standalone sidecar script first, not in-app. Cheapest way
-to prove the risky part (does this actually improve punctuation quality)
-without touching vdict_tray.py's menu, process management, or model-
-loading code at all. Integrate into the app later only if it earns it --
-could just as easily stay a documented external tool in the README.
-
-
-==============================================================================
-B17. SETTINGS MODEL DROPDOWN -- CURATED LIST, NOT AUTO-GENERATED -- REFINEMENT
-==============================================================================
-open_settings hardcodes five models ("tiny.en", "base.en", "small.en",
-"medium.en", "large-v3"). faster_whisper currently supports 19, read from
-faster_whisper.utils._MODELS -- count drifts, don't hardcode it in prose.
-
-Auto-generating via filter (endswith(".en") or startswith("large")) was
-rejected -- verified against the real dictionary, it also pulls in
-"distil-medium.en" and "distil-small.en" by accident.
-
-Fix: keep it a curated static list, human-picked. Same five as today is
-the safe default; adding large-v3-turbo is a build-sheet call, not
-decided here. Write the population logic so B22's escape hatch can reuse
-the same available_models() call, filtered differently.
-
-No gate, no P-item -- independent of P1's mechanical open_settings split.
-
-
-==============================================================================
 B22. SETTINGS MODEL DROPDOWN -- DEVICE-AWARE + SHOW-ALL ESCAPE HATCH -- NEW FEATURE
 ==============================================================================
 Two related ways B17's static curated list falls short, both requiring
@@ -429,6 +447,10 @@ isn't -- tiny.en, base.en, small.en, distil-small.en (distil variants
 earn their place here specifically, faster at similar accuracy to their
 plain counterpart). The dropdown's model options should follow whichever
 compute device is currently selected in the same dialog.
+
+CUDA detection already exists -- _has_cuda() (vdict_tray.py, Compute
+Device section) already probes and disables the GPU option when no CUDA
+device is found. Reuse it, don't reinvent the probe.
 
 SHOW-ALL ESCAPE HATCH
 Neither curated set exposes turbo variants outside their bucket, older
@@ -472,24 +494,6 @@ already restructuring this same dropdown (removing System Default,
 adding a refresh hook), and building on top of a widget about to change
 risks rework. No P-item -- the probe stream is fully independent of the
 real capture pipeline, doesn't touch core-arch's shared flag.
-
-
-==============================================================================
-B20. RELAUNCH RAISES THE RUNNING INSTANCE INSTEAD OF JUST SAYING SO -- REFINEMENT
-==============================================================================
-The mutex check (vdict_tray.py:1502-1514) already detects a second launch
-attempt -- currently just shows "already running" and exits, leaving the
-user to find the tray icon themselves. Standard single-instance behavior
-elsewhere is to bring the running instance forward instead.
-
-Fix: the second process finds the running instance's window via
-FindWindow (withdraw() hides the HWND, doesn't destroy it -- still
-findable by title) and posts a registered custom message. The running
-instance needs its own message-only window and thread to receive it,
-same technique hotkey.py already uses for a different purpose -- on
-receipt, hop to the Tk thread via .after() and call show_window(). Drop
-the "already running" messagebox once this lands; raising the window IS
-the acknowledgment.
 
 
 ==============================================================================
