@@ -45,6 +45,61 @@ P3. ADD STTEngine.reload(config)
 
 
 ==============================================================================
+P5. FOLD FIRST-RUN ONBOARDING INTO CORE-ARCH-PLAN.TXT'S ARCHITECTURE
+==============================================================================
+Verify no coupling beyond the one already found (gates when worker threads
+are allowed to start) before folding. If another surfaces, it changes
+ARCHITECTURE's design, not just where the text lives -- resolve it there,
+not here. Once clear, move the text below into ARCHITECTURE verbatim.
+
+FIRST RUN -- REFRAMED 2026-08-01 as a real onboarding refactor, not three
+sequential message boxes. Gated on ui.first_run, kept deliberately
+independent of audio.device's own state (input-device-plan.txt's AT-LAUNCH
+FAIL condition is for a RETURNING user whose device went missing -- not
+this). Decoupling the two means onboarding can be re-tested by toggling
+one flag, without having to null out a real, working device config to
+force it.
+
+ONE Welcome dialog, not a sequence:
+  - States the microphone requirement plainly -- not optional, needs a
+    pick before anything works. This is the one hard requirement in the
+    tour; everything else below is already decided for them.
+  - PTT trigger default (middle mouse button) -- explains how to use the
+    app at all, since nothing else teaches this.
+  - Output window hotkey -- unset by default, real discoverability gap
+    (hide the window, no way back except the tray icon) -- nudge to bind
+    one while already in Settings.
+  - Compute device and model size -- mention a sensible default exists,
+    point at Settings if they want to change it.
+  - Minor settings (beeps, etc.) -- barely worth a sentence, they'll find
+    them in Settings regardless.
+  Then opens Settings once, same as before -- not three separate boxes
+  each ending in "you can change this in Settings."
+
+Depends on knowing whether a device is already configured (same
+enumerate/resolve mechanism as input-device-plan.txt), but does NOT reuse
+that plan's fault modal -- a first-time user isn't told "can't find your
+device," which presupposes a prior choice they never made. Two different
+dialogs, sharing only the underlying check.
+
+Not designed in detail yet -- exact copy, dialog structure, and whether
+ui.first_run needs any changes beyond staying as-is are build-sheet work.
+
+
+==============================================================================
+P6. ACCOUNT FOR A SECOND LOADABLE MODEL IN MODEL RELOAD
+==============================================================================
+MODEL RELOAD currently covers STTEngine.reload() only, one model. B13
+(punctuation-restoration, backlog.txt -- not started, waiting on corpus
+before it's even decided) would need the same load-on-startup,
+reload-on-Settings-change story for oliverguhr/fullstop-punctuation-
+multilang-large, CPU-only -- no device-selection or VRAM-sharing concern
+with STT's own compute choice. Verify no other coupling before folding
+in. If B13 never gets built, this item is dead too -- check its status
+first.
+
+
+==============================================================================
 P4. SPLIT vdict_tray.py INTO vdict/tray/ -- NEEDS ITS OWN PLAN + BUILD SHEET
 ==============================================================================
 D7's subject. 1520 lines today, one file absorbing everything -- app
@@ -106,58 +161,3 @@ a new window is covered by one track() call, not a new shutdown-step edit
 someone has to remember. Build against today's load/save-on-exit pattern;
 the API doesn't change shape once core-arch's shared live Config object
 lands, only what save_all(config) is handed.
-
-
-==============================================================================
-P5. FOLD FIRST-RUN ONBOARDING INTO CORE-ARCH-PLAN.TXT'S ARCHITECTURE
-==============================================================================
-Verify no coupling beyond the one already found (gates when worker threads
-are allowed to start) before folding. If another surfaces, it changes
-ARCHITECTURE's design, not just where the text lives -- resolve it there,
-not here. Once clear, move the text below into ARCHITECTURE verbatim.
-
-FIRST RUN -- REFRAMED 2026-08-01 as a real onboarding refactor, not three
-sequential message boxes. Gated on ui.first_run, kept deliberately
-independent of audio.device's own state (input-device-plan.txt's AT-LAUNCH
-FAIL condition is for a RETURNING user whose device went missing -- not
-this). Decoupling the two means onboarding can be re-tested by toggling
-one flag, without having to null out a real, working device config to
-force it.
-
-ONE Welcome dialog, not a sequence:
-  - States the microphone requirement plainly -- not optional, needs a
-    pick before anything works. This is the one hard requirement in the
-    tour; everything else below is already decided for them.
-  - PTT trigger default (middle mouse button) -- explains how to use the
-    app at all, since nothing else teaches this.
-  - Output window hotkey -- unset by default, real discoverability gap
-    (hide the window, no way back except the tray icon) -- nudge to bind
-    one while already in Settings.
-  - Compute device and model size -- mention a sensible default exists,
-    point at Settings if they want to change it.
-  - Minor settings (beeps, etc.) -- barely worth a sentence, they'll find
-    them in Settings regardless.
-  Then opens Settings once, same as before -- not three separate boxes
-  each ending in "you can change this in Settings."
-
-Depends on knowing whether a device is already configured (same
-enumerate/resolve mechanism as input-device-plan.txt), but does NOT reuse
-that plan's fault modal -- a first-time user isn't told "can't find your
-device," which presupposes a prior choice they never made. Two different
-dialogs, sharing only the underlying check.
-
-Not designed in detail yet -- exact copy, dialog structure, and whether
-ui.first_run needs any changes beyond staying as-is are build-sheet work.
-
-
-==============================================================================
-P6. ACCOUNT FOR A SECOND LOADABLE MODEL IN MODEL RELOAD
-==============================================================================
-MODEL RELOAD currently covers STTEngine.reload() only, one model. B13
-(punctuation-restoration, backlog.txt -- not started, waiting on corpus
-before it's even decided) would need the same load-on-startup,
-reload-on-Settings-change story for oliverguhr/fullstop-punctuation-
-multilang-large, CPU-only -- no device-selection or VRAM-sharing concern
-with STT's own compute choice. Verify no other coupling before folding
-in. If B13 never gets built, this item is dead too -- check its status
-first.

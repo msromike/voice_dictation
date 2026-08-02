@@ -1,4 +1,4 @@
-"""Speech-to-text via faster-whisper. Defaults to CPU so the app runs without CUDA.
+"""Whisper transcription via faster-whisper. Defaults to CPU so the app runs without CUDA.
 Model and device guidance for users is in README.md, "Which model and which device"."""
 
 from faster_whisper import WhisperModel
@@ -20,7 +20,7 @@ for sp in site.getsitepackages() + [site.getusersitepackages()]:
 
 
 class STTEngine:
-    """Speech-to-text engine using Faster-Whisper"""
+    """Whisper transcription engine (via faster-whisper)"""
 
     def __init__(self, model_name="base.en", device="cpu"):
         """Configure the engine. Loads no weights until load() is called.

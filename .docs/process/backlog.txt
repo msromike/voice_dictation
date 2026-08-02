@@ -202,6 +202,20 @@ the acknowledgment.
 
 
 ==============================================================================
+B23. SETTINGS DIALOG LAYOUT -- GROUP BY FUNCTION, NOT ONE LONG STACK -- REFINEMENT
+==============================================================================
+open_settings lays out every control in one vertical stack -- microphone,
+PTT button, PTT mode, AI model, compute device, audio beeps, console-on-boot,
+console hotkey -- no grouping, no visual separation between unrelated settings.
+
+Rough vision: two columns with dividers, controls grouped by function (e.g.
+audio/input together, PTT together, model/compute together, window behavior
+together). Not designed in detail -- exact column split, grouping, and
+divider style are all open. Design goes in a build sheet when this item
+comes up.
+
+
+==============================================================================
 B5. README, MEDIA & DISCOVERABILITY -- PRE-PUSH
 ==============================================================================
 Consolidates the old B5 (demo capture), B7 (GitHub discoverability), and B16

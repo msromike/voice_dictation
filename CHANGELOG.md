@@ -146,6 +146,14 @@ All notable changes to this project are documented here. Format follows
   `startup_folder_install.bat`/`startup_folder_uninstall.bat`), with every
   reference across the app and README updated to match.
 
+- Settings and the output window no longer snap to the default corner when
+  reopened near a screen edge. The saved position is now nudged just inside
+  the visible desktop instead of being discarded outright.
+
+- The About dialog now says "Whisper" instead of "speech to text" -- matches
+  the terminology already used everywhere else in the app (Settings already
+  said "Whisper model").
+
 ## [1.0.0] - 2026-07-25
 
 First public release.

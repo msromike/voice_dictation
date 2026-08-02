@@ -6,29 +6,3 @@ Docs describing planned-but-unbuilt behavior are not defects. Docs describing
 something cancelled are.
 
 
-D11. "speech-to-text" / "stt" terminology should say "Whisper" instead --
-     faster-whisper is very unlikely to ever be swapped out. Display-text
-     only, e.g. stt.py's own docstring; NOT the code identifiers (SttConfig,
-     STTEngine, config.json's stt key) -- renaming those needs a migration
-     path so existing users' saved model/device choice does not reset.
-
-D18. Settings writes a stale config snapshot back on close, erasing changes
-     saved elsewhere while the dialog was open. open_settings loads config
-     once at open; on_close and save_and_restart both write that same
-     snapshot back verbatim. Hide the output window or Ctrl+scroll its
-     text size with Settings open, then close Settings, and that state
-     reverts -- overwritten by the stale snapshot.
-
-     Fix: both writers re-read config immediately before writing, applying
-     only their own change on top of the fresh read.
-
-D19. _is_on_screen rejects a saved window position within 100px of the
-     right edge or 60px of the bottom, so a dialog (or console window)
-     parked near an edge snaps to the default corner on reopen instead of
-     returning to where it was left. Applies to settings_pos and
-     console_geometry -- both go through the same check.
-
-     Fix: clamp into winfo_vroot* rather than rejecting outright --
-     ::tk::PlaceWindow in tk.tcl is the reference. _is_on_screen has no
-     other callers once both sites clamp instead of rejecting.
-

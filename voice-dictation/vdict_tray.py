@@ -224,13 +224,13 @@ def transcript_log(text):
     _transcript_logger.info(text)
 
 
-def _geometry_origin(geometry):
-    """Pull (x, y) out of a Tk geometry string such as "900x600+120+80".
+def _geometry_parts(geometry):
+    """Split a Tk geometry string "WxH+X+Y" into (width, height, x, y).
     Returns None before a window is placed, when Tk emits no origin."""
-    match = re.search(r'([+-]\d+)([+-]\d+)$', geometry)
+    match = re.match(r'(\d+)x(\d+)([+-]\d+)([+-]\d+)', geometry)
     if not match:
         return None
-    return int(match.group(1)), int(match.group(2))
+    return tuple(int(g) for g in match.groups())
 
 
 # config.json stt.device -> display name. Settings and the session block share it.
@@ -341,14 +341,14 @@ def _format_bind(val):
     return val.title()
 
 
-def _is_on_screen(x, y):
-    """True when (x, y) lands on the desktop spanning every attached monitor.
-    The 100/60 margin keeps the title bar grabbable rather than flush to an edge."""
-    metric = ctypes.windll.user32.GetSystemMetrics
-    virtual_x, virtual_y = metric(76), metric(77)
-    virtual_w, virtual_h = metric(78), metric(79)
-    return (virtual_x <= x <= virtual_x + virtual_w - 100
-            and virtual_y <= y <= virtual_y + virtual_h - 60)
+def _clamp_to_desktop(win, x, y, width, height):
+    """Clamp (x, y) so a width x height window stays inside the desktop spanning
+    every attached monitor. Same algorithm as tk.tcl's ::tk::PlaceWindow."""
+    vx, vy = win.winfo_vrootx(), win.winfo_vrooty()
+    vw, vh = win.winfo_vrootwidth(), win.winfo_vrootheight()
+    x = max(vx, min(x, vx + vw - width))
+    y = max(vy, min(y, vy + vh - height))
+    return x, y
 
 
 class _PTTCapture:
@@ -680,7 +680,7 @@ class VoiceDictationTray:
         messagebox.showinfo(
             "About Voice Dictation",
             f"Voice Dictation v{__version__}\n\n"
-            f"Offline push-to-talk speech to text.\n"
+            f"Offline push-to-talk dictation using Whisper.\n"
             f"{PROJECT_URL}\n\n"
             f"MIT License",
             parent=self.window)
@@ -1176,15 +1176,16 @@ class VoiceDictationTray:
         # Force Tkinter to calculate required layout dimensions
         settings_win.update_idletasks()
 
-        # Fall back to the default corner if the remembered spot is no longer on
-        # any attached display. Same guard as the console.
+        # Clamp the remembered spot into the desktop rather than rejecting it
+        # outright. Same guard as the console.
         saved_pos = config.ui.settings_pos
-        if saved_pos and _is_on_screen(saved_pos.x, saved_pos.y):
-            x, y = saved_pos.x, saved_pos.y
+        win_width = settings_win.winfo_reqwidth()
+        win_height = settings_win.winfo_reqheight()
+        if saved_pos:
+            x, y = _clamp_to_desktop(
+                settings_win, saved_pos.x, saved_pos.y, win_width, win_height)
         else:
             # Default to bottom right using auto-calculated dimensions
-            win_width = settings_win.winfo_reqwidth()
-            win_height = settings_win.winfo_reqheight()
             screen_width = settings_win.winfo_screenwidth()
             screen_height = settings_win.winfo_screenheight()
             x = screen_width - win_width - int(20 * self.dpi_scale)
@@ -1414,9 +1415,11 @@ class VoiceDictationTray:
         # origin is no longer on any attached display.
         saved_geometry = config.ui.console_geometry
         if saved_geometry:
-            origin = _geometry_origin(saved_geometry)
-            if origin and _is_on_screen(*origin):
-                self.window.geometry(saved_geometry)
+            parts = _geometry_parts(saved_geometry)
+            if parts:
+                w, h, x, y = parts
+                x, y = _clamp_to_desktop(self.window, x, y, w, h)
+                self.window.geometry(f"{w}x{h}+{x}+{y}")
 
         self._set_console_font_size(config.ui.console_font_size)
 
