@@ -59,15 +59,11 @@ MB_ICONERROR = 0x10
 # Shared by the tray, the Desktop shortcut and the Startup shortcut.
 ICON_PATH = Path(__file__).parent.parent / "images" / "vdict.ico"
 
-# Created at import so the log is writable before anything can fail.
-LOG_DIR = Path(__file__).parent.parent / "userdata" / "logs"
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-ERROR_LOG_PATH = LOG_DIR / "tray_error.log"
 MIC_FAULT_FLAG_PATH = Path(__file__).parent.parent / "userdata" / "mic_fault.flag"
 
 # B14 groundwork -- gated on a flag, not a Settings checkbox yet.
 TRANSCRIPT_LOG_ENABLED = True
-TRANSCRIPT_LOG_PATH = LOG_DIR / "transcript_log.txt"
+TRANSCRIPT_LOG_PATH = output.LOG_DIR / "transcript_log.txt"
 
 # SWALLOW's first real caller -- no Settings/UI integration yet either.
 transcript_only_mode = False
@@ -200,13 +196,6 @@ def save_settings(config):
     """Write config.json back to disk"""
     with open(CONFIG_PATH, "w") as f:
         f.write(Config.model_validate(config).model_dump_json(indent=2))
-
-
-def _write_error_log(context, text):
-    """Append one pre-formatted entry to the error log. Disk-write only, no screen."""
-    with open(ERROR_LOG_PATH, "a", encoding="utf-8") as f:
-        f.write("\n" + "=" * 60 + "\n")
-        f.write(f"{context}\n{text}")
 
 
 _transcript_logger = logging.getLogger("vdict.transcript")
@@ -548,7 +537,7 @@ class VoiceDictationTray:
         # recursively in exactly the case this handler exists to report.
         try:
             ctypes.windll.user32.MessageBoxW(
-                None, f"{summary}\n\nDetails written to {ERROR_LOG_PATH}",
+                None, f"{summary}\n\nDetails written to {output.ERROR_LOG_PATH}",
                 "Voice Dictation error", MB_ICONERROR)
         except Exception:
             pass
@@ -620,11 +609,11 @@ class VoiceDictationTray:
         """Grey out Error Log when no log file exists."""
         self._help_menu.entryconfig(
             "Error Log",
-            state=tk.NORMAL if ERROR_LOG_PATH.exists() else tk.DISABLED)
+            state=tk.NORMAL if output.ERROR_LOG_PATH.exists() else tk.DISABLED)
 
     def _open_error_log(self):
         """Open the error log in the default text editor"""
-        os.startfile(ERROR_LOG_PATH)
+        os.startfile(output.ERROR_LOG_PATH)
 
     def _open_docs(self, event=None):
         """Open the project page in the default browser.
@@ -789,7 +778,7 @@ class VoiceDictationTray:
     def error_log(self, context, text):
         """Write to the error log, then best-effort dump the same text onto the screen.
         A screen failure must never undo the disk write already committed above it."""
-        _write_error_log(context, text)
+        output.write_error_log(context, text)
         try:
             self.text.config(state=tk.NORMAL)
             self.text.insert(tk.END, f"\n{context}\n{text}\n")
@@ -1498,14 +1487,14 @@ def _log_startup_crash():
     """Write an unhandled startup exception to the error log and show it on screen"""
     text = traceback.format_exc()
     summary = text.strip().splitlines()[-1]
-    _write_error_log("Startup crash", text)
+    output.write_error_log("Startup crash", text)
 
     # Config has no fallbacks, so a malformed config.json lands here. There is
     # no console yet at this point, so the dialog is the only visible surface.
     try:
         ctypes.windll.user32.MessageBoxW(
             None,
-            f"{summary}\n\nFull details were written to:\n{ERROR_LOG_PATH}\n\n"
+            f"{summary}\n\nFull details were written to:\n{output.ERROR_LOG_PATH}\n\n"
             f"If this mentions config.json, delete that file and relaunch "
             f"to restore the default settings.",
             "Voice Dictation failed to start", MB_ICONERROR)

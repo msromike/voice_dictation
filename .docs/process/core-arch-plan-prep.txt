@@ -3,15 +3,10 @@ VOICE DICTATION - CORE ARCH PREP WORK
 Sequenced pre-work for core-arch-plan.txt -- must land before its build
 sheet starts. Drains as each item completes.
 
-
-==============================================================================
-P2. WRAP stt.transcribe() -- ONE BAD TRANSCRIPTION SHOULDN'T END THE SESSION
-==============================================================================
-  - Wrap the stt.transcribe() call in the PTT loop's per-cycle logic. On
-    exception, log one line, continue to the next cycle.
-  - Core-arch's live reload removes the protection a full restart gives
-    today (a restart kills any in-progress recording too) -- this is the
-    replacement safety net once reload happens in place.
+ORDER, DECIDED 2026-08-02: this file drains -> P4 (own plan+build sheet)
+-> core-arch-plan.txt's own build -> input-device-plan.txt. Input-device
+work waits for core-arch so AudioCapture.rebuild() gets wired once,
+against the post-merge architecture, not once now and once again after.
 
 
 ==============================================================================
@@ -29,6 +24,8 @@ P3. ADD STTEngine.reload(config)
     of outcome. AudioCapture.rebuild() becomes a second caller of the same
     flag once core-arch builds it; nothing here needs to change when that
     happens.
+  - Before draining: check core-arch-plan.txt for impact -- stale references
+    to fix, or an omission this item now requires adding.
 
 
 ==============================================================================
@@ -72,6 +69,9 @@ dialogs, sharing only the underlying check.
 Not designed in detail yet -- exact copy, dialog structure, and whether
 ui.first_run needs any changes beyond staying as-is are build-sheet work.
 
+Before draining: check core-arch-plan.txt for impact -- stale references
+to fix, or an omission this item now requires adding.
+
 
 ==============================================================================
 P6. ACCOUNT FOR A SECOND LOADABLE MODEL IN MODEL RELOAD
@@ -84,6 +84,9 @@ multilang-large, CPU-only -- no device-selection or VRAM-sharing concern
 with STT's own compute choice. Verify no other coupling before folding
 in. If B13 never gets built, this item is dead too -- check its status
 first.
+
+Before draining: check core-arch-plan.txt for impact -- stale references
+to fix, or an omission this item now requires adding.
 
 
 ==============================================================================
@@ -124,7 +127,7 @@ CONFIG PERSISTENCE and LIVE-READ SETTINGS -- not tray-side concerns
 either.
 
 SCALE WARNING -- WHY THIS ISN'T ONE MORE TERSE PREP BULLET
-P2 and P3 are each one function or one mechanical move. This is splitting
+P3 is one function, one mechanical move. This is splitting
 1520 lines into roughly a dozen files -- same sound principle as those,
 much more surface area for something subtle to go wrong: shared state two
 new modules both secretly need, an import cycle, something that looked
@@ -148,3 +151,6 @@ a new window is covered by one track() call, not a new shutdown-step edit
 someone has to remember. Build against today's load/save-on-exit pattern;
 the API doesn't change shape once core-arch's shared live Config object
 lands, only what save_all(config) is handed.
+
+Before draining: check core-arch-plan.txt for impact -- stale references
+to fix, or an omission this item now requires adding.

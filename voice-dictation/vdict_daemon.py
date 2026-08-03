@@ -13,10 +13,11 @@ from vdict.daemon.audio import AudioCapture
 from vdict.daemon.stt import STTEngine
 from vdict.daemon.keyboard import KeyboardInjector, PTTListener
 from vdict.common.config import load_config, load_vocabulary
-from vdict.common.output import log
+from vdict.common.output import log, write_error_log
 import wave
 import os
 import queue
+import traceback
 from datetime import datetime
 import numpy as np
 import sounddevice as sd
@@ -207,7 +208,13 @@ def main():  # noqa: PLR0915
             play_tone("stop", enabled=audio_feedback)
 
             # Transcribe with prompt for jargon biasing
-            text = stt.transcribe(audio_data, initial_prompt=prompt)
+            try:
+                text = stt.transcribe(audio_data, initial_prompt=prompt)
+            except Exception as e:
+                log("error", f"Transcription failed: {e}")
+                write_error_log("Transcription failed", traceback.format_exc())
+                log("done", "")
+                continue
 
             if text:
                 log("transcript", text)

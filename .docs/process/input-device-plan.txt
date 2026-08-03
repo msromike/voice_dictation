@@ -2,6 +2,13 @@ VOICE DICTATION - PLAN: INPUT DEVICE HANDLING
 
 Reference for the input-device build sheet.
 
+SEQUENCING, DECIDED 2026-08-02: build this after core-arch-plan.txt's own
+build lands, not before. Wires AudioCapture.rebuild() once, against the
+post-merge architecture, instead of once now and once again after.
+portaudio_io.py's vulture findings (reinit, resolve_by_name, open_probe,
+start_hold, stop_hold, time_info) stay overridden at commit time until
+this build actually calls them.
+
 
 ==============================================================================
 CONFIRMED FROM SOURCE, VERIFIED ON HARDWARE EXCEPT WHERE NOTED

@@ -154,6 +154,11 @@ All notable changes to this project are documented here. Format follows
   the terminology already used everywhere else in the app (Settings already
   said "Whisper model").
 
+- A failed transcription no longer ends the session. Whisper occasionally
+  raises on a given recording; the daemon now logs the error, writes a full
+  traceback to the error log, and waits for the next button press instead of
+  crashing.
+
 ## [1.0.0] - 2026-07-25
 
 First public release.

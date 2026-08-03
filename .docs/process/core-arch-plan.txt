@@ -217,6 +217,11 @@ finding.
   audio.py, stt.py -- retry-loop removal, sys.exit() removal, portaudio_io
   wiring.
 
+  SEQUENCING, DECIDED 2026-08-02: portaudio_io wiring is input-device-
+  plan.txt's job, done after this plan's build lands, not before or
+  during -- wires AudioCapture.rebuild() once, against the post-merge
+  architecture.
+
   Genuinely restructured: output.py's log()/parse() (the wire format goes
   away, CATEGORIES metadata stays), vdict_daemon.py's main() (becomes a
   thread body, not a process entry point), vdict_tray.py's
@@ -243,6 +248,11 @@ results.csv, restored to .docs/process/ from git history for this purpose
     error_log()'s disk-write-first pattern, transcript_log()'s dedicated
     logger. None of these need to change in their own definitions, only
     in how they get called.
+  - The disk-write half (write_error_log, formerly tray-only
+    _write_error_log) already moved to vdict/common/output.py as P2's own
+    prep work, 2026-08-02 -- vdict_daemon.py already calls it directly
+    today. This refactor doesn't need to invent that cross-process bridge,
+    it already exists.
   - At real risk: vdict_daemon.py holds roughly a dozen log() call sites
     (loading, ready, block, rec/note/done, transcript, plus
     _resolve_output_device()'s two error calls) that all need a home in

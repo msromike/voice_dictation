@@ -1,6 +1,13 @@
-"""Shared output-category vocabulary: color, marker, box, and toast-eligibility per category."""
+"""Shared output-category vocabulary: color, marker, box, and toast-eligibility per category.
+Also the error log's disk-write, since daemon and tray both need to reach it."""
 
+from pathlib import Path
 from typing import NamedTuple
+
+# Created at import so the log is writable before anything can fail.
+LOG_DIR = Path(__file__).parent.parent.parent.parent / "userdata" / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+ERROR_LOG_PATH = LOG_DIR / "tray_error.log"
 
 
 class CategorySpec(NamedTuple):
@@ -43,3 +50,10 @@ def parse(line):
     if not sep:
         return None, category
     return category, text
+
+
+def write_error_log(context, text):
+    """Append one pre-formatted entry to the error log. Disk-write only, no screen."""
+    with open(ERROR_LOG_PATH, "a", encoding="utf-8") as f:
+        f.write("\n" + "=" * 60 + "\n")
+        f.write(f"{context}\n{text}")
