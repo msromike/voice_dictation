@@ -224,6 +224,19 @@ divider style are all open. Design goes in a build sheet when this item
 comes up.
 
 
+==============================================================================
+B25. __version__ IS DEFINED THREE TIMES -- REFINEMENT
+==============================================================================
+vdict/__init__.py, vdict_daemon.py and vdict_tray.py each declare
+__version__ = "1.0.0". Consumed by the daemon's ready banner, the About
+box, and the Settings version label. Bump one and miss the others and the
+About box silently ships the wrong number -- no error, no test catches it.
+
+P4 removes the vdict_tray.py copy as a side effect of gutting that file
+(tray side reads vdict/__init__.py). This item is the vdict_daemon.py copy
+only, which P4 leaves alone as out of scope.
+
+
 ------------------------------------------------------------------------------
 PRE-PUSH
 ------------------------------------------------------------------------------

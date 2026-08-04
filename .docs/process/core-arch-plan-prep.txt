@@ -8,66 +8,44 @@ ORDER, DECIDED 2026-08-02: this file drains -> P4 (own plan+build sheet)
 work waits for core-arch so AudioCapture.rebuild() gets wired once,
 against the post-merge architecture, not once now and once again after.
 
-
-==============================================================================
-P5. FOLD FIRST-RUN ONBOARDING INTO CORE-ARCH-PLAN.TXT'S ARCHITECTURE
-==============================================================================
-Verify no coupling beyond the one already found (gates when worker threads
-are allowed to start) before folding. If another surfaces, it changes
-ARCHITECTURE's design, not just where the text lives -- resolve it there,
-not here. Once clear, move the text below into ARCHITECTURE verbatim.
-
-FIRST RUN -- REFRAMED 2026-08-01 as a real onboarding refactor, not three
-sequential message boxes. Gated on ui.first_run, kept deliberately
-independent of audio.device's own state (input-device-plan.txt's AT-LAUNCH
-FAIL condition is for a RETURNING user whose device went missing -- not
-this). Decoupling the two means onboarding can be re-tested by toggling
-one flag, without having to null out a real, working device config to
-force it.
-
-ONE Welcome dialog, not a sequence:
-  - States the microphone requirement plainly -- not optional, needs a
-    pick before anything works. This is the one hard requirement in the
-    tour; everything else below is already decided for them.
-  - PTT trigger default (middle mouse button) -- explains how to use the
-    app at all, since nothing else teaches this.
-  - Output window hotkey -- unset by default, real discoverability gap
-    (hide the window, no way back except the tray icon) -- nudge to bind
-    one while already in Settings.
-  - Compute device and model size -- mention a sensible default exists,
-    point at Settings if they want to change it.
-  - Minor settings (beeps, etc.) -- barely worth a sentence, they'll find
-    them in Settings regardless.
-  Then opens Settings once, same as before -- not three separate boxes
-  each ending in "you can change this in Settings."
-
-Depends on knowing whether a device is already configured (same
-enumerate/resolve mechanism as input-device-plan.txt), but does NOT reuse
-that plan's fault modal -- a first-time user isn't told "can't find your
-device," which presupposes a prior choice they never made. Two different
-dialogs, sharing only the underlying check.
-
-Not designed in detail yet -- exact copy, dialog structure, and whether
-ui.first_run needs any changes beyond staying as-is are build-sheet work.
-
-Before draining: check core-arch-plan.txt for impact -- stale references
-to fix, or an omission this item now requires adding.
+AMENDED 2026-08-04: P4a lands before P4's build sheet is written, not
+before P4's plan. Its whole point is that the sheet gets written against a
+codebase where dpi_scale plumbing does not exist.
 
 
 ==============================================================================
-P6. ACCOUNT FOR A SECOND LOADABLE MODEL IN MODEL RELOAD
+P4a. DPI SCALE HELPER -- PREREQ, BEFORE P4's BUILD SHEET IS WRITTEN
 ==============================================================================
-MODEL RELOAD currently covers STTEngine.reload() only, one model. B13
-(punctuation-restoration, backlog.txt -- not started, waiting on corpus
-before it's even decided) would need the same load-on-startup,
-reload-on-Settings-change story for oliverguhr/fullstop-punctuation-
-multilang-large, CPU-only -- no device-selection or VRAM-sharing concern
-with STT's own compute choice. Verify no other coupling before folding
-in. If B13 never gets built, this item is dead too -- check its status
-first.
+Replace every int(N * self.dpi_scale) in vdict_tray.py with scale(N), a
+helper in a new leaf module vdict/tray/dpi.py that imports nothing from
+vdict/tray/. 22 call sites, measured: 19 single-line, 3 wrapped across
+lines by the formatter. The only other dpi_scale mentions are the two
+assignments in VoiceDictationTray.__init__, which stay -- the helper reads
+that value.
 
-Before draining: check core-arch-plan.txt for impact -- stale references
-to fix, or an omission this item now requires adding.
+dpi.py owns DPI awareness and scaling, nothing else. It is deliberately not
+a shared catch-all leaf for P4's log() queue as well -- P4a has to be
+executable and verifiable before the skeleton exists, so it cannot name a
+module whose charter P4 has not written yet.
+
+WHY THIS IS A PREREQ AND NOT BACKLOG
+Without it, P4 hands dpi_scale to Settings and Faults as a constructor
+parameter, then a later cleanup takes it back out -- and by then the 22
+sites are spread across three modules instead of sitting in one file. It
+also satisfies P4's own admission test (vdict-encap-plan.txt, SCOPE): it
+removes a dependency from two modules rather than merely tidying.
+
+A helper, not a module-level constant: scale() computes on call, so it
+cannot run before SetProcessDpiAwareness. A constant computed at import
+would depend on import order and fail as blurry text rather than an
+exception.
+
+What this buys is the scaling POLICY in one place -- rounding, the
+fallback when the ctypes call raises, any future per-monitor DPI work.
+Changing a padding VALUE is still a per-site edit either way.
+
+VERIFY: launch, open Settings and both fault modals, confirm padding and
+window sizes are unchanged at the current display DPI.
 
 
 ==============================================================================

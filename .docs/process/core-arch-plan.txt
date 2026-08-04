@@ -48,6 +48,11 @@ ARCHITECTURE
     main thread and is the only thing that touches widgets; every worker
     thread reaches it through .after(). Settings-to-orchestrator needs no
     such bridge -- same thread already.
+  - Those worker threads don't begin real hot-path work until first-run
+    onboarding has completed at least once -- today's two-process split
+    gives this for free (the daemon doesn't start until Save & Restart
+    launches it); the merged process has to enforce it on purpose.
+    Mechanism is FIRST RUN's own build-sheet work, not decided here.
   - Settings (today's vdict_tray.py open_settings()) is a pure view --
     returns the raw snapshot of what the user picked, no diffing inside it.
   - The Save handler (today's save_and_restart()) is a separate actor
@@ -65,6 +70,34 @@ ARCHITECTURE
   - No cross-process signaling needed anywhere -- that whole problem (how
     does the daemon know Save happened) dissolves because there is no
     longer a process boundary to cross.
+  - FIRST RUN is gated on ui.first_run, kept independent of audio.device's
+    own state -- input-device-plan.txt's AT-LAUNCH FAIL condition is for a
+    returning user whose device went missing, not this. Decoupling means
+    onboarding can be re-tested by toggling one flag, without nulling a
+    real device config to force it.
+  - ONE Welcome dialog, not a sequence of message boxes:
+    - States the microphone requirement plainly -- not optional, needs a
+      pick before anything works. This is the one hard requirement in the
+      tour; everything else below is already decided for them.
+    - PTT trigger default (middle mouse button) -- explains how to use the
+      app at all, since nothing else teaches this.
+    - Output window hotkey -- unset by default, real discoverability gap
+      (hide the window, no way back except the tray icon) -- nudge to bind
+      one while already in Settings.
+    - Compute device and model size -- mention a sensible default exists,
+      point at Settings if they want to change it.
+    - Minor settings (beeps, etc.) -- barely worth a sentence, they'll find
+      them in Settings regardless.
+    Then opens Settings once, same as before -- not three separate boxes
+    each ending in "you can change this in Settings."
+  - Depends on knowing whether a device is already configured (same
+    enumerate/resolve mechanism as input-device-plan.txt), but does not
+    reuse that plan's fault modal -- a first-time user isn't told "can't
+    find your device," which presupposes a prior choice they never made.
+    Two different dialogs, sharing only the underlying check.
+  - Not designed in detail yet -- exact copy, dialog structure, and whether
+    ui.first_run needs any changes beyond staying as-is are build-sheet
+    work.
 
 
 ==============================================================================
@@ -78,6 +111,9 @@ CONFIG PERSISTENCE
   - Written at checkpoints -- Save, window hidden, geometry settled --
     same pattern _save_console_state()/_remember_geometry() already use
     for window position today.
+    NEEDS A PASS once P4's geometry registry exists: vdict-encap-plan.txt
+    puts geometry on exit-and-hide only, with no per-settle write, which
+    contradicts "geometry settled" here.
   - One shared, live Config object instead of six independent stale reads
     fixes B12 (Settings overwriting a change made elsewhere while open)
     and D9 (six load_settings() call sites) as a side effect.
@@ -156,8 +192,7 @@ COMMON TO BOTH
     start_capture() only reads it, checked once, before starting a new
     cycle. Not three independent flags -- there's only one decision being
     protected, three things that can hold it closed.
-
-    STTEngine.reload(config) already exists, P3's own prep work,
+  - STTEngine.reload(config) already exists, P3's own prep work,
     2026-08-02 -- its busy_flag constructor param (defaults to its own
     threading.Event() when nothing is shared in) is this exact flag. The
     orchestrator doesn't invent it; it constructs one Event and passes the
@@ -201,41 +236,6 @@ FATAL VS RECOVERABLE
     exception. Unlike mic-fault/model-fault, it has exactly one outcome
     -- nothing Settings can fix for either, so the modal never routes
     there. Message, bug-report link, exit.
-
-
-==============================================================================
-WHAT SURVIVES / WHAT DOESN'T
-==============================================================================
-This list is preliminary, not exhaustive -- built during this plan's
-conversational review, not a full codebase search. It is not a verified
-audit and it is not licensed to be trusted blind: before executing a
-step, grep for callers and imports rather than assuming this inventory
-is complete, and confirm each listed file against its current state
-before touching it. A real problem found anywhere during actual work --
-listed here or not -- gets reported and logged the same as anywhere
-else. "Already covered by the plan" is not a reason to go quiet on a
-finding.
-
-  Untouched: hotkey.py, keyboard.py, portaudio_io.py, config.py, all of
-  vdict_tray.py's actual widget-building code.
-
-  Already-planned changes (unaffected by the merge decision itself):
-  audio.py, stt.py -- retry-loop removal, sys.exit() removal, portaudio_io
-  wiring.
-
-  SEQUENCING, DECIDED 2026-08-02: portaudio_io wiring is input-device-
-  plan.txt's job, done after this plan's build lands, not before or
-  during -- wires AudioCapture.rebuild() once, against the post-merge
-  architecture.
-
-  Genuinely restructured: output.py's log()/parse() (the wire format goes
-  away, CATEGORIES metadata stays), vdict_daemon.py's main() (becomes a
-  thread body, not a process entry point), vdict_tray.py's
-  subprocess-management code (removed), MIC_FAULT_FLAG_PATH (likely gone
-  entirely).
-
-  Watch, don't rewrite: portaudio_io.py's same-thread constraint on
-  reinit() -- was free by construction, now has to be enforced on purpose.
 
 
 ==============================================================================
