@@ -1,0 +1,291 @@
+VOICE DICTATION - BUILD SHEET: SPLIT vdict_tray.py (P4)
+
+Design lives in vdict-encap-plan.txt. This sheet does not repeat it -- read
+SKELETON and DECISIONS there before starting, and treat the plan as the
+authority if the two ever disagree.
+
+Done = vdict_tray.py holds only the entry point, every piece named in the
+plan's SKELETON is its own module, and the app behaves as it does today.
+
+ORDERING RULE: riskiest first. The only thing here that can genuinely fail
+is the wiring rule holding against the measured cycle (console -> faults ->
+settings -> daemon-subprocess -> console). Steps 1-3 exist because the
+console cannot be extracted without them, not to bank easy progress. The
+cycle is exercised at step 4. Pure leaf relocations come last, so stopping
+early is harmless.
+
+EVERY STEP IS A VERTICAL SLICE: create the module, move the code, rewire
+every caller, delete the original -- all inside the step. Never move in one
+step and rewire in the next. Every step ends with a launch and only the
+gesture that step's code owns, plus a commit. Full sweep at the end.
+
+
+==============================================================================
+UNVERIFIED
+==============================================================================
+  [x] The state map, the multi-consumer constants table, and the import
+      cycle are measured. See vdict-encap-plan.txt MEASURED, re-measured
+      2026-08-04 against 1519 lines.
+  [x] mic-fault and model-fault are both forceable from config.json, so no
+      test hook is needed. See that plan's FAULT TRIGGERS.
+  [x] Console can own hide_window without owning geometry.
+      _save_console_state writes two unrelated things -- console_geometry,
+      which is the registry's, and console_font_size, which is the
+      console's own state that happens to persist at the same moments.
+      Console takes a save-state callable from app and calls it on hide;
+      app's implementation runs geometry.save_all, writes the font size,
+      and saves. Console never imports geometry.
+  [x] _PTTCapture needs a widget, not the tray. Its seven self.tray uses
+      are two error_log, one log, and four window.after. Step 1 turns the
+      first three into module functions, leaving only .after -- so it takes
+      the Tk root.
+  [x] menu.py needs no console reference. Every menu command that touches
+      the text widget -- Save As, Copy, Select All, Copy All, Clear -- is a
+      console operation. menu.py builds the menubar from a callback set and
+      app supplies the console's own methods as those callables. menu.py
+      never touches a widget it does not own.
+
+
+==============================================================================
+STEP 1  log.py -- THE LEAF EVERYTHING REPORTS THROUGH
+==============================================================================
+Nothing else can move first: every module extracted later calls log() or
+error_log(), and both live on the tray object today.
+
+  [ ] 1a  Create vdict/tray/log.py. Owns the output queue outright.
+          log(category, text) enqueues. error_log(context, text) writes
+          disk via common.output.write_error_log FIRST, then calls an
+          installed screen-writer if one exists -- synchronously, never
+          through the queue. install_screen(fn) registers that writer.
+          The disk write happens whether or not a writer is installed.
+  [ ] 1b  vdict_tray.py installs a screen-writer that inserts into
+          self.text, replacing the body of the old error_log method.
+  [ ] 1c  Rewire every self.log() and self.error_log() call site to the
+          module functions, and delete both methods. _PTTCapture's
+          self.tray.log/self.tray.error_log calls go too.
+  [ ] 1d  The drain reads log.py's queue instead of self.output_queue.
+
+VERIFY: launch. Session block prints with correct colors and markers.
+Trigger an error_log path -- rebind PTT and press a key pynput cannot name,
+or force model-fault -- and confirm the error log file gets the entry AND
+the console shows it.
+
+
+==============================================================================
+STEP 2  common/config.py -- LOAD AND HEAL
+==============================================================================
+Ordering: must precede Settings, the session block and geometry. All three
+call load_settings, and if it is still in vdict_tray.py when they move out,
+each new module has to import the entry file that imports it back.
+
+  [ ] 2a  Move load_settings, save_settings, FIELD_LABELS, _format_value,
+          _delete_at_path, _wholesale_reset_message,
+          _summarize_config_error and _reseed_vocabulary_if_missing into
+          vdict/common/config.py. Verbatim -- no consolidation, no
+          signature changes. The daemon's existing load_config and
+          load_vocabulary stay untouched; merging them is core-arch's job.
+  [ ] 2b  Rewire all six load_settings and four save_settings call sites,
+          plus VOCABULARY_RESET_MESSAGE.
+
+VERIFY: launch. Settings opens with current values, Save persists them,
+console geometry survives a hide and restore. Delete userdata/config.json
+first on a second launch to confirm the reseed path still writes defaults
+and logs the reset lines -- BAK AND RESTORE per CLAUDE.md.
+
+
+==============================================================================
+STEP 3  geometry.py -- THE REGISTRY
+==============================================================================
+This is the one step that changes behavior rather than relocating it. See
+the plan's WINDOW GEOMETRY.
+
+  [ ] 3a  Create vdict/tray/geometry.py: track(window, config_field),
+          save_all(config), plus _clamp_to_desktop and _geometry_parts
+          moved verbatim.
+  [ ] 3b  track() caches live geometry on <Configure> while the window is
+          in normal state, and binds <Destroy> to capture a final position
+          into the cache. Without the <Destroy> hook, Settings is torn down
+          before exit and settings_pos is silently dropped.
+  [ ] 3c  save_all(config) writes every cached entry. Called at exit and at
+          hide -- both of today's trigger points, not exit only.
+  [ ] 3d  Console window and Settings both register through track().
+          _remember_geometry, _save_console_state's geometry half, and
+          Settings' two _get_pos writes all go away.
+
+VERIFY: launch. Move and resize the console, hide to tray, restore -- size
+and position kept. Move Settings, close it, reopen -- position kept. Exit
+and relaunch -- both kept. Then confirm a window closed but not exited
+still persists: move Settings, close it, exit without reopening, relaunch.
+
+
+==============================================================================
+STEP 4  console.py -- THE CYCLE STEP
+==============================================================================
+The risk this whole ordering exists for. console must NOT import faults.
+app registers fault handlers into the console's dispatch, so the measured
+cycle has no edge to close on.
+
+  [ ] 4a  Create vdict/tray/console.py. Owns the text widget, color tags,
+          context menu, zoom and font sizing, select/copy/copy-all/clear,
+          save-log-as, the queue drain and category dispatch, the loading
+          animation, and hide/unmap. Installs log.py's screen-writer.
+  [ ] 4b  Constructor takes the Tk root, the tray icon (for toasts), a
+          handler map for box-category dispatch, and a save-state callable
+          it invokes on hide. At this step app populates the handler map
+          with the fault methods still living in the tray class -- they
+          move out in step 5.
+  [ ] 4c  transcript_only_mode, _swallow_set, COLOR_TAGS, CONSOLE_FONT_*
+          and the transcript logger move with it.
+  [ ] 4d  Delete every console method from the tray class.
+
+VERIFY: launch. Console shows output with correct colors. Ctrl+scroll and
+Ctrl+0 zoom. Copy, Select All, Copy All, Clear. Save As writes a file. Hide
+to tray and restore. Force model-fault -- the modal must still appear,
+which is what proves the handler map works. Minimize to confirm unmap still
+hides rather than iconifies.
+
+
+==============================================================================
+STEP 5  faults.py
+==============================================================================
+  [ ] 5a  Create vdict/tray/faults.py with the shared modal builder and the
+          mic and model variants. Receives the Tk root, an open-settings
+          callable, a way to reach the live Settings window for parenting,
+          and force-quit.
+  [ ] 5b  app registers these into console's handler map, replacing the
+          tray methods from 4b.
+  [ ] 5c  MIC_FAULT_FLAG_PATH moves with it for now; it lands in const.py
+          at step 8.
+
+VERIFY: force model-fault -- modal appears over Settings, OK dismisses it,
+Settings stays open. Force mic-fault by naming a nonexistent device in
+config.json -- modal appears, Close writes mic_fault.flag and quits, and
+the next launch reopens Settings with the note. BAK AND RESTORE.
+
+
+==============================================================================
+STEP 6  settings.py
+==============================================================================
+The most entangled piece. settings_win is read from outside by the fault
+modals and by the bare-key confirmation.
+
+  [ ] 6a  Create vdict/tray/settings.py: the window builder, all five row
+          builders, the hotkey row, the save handler, on_close, and
+          _rebind_on_close.
+  [ ] 6b  Receives the Tk root and the callables it fires -- restart, and
+          hotkey re-register. It does not import daemon_proc.
+  [ ] 6c  Exposes the live window so faults.py can parent to it, through
+          whatever app hands faults in 5a rather than a direct import.
+  [ ] 6d  sounddevice stays imported inside _build_microphone_row, pynput
+          inside the PTT capture, ctranslate2 inside _has_cuda. Hoisting
+          any of them to module level drags heavy dependencies into tray
+          startup.
+
+VERIFY: launch. Open Settings from the tray menu and from File. Change each
+control and Save -- values persist and the daemon restarts. Escape closes.
+Close and reopen from the fault path. Rebind the output-window hotkey,
+close Settings, confirm the new hotkey works -- that is _rebind_on_close.
+
+
+==============================================================================
+STEP 7  daemon_proc.py
+==============================================================================
+Core-arch deletes this module whole. Keep its surface minimal; do not give
+it a polished API it will never need.
+
+  [ ] 7a  Create vdict/tray/daemon_proc.py: start, stop, restart, the
+          stdout reader thread, and the exit poll. _exit_reported and
+          _fault_shown move with it.
+  [ ] 7b  It must not set console state directly. Today start_vdict assigns
+          is_loading_model -- that becomes a call on whatever app hands it,
+          which is the edge that closed the measured cycle.
+  [ ] 7c  app owns the 100ms tick: drain the console, then poll the
+          subprocess for exit, then reschedule. Core-arch later deletes the
+          second call and the tick becomes console-only.
+
+VERIFY: launch. Session block prints with the daemon PID. Save & Restart in
+Settings swaps the daemon and reprints the block. Kill vdict_daemon.py from
+Task Manager -- the console reports the exit code once, not repeatedly.
+
+
+==============================================================================
+STEP 8  const.py, session.py -- LEAVES
+==============================================================================
+  [ ] 8a  Create vdict/tray/const.py: PROJECT_URL, ICON_PATH,
+          MIC_FAULT_FLAG_PATH, MB_ICONERROR, and the single Path base they
+          derive from. Four .parent steps from vdict/tray/, matching
+          common/config.py. Getting this wrong makes MIC_FAULT_FLAG_PATH
+          fail silently -- see the plan's PATH AND IMPORT HAZARDS.
+  [ ] 8b  Create vdict/tray/session.py: the session block, _summary_line,
+          _human_size, _model_size_on_disk, _format_bind, DEVICE_LABELS,
+          _hotkey_line. Stateless -- pid, config and hotkey state arrive as
+          arguments.
+
+VERIFY: launch. Session block prints correctly, including model size on
+disk and the hotkey line. Confirm mic-fault recovery still works, which is
+what exercises MIC_FAULT_FLAG_PATH's new path math.
+
+
+==============================================================================
+STEP 9  ptt_capture.py, hotkey_capture.py -- LEAVES
+==============================================================================
+  [ ] 9a  Move _PTTCapture into vdict/tray/ptt_capture.py. Its constructor
+          takes the Tk root in place of the tray object -- .after() is the
+          only thing it still needed the tray for after step 1.
+  [ ] 9b  Move _capture_hotkey, _confirm_bare_key, _combo_name, _vk_name,
+          _windows_key_name, _state_to_mods and the key tables into
+          vdict/tray/hotkey_capture.py.
+
+VERIFY: rebind the PTT trigger to a key, to a mouse side button, and cancel
+one with Escape. Bind a bare key and confirm the warning appears. Rebind
+the output-window hotkey and confirm Escape inside the capture does not
+close Settings.
+
+
+==============================================================================
+STEP 10  menu.py, icon.py -- LEAVES
+==============================================================================
+  [ ] 10a Create vdict/tray/menu.py: the menubar, the Help postcommand
+          sync, About, and the docs and error-log openers. Built from a
+          callback set app assembles; the Edit and View entries are the
+          console's own methods passed in, so menu.py holds no widget of
+          the console's.
+  [ ] 10b Create vdict/tray/icon.py: pystray icon construction and the
+          .ico frame selection.
+
+VERIFY: every menu item under File, Edit, View and Help. Error Log greys
+out when no log exists. Tray icon menu: Show Output, Settings, Exit.
+
+
+==============================================================================
+STEP 11  app.py AND THE ENTRY POINT
+==============================================================================
+  [ ] 11a Move what remains of VoiceDictationTray into vdict/tray/app.py:
+          the Tk root, the wiring, run(), exit and force-quit, the shutdown
+          steps, the Tk exception handler, hotkey registration, the tick,
+          and the first-run and mic-fault boot branches.
+  [ ] 11b vdict_tray.py keeps only the platform guard, the AUMID call, the
+          single-instance mutex, the startup-crash reporter, and construct-
+          and-run. Its path is pinned by vdict_run.bat, vdict_install.bat
+          and startup_folder_install.bat -- the file must stay where it is.
+  [ ] 11c Confirm app.py is the only module importing a wired module, and
+          that every leaf's import block names no wired module.
+
+VERIFY: full sweep. Every gesture from steps 1-10, in one session. Then
+launch a second instance to confirm the mutex still reports the app is
+already running.
+
+
+==============================================================================
+STEP 12  CLEANUP
+==============================================================================
+  [ ] 12a Finish the core-arch-plan.txt impact pass -- P4's own text asks
+          for it before draining. The CONFIG PERSISTENCE bullet already
+          carries a NEEDS A PASS marker from the geometry decision.
+  [ ] 12b Drain P4 from core-arch-plan-prep.txt and delete that file, which
+          leaves it empty.
+  [ ] 12c Update README's architecture paragraph -- it currently describes
+          vdict_tray.py as owning the tray icon, the settings window and
+          the console.
+
+Mike deletes this sheet.

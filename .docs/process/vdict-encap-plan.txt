@@ -23,8 +23,14 @@ OPEN ISSUES -- worth tracking, does not gate the build sheet
 ==============================================================================
 MEASURED 2026-08-04 -- STATIC DISCOVERY OVER vdict_tray.py
 ==============================================================================
-AST-derived, not read by eye. vdict_tray.py was 1533 lines when this ran.
-If it has changed, re-measure rather than trust this section.
+AST-derived, not read by eye. Re-measured 2026-08-04 after P4a landed;
+vdict_tray.py was 1519 lines. If it has changed, re-measure rather than
+trust this section.
+
+Counts are per innermost enclosing function. A pass that attributes a
+nested function's references to its parent as well double-counts -- that
+is how an earlier version of this section came to claim five save_settings
+call sites instead of four.
 
 STATE THAT CROSSES THE SPLIT
 Attributes written by one function and read by another. Method lookups
@@ -51,14 +57,11 @@ modules has to carry.
     module level and never rebound; there are no global statements
     anywhere in the file. It is a constant today.
 
-dpi_scale
-  - Every consuming use is int(N * dpi_scale) -- 22 sites, 19 single-line
-    and 3 wrapped across lines. The only other mentions are the two
-    assignments in __init__. No caller needs the raw float.
-  - Its 12 reader functions land in three places, not twelve: eight are
-    Settings-internal (the five _build_*_row builders,
-    _build_settings_window, _build_hotkey_row, open_settings), three are
-    the fault modals, one is __init__.
+scale
+  - vdict/tray/dpi.py's scale() is called from 12 functions across what
+    will become Settings, the fault modals and app. It is a leaf, so every
+    one of those imports it directly and none of them creates an edge the
+    wiring rule has to carry.
 
 MODULE-LEVEL NAMES WITH CONSUMERS IN MORE THAN ONE PROSPECTIVE MODULE
   - DEVICE_LABELS -- Settings (_build_model_row, save_and_restart) and the
@@ -72,7 +75,8 @@ MODULE-LEVEL NAMES WITH CONSUMERS IN MORE THAN ONE PROSPECTIVE MODULE
   - ICON_PATH -- __init__ and create_tray_icon.
   - load_settings has six call sites (_build_hotkey_row,
     _log_session_block, _rebind_on_close, _save_console_state,
-    open_settings, run); save_settings has five.
+    open_settings, run); save_settings has four (_save_console_state,
+    on_close, run, save_and_restart).
 
 IMPORT CYCLE
 Two chains were traced. The first -- _drain_output_queue -> _show_mic_fault

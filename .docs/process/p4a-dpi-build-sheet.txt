@@ -31,12 +31,18 @@ UNVERIFIED
       scale() call is __init__'s main_w/main_h line, which is the same
       moment the old code read GetDpiForSystem. Confirmed by launch.
 
-THIS MACHINE IS 96 DPI -- factor 1.0, so int(N * 1.0) == N and the whole
-scaling path is an identity function. Wrong-literal errors (scale(15)
-where scale(20) belongs) still show, because 15 and 20 differ. Errors in
-the factor itself cannot show at all. Nothing observed on this display is
-evidence about behavior at any other DPI -- that is a separate spike, on
-the single-file app, before P4 splits it.
+THE SCALE FACTOR IS AN UNKNOWN INPUT. It is whatever the machine running
+the app is set to, which is unknown when this is written and unknowable
+when it ships. Correctness therefore rests on the factor-independent check
+above, not on what any one display shows. A visual pass on a single
+machine at a single factor is a sample -- it confirms nothing broke there
+and proves nothing about anywhere else.
+
+Reading the DPI at all requires SetProcessDpiAwareness to have run first.
+Without it Windows virtualizes the answer and reports 96 no matter what
+the display is set to, so a probe run outside the app's own process
+conditions returns a number that looks real and is not. Same trap in Tk:
+winfo_fpixels('1i') reports 96 in an unaware process too.
 
 ALREADY WEIGHED
   - scale() caches the DPI on first call. Today's value is read once in
@@ -61,12 +67,14 @@ STEP 1  THE HELPER, PROVEN ON ONE SITE
           because it is one occurrence, isolated, and plainly visible as
           the Enable Audio Beeps checkbox spacing.
 
-VERIFY: launch, open Settings. Covers what the launch can actually settle
--- dpi.py imports, the lazy read does not fire before
-SetProcessDpiAwareness, and the converted line executes without raising.
-It does NOT test spacing: at 96 DPI scale(15) and int(15 * 1.0) both
-return 15, so the row provably cannot move and "it looks the same" is not
-evidence. Done 2026-08-04.
+VERIFY: launch, open Settings. Settles that dpi.py imports, that the lazy
+read does not fire before SetProcessDpiAwareness, and that the converted
+line executes without raising. A wrong literal would also show here --
+scale(20) where scale(15) belongs renders differently at any factor, and
+more visibly the higher the factor. What identical spacing does NOT
+confirm is the factor arithmetic: scale(N) and int(N * dpi_scale) compute
+the same value at every factor by construction, so they could never
+disagree on screen. Done 2026-08-04.
 
 
 ==============================================================================

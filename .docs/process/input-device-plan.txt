@@ -7,7 +7,19 @@ build lands, not before. Wires AudioCapture.rebuild() once, against the
 post-merge architecture, instead of once now and once again after.
 portaudio_io.py's vulture findings (reinit, resolve_by_name, open_probe,
 start_hold, stop_hold, time_info) stay overridden at commit time until
-this build actually calls them.
+this build actually calls them. Nothing imports the module at all today --
+measured 2026-08-04, it is the only unreferenced module in the package.
+
+DECIDE WHEN THIS BUILD SHEET IS WRITTEN: which of those six survive.
+Whatever the sheet does not call is dead for good, and the sheet is the
+first document that has to name every call site, so the question answers
+itself there rather than needing a guess earlier. reinit,
+enumerate_inputs, resolve_by_name and open_probe each have a call site
+named in DESIGN below. start_hold/stop_hold are the harness the
+mid-stream-failure test ran through, and that finding is already recorded
+-- but backlog B19 (mic test button with a level meter) needs the same
+shape, a held stream delivering callbacks, so they are not obviously
+spent.
 
 
 ==============================================================================

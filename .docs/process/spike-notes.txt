@@ -22,6 +22,21 @@ MIN_RECORDING_SAMPLES stays at 6400 (0.4s): it already filters the exact
 duration range where hallucination was observed.
 
 
+DISPLAY DPI (Windows, Tk)
+
+A process that has not declared DPI awareness reads the system DPI as 96,
+whatever the display is set to. Tk shares the trap -- winfo_fpixels('1i')
+and tk scaling both report ~96 there too. No library avoids this;
+awareness is a process-level declaration, so a probe must run under the
+same conditions as the app or the number is fiction that looks plausible.
+
+Windows and Tk disagree on the figure even with awareness set:
+GetDpiForSystem() reports the configured setting, Tk derives its own from
+reported physical screen dimensions (measured 168 vs 167.876). Reading DPI
+from Tk instead of ctypes would shift every scaled dimension by a pixel or
+two, and would make vdict/tray/dpi.py depend on a live Tk root.
+
+
 AUDIO PLAYBACK (sounddevice/WASAPI)
 
 sd.play() opens a new WASAPI stream per call -- that stream-open is what
