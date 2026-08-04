@@ -8,50 +8,12 @@ ORDER, DECIDED 2026-08-02: this file drains -> P4 (own plan+build sheet)
 work waits for core-arch so AudioCapture.rebuild() gets wired once,
 against the post-merge architecture, not once now and once again after.
 
-AMENDED 2026-08-04: P4a lands before P4's build sheet is written, not
-before P4's plan. Its whole point is that the sheet gets written against a
-codebase where dpi_scale plumbing does not exist.
-
-
-==============================================================================
-P4a. DPI SCALE HELPER -- PREREQ, BEFORE P4's BUILD SHEET IS WRITTEN
-==============================================================================
-Replace every int(N * self.dpi_scale) in vdict_tray.py with scale(N), a
-helper in a new leaf module vdict/tray/dpi.py that imports nothing from
-vdict/tray/. 22 call sites, measured: 19 single-line, 3 wrapped across
-lines by the formatter. The only other dpi_scale mentions are the two
-assignments in VoiceDictationTray.__init__, which stay -- the helper reads
-that value.
-
-dpi.py owns DPI awareness and scaling, nothing else. It is deliberately not
-a shared catch-all leaf for P4's log() queue as well -- P4a has to be
-executable and verifiable before the skeleton exists, so it cannot name a
-module whose charter P4 has not written yet.
-
-WHY THIS IS A PREREQ AND NOT BACKLOG
-Without it, P4 hands dpi_scale to Settings and Faults as a constructor
-parameter, then a later cleanup takes it back out -- and by then the 22
-sites are spread across three modules instead of sitting in one file. It
-also satisfies P4's own admission test (vdict-encap-plan.txt, SCOPE): it
-removes a dependency from two modules rather than merely tidying.
-
-A helper, not a module-level constant: scale() computes on call, so it
-cannot run before SetProcessDpiAwareness. A constant computed at import
-would depend on import order and fail as blurry text rather than an
-exception.
-
-What this buys is the scaling POLICY in one place -- rounding, the
-fallback when the ctypes call raises, any future per-monitor DPI work.
-Changing a padding VALUE is still a per-site edit either way.
-
-VERIFY: launch, open Settings and both fault modals, confirm padding and
-window sizes are unchanged at the current display DPI.
-
 
 ==============================================================================
 P4. SPLIT vdict_tray.py INTO vdict/tray/ -- NEEDS ITS OWN PLAN + BUILD SHEET
 ==============================================================================
-D7's subject. 1520 lines today, one file absorbing everything -- app
+D7's subject. One file absorbing everything (current size and the full
+state map live in vdict-encap-plan.txt's MEASURED section) -- app
 bootstrap, tray icon/menu, the console/output window, the Settings dialog,
 the emerging Save/orchestrator logic, hotkey capture UI, fault-modal
 dispatch, error logging, window geometry persistence, and more.

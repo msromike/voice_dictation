@@ -39,6 +39,7 @@ from vdict.common.config import (
     Config, CONFIG_PATH, HotkeyConfig, Pos, VOCABULARY_PATH, VOCABULARY_TEMPLATE_PATH)
 from vdict.common import output
 from vdict.tray import hotkey
+from vdict.tray.dpi import scale
 
 try:
     # Tell Windows this app handles its own DPI scaling to fix Tkinter blur
@@ -73,7 +74,7 @@ transcript_only_mode = False
 PROJECT_URL = "https://github.com/msromike/voice_dictation"
 
 # Console text size, in points. Tk scales points by screen DPI on its own, so
-# these are not multiplied by dpi_scale anywhere.
+# these never go through scale().
 CONSOLE_FONT_DEFAULT = 12
 CONSOLE_FONT_MIN = 7
 CONSOLE_FONT_MAX = 32
@@ -453,16 +454,11 @@ class VoiceDictationTray:
         self._fault_shown = False
         self.is_loading_model = False
 
-        try:
-            self.dpi_scale = ctypes.windll.user32.GetDpiForSystem() / 96.0
-        except Exception:
-            self.dpi_scale = 1.0
-
         # Create output window
         self.window = tk.Tk()
         self.window.title("Voice Dictation Output")
         self.window.iconbitmap(str(ICON_PATH))
-        main_w, main_h = int(900 * self.dpi_scale), int(600 * self.dpi_scale)
+        main_w, main_h = scale(900), scale(600)
         self.window.geometry(f"{main_w}x{main_h}")
 
         self._build_menu()
@@ -933,9 +929,9 @@ class VoiceDictationTray:
         modal.transient(self.settings_win)
         modal.grab_set()
 
-        tk.Label(modal, text=text, wraplength=int(360 * self.dpi_scale),
-                 justify="left", padx=int(20 * self.dpi_scale),
-                 pady=int(20 * self.dpi_scale)).pack()
+        tk.Label(modal, text=text, wraplength=scale(360),
+                 justify="left", padx=scale(20),
+                 pady=scale(20)).pack()
         return modal
 
     def _show_mic_fault(self, text):
@@ -947,7 +943,7 @@ class VoiceDictationTray:
             self._force_quit()
 
         tk.Button(modal, text="Close", command=close).pack(
-            pady=(0, int(20 * self.dpi_scale)))
+            pady=(0, scale(20)))
         modal.protocol("WM_DELETE_WINDOW", close)
 
     def _show_model_fault(self, text):
@@ -955,7 +951,7 @@ class VoiceDictationTray:
         (existing, unchanged) is the recovery."""
         modal = self._build_fault_modal("Model Load Failed", text)
         tk.Button(modal, text="OK", command=modal.destroy).pack(
-            pady=(0, int(20 * self.dpi_scale)))
+            pady=(0, scale(20)))
         modal.protocol("WM_DELETE_WINDOW", modal.destroy)
 
     def _build_settings_window(self):
@@ -970,13 +966,7 @@ class VoiceDictationTray:
 
         # Create an inner frame for clean, scaled outer padding
         main_frame = tk.Frame(
-            settings_win,
-            padx=int(
-                20 *
-                self.dpi_scale),
-            pady=int(
-                10 *
-                self.dpi_scale))
+            settings_win, padx=scale(20), pady=scale(10))
         main_frame.pack(fill=tk.BOTH, expand=True)
 
         from tkinter import ttk
@@ -984,10 +974,10 @@ class VoiceDictationTray:
         # Add a professional banner to stretch the window width and look clean
         title_label = tk.Label(main_frame, text="Voice Dictation Settings",
                                font=("Segoe UI", 12, "bold"))
-        title_label.pack(pady=(0, int(5 * self.dpi_scale)))
+        title_label.pack(pady=(0, scale(5)))
 
         separator = ttk.Separator(main_frame, orient='horizontal')
-        separator.pack(fill='x', pady=(0, int(15 * self.dpi_scale)))
+        separator.pack(fill='x', pady=(0, scale(15)))
 
         return settings_win, main_frame
 
@@ -1019,7 +1009,7 @@ class VoiceDictationTray:
             value=saved_mic if saved_mic else DEFAULT_MIC_LABEL)
         tk.OptionMenu(
             parent, mic_var, DEFAULT_MIC_LABEL, *mic_names).pack(
-            pady=(0, int(15 * self.dpi_scale)))
+            pady=(0, scale(15)))
         return mic_var
 
     def _build_ptt_row(self, parent, config):
@@ -1035,15 +1025,12 @@ class VoiceDictationTray:
             width=20,
             command=lambda: self._rebind_key(button_var, button_display_var, bind_btn)
         )
-        bind_btn.pack(pady=(0, int(15 * self.dpi_scale)))
+        bind_btn.pack(pady=(0, scale(15)))
 
         tk.Label(parent, text="PTT Recording Mode:").pack()
         mode_var = tk.StringVar(value=config.ptt.mode.capitalize())
         tk.OptionMenu(
-            parent, mode_var, "Toggle", "Hold").pack(
-            pady=(
-                0, int(
-                    15 * self.dpi_scale)))
+            parent, mode_var, "Toggle", "Hold").pack(pady=(0, scale(15)))
         return button_var, button_display_var, mode_var
 
     def _build_model_row(self, parent, config):
@@ -1057,7 +1044,7 @@ class VoiceDictationTray:
                       "small.en",
                       "medium.en",
                       "large-v3").pack(pady=(0,
-                                             int(15 * self.dpi_scale)))
+                                             scale(15)))
 
         # Determine if CUDA is available for hardware fallback
         def _has_cuda():
@@ -1091,7 +1078,7 @@ class VoiceDictationTray:
             dev_menu["menu"].entryconfigure("GPU (CUDA)", state="disabled")
             if device_var.get() == "GPU (CUDA)":
                 device_var.set("CPU")
-        dev_menu.pack(pady=(0, int(15 * self.dpi_scale)))
+        dev_menu.pack(pady=(0, scale(15)))
         return ai_model_var, device_var
 
     def _build_beeps_row(self, parent, config):
@@ -1099,7 +1086,7 @@ class VoiceDictationTray:
         audio_var = tk.BooleanVar(value=config.audio.feedback)
         tk.Checkbutton(
             parent, text="Enable Audio Beeps", variable=audio_var).pack(
-            pady=(0, int(15 * self.dpi_scale)))
+            pady=(0, scale(15)))
         return audio_var
 
     def _build_console_boot_row(self, parent, config):
@@ -1107,7 +1094,7 @@ class VoiceDictationTray:
         open_console_var = tk.BooleanVar(value=config.ui.open_console_on_boot)
         tk.Checkbutton(
             parent, text="Show Output Window on Startup", variable=open_console_var).pack(
-            pady=(0, int(15 * self.dpi_scale)))
+            pady=(0, scale(15)))
         return open_console_var
 
     def open_settings(self, icon=None, item=None):  # noqa: PLR0915
@@ -1176,9 +1163,9 @@ class VoiceDictationTray:
         settings_win.bind("<Destroy>",
                           lambda e: self._rebind_on_close(e, settings_win), add="+")
         tk.Button(main_frame, text="Save & Restart", command=save_and_restart).pack(
-            pady=(int(5 * self.dpi_scale), 0))
+            pady=(scale(5), 0))
 
-        # Tk already scales point sizes by DPI. Do not multiply by dpi_scale.
+        # Tk already scales point sizes by DPI. Do not pass this through scale().
         version_label = tk.Label(main_frame, text=f"v{__version__}", fg="gray", font=("Arial", 7))
         version_label.pack(side=tk.BOTTOM, anchor="e")
 
@@ -1197,9 +1184,9 @@ class VoiceDictationTray:
             # Default to bottom right using auto-calculated dimensions
             screen_width = settings_win.winfo_screenwidth()
             screen_height = settings_win.winfo_screenheight()
-            x = screen_width - win_width - int(20 * self.dpi_scale)
+            x = screen_width - win_width - scale(20)
             y = screen_height - win_height - \
-                int(60 * self.dpi_scale)  # Account for Windows taskbar
+                scale(60)  # Account for Windows taskbar
 
         # Apply absolute coordinates, allowing window to shrink-wrap width and
         # height naturally
@@ -1219,7 +1206,7 @@ class VoiceDictationTray:
         display = tk.StringVar(value=binding["name"] or "None")
         btn = tk.Button(parent, textvariable=display, width=20)
         btn.config(command=lambda: self._capture_hotkey(btn, display, binding))
-        btn.pack(pady=(0, int(15 * self.dpi_scale)))
+        btn.pack(pady=(0, scale(15)))
         return binding
 
     def _rebind_on_close(self, event, settings_win):

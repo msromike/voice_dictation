@@ -17,6 +17,8 @@ ordering (reinit before resolve) -> own item, never bundled, even if one line wo
 Discoverability beats turn count. Extra turns surface what a streamlined
 pass would not -- never compress a gate to save one.
 Measure before asking. A design question about unmeasured code gets asked twice.
+Any claim of the form "every X" is derived from the source, never hand-listed --
+extract the set, then assert.
 Every recommendation: could someone execute this from this text alone?
 End of every planning chunk: what is still open is either settled or written
 where it is found without me.

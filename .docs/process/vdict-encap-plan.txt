@@ -285,10 +285,13 @@ Both live in log.py, split by whether the call can be asynchronous.
     which frees the name at no cost.
 
 dpi_scale
-Stays instance state on app, computed once. With P4a's scale() landing
-first (core-arch-plan-prep.txt), no other module receives it -- Settings
-and Faults call dpi.py's scale() instead. A module-level constant loses to
-the import-order hazard above.
+Gone. P4a retired it -- vdict/tray/dpi.py owns the DPI read outright and
+every scaled dimension goes through its scale(px). No module holds a DPI
+value, app included, so nothing receives one at construction. scale()
+reads lazily and caches, which is what keeps it from running before
+SetProcessDpiAwareness; a module-level constant would not.
+Fonts never go through scale() -- Tk already scales point sizes by DPI.
+Two comments in the code say so at the point of temptation.
 
 __version__
 Tray side reads vdict/__init__.py's copy. The entry file's own copy dies
