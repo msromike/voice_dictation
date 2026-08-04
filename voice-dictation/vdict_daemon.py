@@ -14,6 +14,8 @@ from vdict.daemon.stt import STTEngine
 from vdict.daemon.keyboard import KeyboardInjector, PTTListener
 from vdict.common.config import load_config, load_vocabulary
 from vdict.common.output import log, write_error_log
+from vdict.common.audio_io import write_timestamped_flac
+from pathlib import Path
 import wave
 import os
 import queue
@@ -27,6 +29,11 @@ __version__ = "1.0.0"
 
 # 0.4 seconds at 16kHz. Shorter recordings are treated as accidental clicks.
 MIN_RECORDING_SAMPLES = 6400
+
+# P7 pre-spike, dev-only -- corpus capture for B24 Tier 3 voice-ID. Never a
+# Settings choice; off before any push (pre-push.txt P9).
+FLAC_CORPUS_CAPTURE_ENABLED = True
+FLAC_CORPUS_DIR = Path(__file__).parent.parent / "userdata" / "flac"
 
 
 def _load_tone(filename):
@@ -177,6 +184,8 @@ def main():  # noqa: PLR0915
             if ptt_mode == "toggle":
                 ptt.wait_for_release()
 
+            # play_tone() doesn't block -- swapping these two calls wouldn't
+            # reduce tone bleed into the recording, it would capture the whole tone.
             play_tone("start", enabled=audio_feedback)
             log("rec", "")
             audio.start_capture()
@@ -196,6 +205,9 @@ def main():  # noqa: PLR0915
                 ptt.wait_for_release()
 
             audio_data = audio.stop_capture()
+
+            if FLAC_CORPUS_CAPTURE_ENABLED:
+                write_timestamped_flac(FLAC_CORPUS_DIR, audio_data, audio.sample_rate)
 
             # Short captures can make Whisper hallucinate plausible-but-false
             # text instead of returning empty -- see spike_notes.txt.

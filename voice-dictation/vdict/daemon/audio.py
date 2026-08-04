@@ -93,6 +93,8 @@ class AudioCapture:
                 device=self.device_id,
                 samplerate=self.sample_rate,
                 channels=1,  # Mono
+                # More precision than transcription needs (faster-whisper's own
+                # file-decode path uses 16-bit) -- verified, not worth touching.
                 dtype='float32',
                 callback=self._audio_callback,
                 extra_settings=sd.WasapiSettings(auto_convert=True)

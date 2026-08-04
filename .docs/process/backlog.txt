@@ -3,6 +3,15 @@ VOICE DICTATION - BACKLOG
 Work not yet done. Drains to empty.
 Wrong-now -> defects.txt.
 
+Four groups, in order: REFINEMENTS, NEW FEATURES, PRE-PUSH, then FUTURE /
+MAJOR EXPANSION at the bottom -- items whose scale changes the shape of
+the product, not just what it does within today's shape.
+
+
+------------------------------------------------------------------------------
+REFINEMENTS
+------------------------------------------------------------------------------
+
 
 ==============================================================================
 B3. TONE VOLUME CONTROL -- REFINEMENT
@@ -215,6 +224,11 @@ divider style are all open. Design goes in a build sheet when this item
 comes up.
 
 
+------------------------------------------------------------------------------
+PRE-PUSH
+------------------------------------------------------------------------------
+
+
 ==============================================================================
 B5. README, MEDIA & DISCOVERABILITY -- PRE-PUSH
 ==============================================================================
@@ -305,6 +319,11 @@ ACCURACY CATCHALL (from the old B16, still draining individually)
   - Windows-default-device recommendation: once input-device-plan.txt's
     NO SYSTEM DEFAULT design ships, the README's advice to set your mic
     as Windows default becomes actively wrong, not just stale. Same gate.
+
+
+------------------------------------------------------------------------------
+NEW FEATURES
+------------------------------------------------------------------------------
 
 
 ==============================================================================
@@ -399,6 +418,11 @@ elevated window and into no-text-field -- same failure tone+note both
 times, text stays on clipboard. Dictate long, press PTT again before the
 transcript shows -- busy tone, earlier press not absorbed into next cycle.
 
+Build plan first -- encapsulate only what it calls for, as a reusable
+API. Cross-check other new-feature plans before sizing that extraction
+-- not extra process, avoids rebuilding the same shared piece
+narrower-then-wider one feature at a time.
+
 
 ==============================================================================
 B13. PUNCTUATION-RESTORATION POST-PROCESS -- UPTALK PRODUCES RUN-ONS -- NEW FEATURE
@@ -445,6 +469,11 @@ transcript_log.txt to accumulate real volume across varied conditions
 at all -- logging is already flowing, nothing to set up when that time
 comes.
 
+Build plan first -- encapsulate only what it calls for, as a reusable
+API. Cross-check other new-feature plans before sizing that extraction
+-- not extra process, avoids rebuilding the same shared piece
+narrower-then-wider one feature at a time.
+
 
 ==============================================================================
 B22. SETTINGS MODEL DROPDOWN -- DEVICE-AWARE + SHOW-ALL ESCAPE HATCH -- NEW FEATURE
@@ -454,13 +483,42 @@ the dropdown to react rather than just list:
 
 DEVICE-AWARE FILTERING
 CPU and GPU users want different curated sets, not one list serving
-both. GPU: VRAM-budget-vs-accuracy tradeoff, latency isn't the
-constraint -- small.en, medium.en, large-v3, large-v3-turbo (near
-large-v3 accuracy, less compute). CPU: latency is the constraint, VRAM
-isn't -- tiny.en, base.en, small.en, distil-small.en (distil variants
-earn their place here specifically, faster at similar accuracy to their
-plain counterpart). The dropdown's model options should follow whichever
-compute device is currently selected in the same dialog.
+both. The dropdown's model options should follow whichever compute
+device is currently selected in the same dialog.
+
+MODEL LISTS, LOCKED 2026-08-02 (Mike's empirical GPU testing, i7 9th
+gen + 3070 Ti, VRAM watched live via a monitoring widget; CPU picked by
+compute concept, not measured yet):
+
+GPU -- small.en / medium.en / large-v3. VRAM-budget-vs-accuracy ladder:
+three real breakpoints (4GB+/6GB+/8GB+ card tiers), biggest-that-fits is
+the strategy since VRAM is the actual gate and GPU has speed headroom to
+spare. large-v3-turbo excluded from the curated three -- near-large-v3
+accuracy at less compute is a nuanced alternate pick, not a fourth
+distinct budget tier; it lives in the show-all escape hatch below.
+
+CPU -- tiny.en / small.en / medium.en. Same family, no distillation, on
+purpose: tiny = fastest, even if inaccurate. small = the sweet spot,
+slightly slow but usable. medium = the ceiling for CPU on an interactive
+press-and-wait dictation tool, even if it turns out not meaningfully
+more accurate -- that's for the user to find out themselves. Rejected:
+large-v3-turbo -- its speedup only prunes the decoder (32 layers to 4);
+the encoder, which is what CPU actually struggles with, stays full
+large-size, so it costs about what large-v3 costs on CPU regardless of
+RAM headroom. distil-small.en rejected too -- correct on paper (smaller
+encoder, genuinely faster), but adds a distillation tradeoff to explain
+for marginal gain over the plain three; not worth the complexity here.
+Actual per-tier speed on real hardware is unverified -- confirm when
+this gets built, adjust the ladder if reality disagrees.
+
+ENGLISH-ONLY VARIANTS, LOCKED 2026-08-02: every size above uses its
+.en variant, not the multilingual one -- app isn't localized, Whisper's
+.en models are smaller, faster, AND slightly more accurate on English
+audio than their multilingual counterpart of the same size, no tradeoff
+either direction. large-v3 is the one forced exception: OpenAI only
+ever trained .en variants for tiny/base/small/medium -- large-tier
+models (including large-v3-turbo, in the show-all list) are
+multilingual-only, no .en version exists to switch to.
 
 CUDA detection already exists -- _has_cuda() (vdict_tray.py, Compute
 Device section) already probes and disables the GPU option when no CUDA
@@ -475,6 +533,11 @@ who goes looking.
 Both likely share one population function, called with a different
 filter depending on device-vs-show-all. Not designed in detail. No gate,
 no P-item.
+
+Build plan first -- encapsulate only what it calls for, as a reusable
+API. Cross-check other new-feature plans before sizing that extraction
+-- not extra process, avoids rebuilding the same shared piece
+narrower-then-wider one feature at a time.
 
 
 ==============================================================================
@@ -508,6 +571,11 @@ already restructuring this same dropdown (removing System Default,
 adding a refresh hook), and building on top of a widget about to change
 risks rework. No P-item -- the probe stream is fully independent of the
 real capture pipeline, doesn't touch core-arch's shared flag.
+
+Build plan first -- encapsulate only what it calls for, as a reusable
+API. Cross-check other new-feature plans before sizing that extraction
+-- not extra process, avoids rebuilding the same shared piece
+narrower-then-wider one feature at a time.
 
 
 ==============================================================================
@@ -549,3 +617,134 @@ actually occurs, or what a safe second signal should look like in
 practice. Wait for transcript_log.txt to accumulate before deciding
 whether to build this -- logging already flowing, nothing to set up when
 that time comes.
+
+Build plan first -- encapsulate only what it calls for, as a reusable
+API. Cross-check other new-feature plans before sizing that extraction
+-- not extra process, avoids rebuilding the same shared piece
+narrower-then-wider one feature at a time.
+
+
+------------------------------------------------------------------------------
+FUTURE / MAJOR EXPANSION
+------------------------------------------------------------------------------
+
+
+==============================================================================
+B24. AMBIENT LISTEN MODE -- CONTINUOUS TRANSCRIPTION, OPTIONAL SPEAKER ATTRIBUTION -- NEW FEATURE
+==============================================================================
+A second, selectable mode alongside today's PTT dictation -- mutually
+exclusive, not simultaneous, not a separate app. Same engine
+(STTEngine, model selection, tray shell), different capture loop and
+different output target.
+
+MOTIVATION
+Passive background transcription for meeting-heavy roles -- a
+searchable, timestamped record of a day's conversations without
+active note-taking. Validated against a real use case (management
+role, back-to-back meetings), and market-precedented (Otter.ai,
+Fireflies.ai, Read.ai already succeed doing exactly this). Legal/
+consent questions are the user's to navigate, not this tool's to
+gate -- same posture as any dual-use recording capability.
+
+PIPELINE
+  - Continuous capture, no PTT trigger. Async double-buffer: capture
+    never blocks on transcription -- next chunk records while the
+    current one transcribes.
+  - 5-minute chunks flushed to disk as timestamped FLAC files, not
+    passed in-memory. Decouples capture cadence from transcription
+    cadence. FLAC, not raw WAV -- lossless, encode cost is sub-second
+    even at max compression on modern hardware (no reason to trade
+    size for it), and Whisper never reads the file directly either way
+    (already decodes to a raw sample array before transcribing), so
+    there's no compatibility cost to writing compressed from the start.
+    No WAV anywhere in this path, not even as an intermediate -- FLAC
+    decodes in one step straight into the same raw sample array Whisper
+    already consumes, on the way out of the queue, same as it comes in.
+  - Disk-based FIFO queue, oldest-first, plain directory scan -- no
+    scheduler package needed (one producer, one consumer, one
+    machine). Backlog bounded by disk space, not memory; self-
+    revealing if it falls behind (stale timestamps visible to user).
+    Real per-chunk throughput unverified -- confirm on real hardware
+    when built.
+  - No overlap, no dedup between chunks. A sentence split across two
+    timestamped entries is acceptable -- cut doesn't mean lost.
+
+SILENCE HANDLING
+  - Whole-chunk pre-check (RMS/amplitude heuristic) before calling
+    Whisper at all -- near-total silence skips transcription entirely,
+    logs "[silence, skipped]" instead of risking hallucinated filler
+    text (the well-known "thank you"-on-silence phenomenon).
+  - vad_filter=True stays on for this mode too -- different
+    granularity than the pre-check (trims partial silence within a
+    chunk that has real speech), not redundant with it.
+
+OUTPUT
+Timestamped disk log only. No cursor injection -- that's PTT mode's
+delivery mechanism, not this one's.
+
+ATTRIBUTION -- THREE INCREMENTAL TIERS, each independently shippable
+  Tier 1: Pure transcription. No speaker awareness at all.
+  Tier 2: Diarization without attribution. Speaker A/B/? labels,
+    always on by default -- privacy-safer than tier 1 (structure
+    without PII), no enrollment system, no added risk.
+  Tier 3: Diarization with attribution. Persistent voice-ID via
+    embeddings, each distinct voice assigned a permanent GUID.
+    Separate GUID-to-name lookup table (empty until user labels it) --
+    naming is just filling in one row, never touches the embedding-
+    matching layer. UI: present a snippet of an unresolved "Speaker ?"
+    voice, prompt for a typed name. Same person surfacing as two GUIDs
+    (different mic, sick voice, etc.) self-corrects for free -- typing
+    the same name for both produces an identical-looking transcript
+    to an actual merge, no explicit merge operation needed.
+
+ACCEPTED LIMITATIONS, NOT BUGS
+  - No retroactive relabeling. Naming a "Speaker ?" only applies going
+    forward; past log entries using that placeholder stay as-is.
+  - False merges (two different real people collapsing into one GUID)
+    have no correction lever, unlike false splits (which self-correct
+    via re-naming) -- mitigated by biasing the similarity threshold
+    conservative (favor staying unresolved over confidently guessing
+    wrong). For voices that are genuinely hard to tell apart, the
+    realistic steady-state is mostly-correct with a persistent
+    "Speaker ?" residue, not silent misattribution -- self-explaining
+    to the user, accepted as-is, not designed around further.
+
+NOT DESIGNED IN DETAIL YET
+Exact chunk duration and silence threshold tuning, which diarization/
+embedding library, the naming-snippet UI itself, Settings integration
+for the mode toggle. No gate, no P-item.
+
+SUPPLEMENTARY SPIKE IDEA, REVISED 2026-08-03: play YouTube (or any
+audio source) out loud and let ambient mode's own mic capture it,
+instead of yt-dlp. Superseded, not just an alternative -- yt-dlp's ToS
+question disappears entirely (nothing touches YouTube's servers or
+download restrictions; this is just watching a video normally while a
+mic that's already listening happens to pick it up), and mic-captured
+audio is arguably the better test anyway -- real room acoustics and
+speaker response baked in, matching what production ambient mode
+actually encounters, not pristine directly-extracted audio. Same
+coverage as the yt-dlp idea: a single video only tests Tier 2 (telling
+concurrent speakers apart within one file); validating Tier 3's actual
+hard problem (same person recognized across separate sessions) needs
+the same identifiable voice across multiple separate videos/sessions,
+not one clip -- just play a different video from the same channel each
+session instead of downloading a batch.
+
+DEV-ONLY CAPTURE FLAG, same pattern as P7's FLAC_CORPUS_CAPTURE_ENABLED:
+a bare code constant, not Settings, gates whether ambient mode's
+processed chunks are retained instead of deleted. Needed to feed real
+multi-speaker corpora (including the spike above) through the actual
+ambient pipeline and keep the output for validation -- production
+default is always delete (retention has no shipped-feature use), this
+flag is dev-only. On for building/testing, off before any push
+(pre-push.txt P9).
+
+TWO-STEP SPIKE TEST: segmented clips as-is (per-sample consistency),
+then grouped into ~5-minute assemblies with realistic silence gaps
+(production-chunk accuracy). Don't merge the whole corpus into one file
+for either step.
+
+Build plan first -- encapsulate only what it calls for, as a reusable
+API. Cross-check other new-feature plans before sizing that extraction
+-- not extra process, avoids rebuilding the same shared piece
+narrower-then-wider one feature at a time.

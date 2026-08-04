@@ -22,12 +22,13 @@ for sp in site.getsitepackages() + [site.getusersitepackages()]:
 class STTEngine:
     """Whisper transcription engine (via faster-whisper)"""
 
-    def __init__(self, model_name="base.en", device="cpu"):
+    def __init__(self, model_name="base.en", device="cpu", busy_flag=None):
         """Configure the engine. Loads no weights until load() is called.
-        model_name is a faster-whisper size; device is "cpu" or "cuda"."""
+        busy_flag is shared with other reconfigure entry points; owns one if not given."""
         self.model_name = model_name
         self.device = device
         self.model = None
+        self.busy_flag = busy_flag or threading.Event()
 
     def load(self):
         """Load Whisper model into memory (crash-fast on external boundary)"""
@@ -52,6 +53,32 @@ class STTEngine:
                 f"Pick a different model or switch to CPU in Settings, "
                 f"then Save & Restart.")
             sys.exit(1)
+
+    def reload(self, config):
+        """Swap the model if config.stt names a different model/device than
+        loaded. No-op otherwise. Never exits -- a live daemon outlives a bad pick."""
+        model_name, device = config.stt.model, config.stt.device
+        if model_name == self.model_name and device == self.device:
+            return
+
+        self.busy_flag.set()
+        try:
+            from huggingface_hub import try_to_load_from_cache
+            repo_id = f"Systran/faster-whisper-{model_name}"
+            if not isinstance(try_to_load_from_cache(repo_id, "model.bin"), str):
+                log("download", f"Initiating download: {model_name}")
+
+            compute_type = "float16" if device == "cuda" else "float32"
+            self.model = WhisperModel(model_name, device=device, compute_type=compute_type)
+            self.model_name = model_name
+            self.device = device
+        except Exception as e:
+            log("model-fault",
+                f"Failed to load Whisper model '{model_name}': {e}. "
+                f"Pick a different model or switch to CPU in Settings, "
+                f"then Save & Restart.")
+        finally:
+            self.busy_flag.clear()
 
     def wake_gpu(self):
         """

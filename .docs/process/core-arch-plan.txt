@@ -157,6 +157,12 @@ COMMON TO BOTH
     cycle. Not three independent flags -- there's only one decision being
     protected, three things that can hold it closed.
 
+    STTEngine.reload(config) already exists, P3's own prep work,
+    2026-08-02 -- its busy_flag constructor param (defaults to its own
+    threading.Event() when nothing is shared in) is this exact flag. The
+    orchestrator doesn't invent it; it constructs one Event and passes the
+    same instance into both STTEngine and AudioCapture.
+
 BLOCK A -- MODEL (STTEngine.reload)
   - Download, if needed, happens as part of this same call, with its own
     progress feedback, before the reload itself runs.

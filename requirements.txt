@@ -2,6 +2,7 @@ faster-whisper
 pystray
 Pillow
 sounddevice
+soundfile
 numpy
 pynput
 pydantic
