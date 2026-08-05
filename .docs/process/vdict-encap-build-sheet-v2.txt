@@ -1,8 +1,5 @@
 VOICE DICTATION - BUILD SHEET: SPLIT vdict_tray.py (P4) -- V2
 
-Supersedes vdict-encap-build-sheet.txt. V1 stays on disk until this one has
-been cross-checked against it; delete V1 after that.
-
 Design lives in vdict-encap-plan.txt. This sheet does not repeat it -- read
 SKELETON and DECISIONS there before starting, and treat the plan as the
 authority if the two ever disagree.
@@ -24,16 +21,30 @@ settings rather than at the end -- V1 had them last and was wrong.
 
 EVERY STEP IS A VERTICAL SLICE: create the module, move the code, rewire
 every caller, delete the original -- all inside the step. Never move in one
-step and rewire in the next. Every step ends with a launch and only the
-gesture that step's code owns, plus a commit. Full sweep at the end.
+step and rewire in the next. Full sweep at the end.
+
+"APP" MEANS THE ORCHESTRATOR, NOT app.py. Steps below say app registers,
+app hands in, app assembles. Until step 12, that is the VoiceDictationTray
+class still living in vdict_tray.py -- it is already the thing that owns
+the Tk root and wires the pieces together. Step 12 relocates it to
+vdict/tray/app.py without changing what it does. Do not create app.py
+early; the ordering depends on the extractions happening out of the class
+while it stays put.
+
+VERIFYING AND COMMITTING. Every step ends with a launch, exercising only
+the gesture that step's code owns. Mike runs the app -- never launch
+vdict_tray.py; report what is ready and what to look for, then wait.
+Every step ends with a commit too, but commits execute ON COMMAND only:
+finish the step, report, and wait for Mike to say "commit per protocol",
+which runs the commit-per-protocol skill. Never commit autonomously,
+however routine a step looks.
 
 
 ==============================================================================
 UNVERIFIED
 ==============================================================================
   [x] The state map, the multi-consumer constants table, and the import
-      cycle are measured. See vdict-encap-plan.txt MEASURED, re-measured
-      2026-08-04 against 1519 lines.
+      cycle are measured. See vdict-encap-plan.txt MEASURED.
   [x] mic-fault and model-fault are both forceable from config.json, so no
       test hook is needed. See that plan's FAULT TRIGGERS.
   [x] Console can own hide_window without owning geometry.
@@ -76,11 +87,17 @@ error_log(), and both live on the tray object today.
           module functions, and delete both methods. _PTTCapture's
           self.tray.log/self.tray.error_log calls go too.
   [ ] 1d  The drain reads log.py's queue instead of self.output_queue.
+  [ ] 1e  _read_output is the other producer and is neither a log() nor an
+          error_log() call site -- it puts on self.output_queue directly.
+          Rewire it too. Missed, it feeds an orphan queue and every line
+          of daemon output disappears with no exception.
 
 VERIFY: launch. Session block prints with correct colors and markers.
-Trigger an error_log path -- rebind PTT and press a key pynput cannot name,
-or force model-fault -- and confirm the error log file gets the entry AND
-the console shows it.
+Dictate once -- the session block reaches the queue through log() and
+prints even with _read_output left behind, so only real daemon output
+exercises that producer. Trigger an error_log path -- rebind PTT and press
+a key pynput cannot name, or force model-fault -- and confirm the error log
+file gets the entry AND the console shows it.
 
 
 ==============================================================================
@@ -97,7 +114,7 @@ each new module has to import the entry file that imports it back.
           no consolidation, no signature changes. The daemon's existing
           load_config and load_vocabulary stay untouched; merging them is
           core-arch's job.
-  [ ] 2b  Rewire all six load_settings and four save_settings call sites,
+  [ ] 2b  Rewire all eight load_settings and four save_settings call sites,
           plus both VOCABULARY_RESET_MESSAGE readers.
 
 VERIFY: launch. Settings opens with current values, Save persists them,
@@ -122,6 +139,12 @@ the plan's WINDOW GEOMETRY.
           shape and writes it to both fields raises ValidationError on the
           first save. Cache the raw geometry string either way and convert
           at write time, per tracked field.
+          A cached string that does not parse leaves the config field as
+          it is rather than writing None -- _geometry_parts returns None
+          before a window is placed, and save_all has no live window to
+          fall back on the way _get_pos falls back to winfo_x/winfo_y.
+          Writing None on a failed parse silently discards the last known
+          good position.
   [ ] 3c  track() caches on <Configure> while the window is in normal
           state. <Destroy> marks the window gone but reads nothing -- the
           cache already holds the last valid value. Without retaining the
@@ -134,8 +157,20 @@ the plan's WINDOW GEOMETRY.
   [ ] 3d  save_all(config) writes every cached entry. Called at exit and at
           hide -- both of today's trigger points, not exit only.
   [ ] 3e  Console window and Settings both register through track().
-          _remember_geometry, _save_console_state's geometry half, and
-          Settings' two _get_pos writes all go away.
+          _remember_geometry and Settings' two _get_pos writes go away.
+          _save_console_state goes away whole, not half. app owns one
+          save-state function that calls save_all(config), writes
+          console_font_size, and saves once; console's hide calls it and
+          _run_shutdown_steps calls the same one. Keeping the method
+          alive with only its font half leaves exit doing two independent
+          read-modify-write cycles against config.json, ordered by
+          nothing.
+  [ ] 3f  The registry saves; it does not restore. Both restore sites
+          stay hand-rolled -- run() for the console, open_settings for
+          Settings -- each reading its own config field and clamping
+          itself, now importing _clamp_to_desktop and _geometry_parts
+          from geometry.py. A new window costs one track() call to
+          persist and a hand-written restore to come back.
 
 VERIFY: launch. Move and resize the console, hide to tray, restore -- size
 and position kept. Move Settings, close it, reopen -- position kept. Exit
@@ -188,6 +223,9 @@ math changes the moment they leave the entry file.
           derive from. FOUR .parent steps from vdict/tray/, matching
           common/config.py -- two lands in voice-dictation/vdict/, which
           does not exist.
+          __version__ is the fifth multi-consumer name in the plan's
+          MEASURED table and it does NOT come here. Its two readers pick
+          it up from vdict/__init__.py at 9f and 11c.
   [ ] 5b  ICON_PATH raises at launch if this is wrong.
           MIC_FAULT_FLAG_PATH does not: .exists() returns False on a bad
           path, run() takes the else branch, and mic-fault recovery stops
@@ -208,7 +246,13 @@ and daemon_proc (step 10), which prints the block.
   [ ] 6a  Create vdict/tray/session.py: the session block, _summary_line,
           _human_size, _model_size_on_disk, _format_bind, DEVICE_LABELS,
           _hotkey_line. Stateless -- pid, config and hotkey state arrive as
-          arguments.
+          arguments, so today's load_settings call inside
+          _log_session_block moves out to the caller.
+          It emits through log() itself rather than returning lines for
+          app to print. Leaf importing leaf, which the wiring rule allows.
+          The Hotkey line's category swings between "block" and "error" on
+          the fault flag, so a returning shape would have to hand back a
+          category per line as well as the text.
 
 VERIFY: launch. Session block prints correctly, including model size on
 disk, the trigger name, and the hotkey line.
@@ -282,6 +326,10 @@ modals and by the bare-key confirmation.
   [ ] 9e  sounddevice stays imported inside _build_microphone_row and
           ctranslate2 inside _has_cuda. Hoisting either to module level
           drags heavy dependencies into tray startup.
+  [ ] 9f  The version label reads __version__ from vdict/__init__.py,
+          which already holds it. Not from vdict_tray.py -- that copy dies
+          at 12b, and reaching for it makes settings.py import the entry
+          file that imports settings.py back.
 
 VERIFY: launch. Open Settings from the tray menu and from File. Change each
 control and Save -- values persist, the window closes, and the daemon
@@ -307,13 +355,24 @@ it a polished API it will never need.
           is_loading_model -- that becomes the console's set_loading from
           4c, handed in by app. This is the edge that closed the measured
           cycle.
-  [ ] 10d app owns the 100ms tick: drain the console, then poll the
+  [ ] 10d The exit poll drains a second time, after joining the reader
+          thread, so the daemon's last lines land ahead of the exit line.
+          That is a second console edge alongside 10c: daemon_proc takes a
+          drain callable from app. Reaching for the console directly is
+          the cycle; dropping the call reorders the exit line ahead of the
+          traceback that explains it.
+  [ ] 10e app owns the 100ms tick: drain the console, then poll the
           subprocess for exit, then reschedule. Core-arch later deletes the
           second call and the tick becomes console-only.
 
 VERIFY: launch. Session block prints with the daemon PID. Save & Restart in
 Settings swaps the daemon and reprints the block. Kill vdict_daemon.py from
-Task Manager -- the console reports the exit code once, not repeatedly.
+Task Manager -- the console reports the exit code once, not repeatedly,
+and anything the daemon had already written appears above that line rather
+than after it. No config-forced gesture reaches 10d's ordering on its own:
+both box-category faults set the fault flag, which suppresses the exit line
+entirely, and a Task Manager kill usually leaves nothing in flight. Read
+10d's wiring instead of trying to trigger it.
 
 
 ==============================================================================
@@ -321,11 +380,14 @@ STEP 11  menu.py, icon.py -- LEAVES
 ==============================================================================
   [ ] 11a Create vdict/tray/menu.py: the menubar, the Help postcommand
           sync, About, and the docs and error-log openers. Built from a
-          callback set app assembles; the Edit and View entries are the
-          console's own methods passed in, so menu.py holds no widget of
-          the console's.
+          callback set app assembles; the Edit and View entries, plus
+          File's Save As and Hide to Tray, are the console's own methods
+          passed in, so menu.py holds no widget of the console's.
   [ ] 11b Create vdict/tray/icon.py: pystray icon construction and the
           .ico frame selection. ICON_PATH comes from const.py.
+          SM_CXSMICON has one consumer and comes here, not to const.py.
+  [ ] 11c About reads __version__ from vdict/__init__.py, on 9f's
+          reasoning.
 
 VERIFY: every menu item under File, Edit, View and Help. Error Log greys
 out when no log exists. Tray icon menu: Show Output, Settings, Exit.
@@ -354,15 +416,12 @@ already running.
 ==============================================================================
 STEP 13  CLEANUP
 ==============================================================================
-  [ ] 13a Finish the core-arch-plan.txt impact pass -- P4's own text asks
-          for it before draining. The CONFIG PERSISTENCE bullet already
-          carries a NEEDS A PASS marker from the geometry decision.
-  [ ] 13b Drain P4 from core-arch-plan-prep.txt and delete that file, which
-          leaves it empty.
-  [ ] 13c Update README's architecture paragraph -- it currently describes
+  [ ] 13a Finish the core-arch-plan.txt impact pass. Its CONFIG PERSISTENCE
+          bullet carries a NEEDS A PASS marker from the geometry decision;
+          sweep the rest of that file for references this split makes
+          stale.
+  [ ] 13b Update README's architecture paragraph -- it currently describes
           vdict_tray.py as owning the tray icon, the settings window and
           the console.
-  [ ] 13d Delete vdict-encap-build-sheet.txt (V1) and
-          vdict-encap-build-sheet-defects.txt.
 
 Mike deletes this sheet.

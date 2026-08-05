@@ -5,11 +5,17 @@ Windows desktop PTT daemon.
 Use the `commit-per-protocol` skill, not the global Commit Protocol.
 
 ## SPOP
+"Explain step N" / "next step" = propose only. "Approve" = implement.
 Per item: review the code it touches against current disk state -> explain it, grounded in
 that review, not the doc alone -> end with a question naming the item -> approved -> implement
--> STOP -> report done/problems -> next item.
+-> STOP -> report done/problems -> offer the next item.
 Never propose+implement same turn. Never explain an item from the build sheet's text without
 first confirming it against the code as it exists right now.
+The re-review IS a review. Code disagreeing with the sheet is a finding -- surface it before
+the explanation, never reconcile it into one silently.
+Explain in plain English.
+Report names what ran separately from what linted. Never one word for both.
+Report ends with the gesture to run, or "no launch test this step". Never implied.
 Item boundary = risk seam, not feature size. Cross-process state (tray/daemon) or a required
 ordering (reinit before resolve) -> own item, never bundled, even if one line would cover it.
 

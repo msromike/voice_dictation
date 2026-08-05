@@ -1129,30 +1129,36 @@ class VoiceDictationTray:
             return settings_win.winfo_x(), settings_win.winfo_y()
 
         def save_and_restart():
+            # The console writes geometry and font to this file while Settings is
+            # open -- re-read, never stamp onto the dialog's own copy.
+            fresh, _ = load_settings()
+
             mic = mic_var.get()
-            config.audio.device = "" if mic == DEFAULT_MIC_LABEL else mic
-            config.ptt.button = button_var.get()
-            config.ptt.mode = cast(Literal["hold", "toggle"], mode_var.get().lower())
-            config.audio.feedback = audio_var.get()
-            config.stt.model = ai_model_var.get()
+            fresh.audio.device = "" if mic == DEFAULT_MIC_LABEL else mic
+            fresh.ptt.button = button_var.get()
+            fresh.ptt.mode = cast(Literal["hold", "toggle"], mode_var.get().lower())
+            fresh.audio.feedback = audio_var.get()
+            fresh.stt.model = ai_model_var.get()
             reverse_device_mapping = {v: k for k, v in DEVICE_LABELS.items()}
-            config.stt.device = cast(
+            fresh.stt.device = cast(
                 Literal["cpu", "cuda"], reverse_device_mapping[device_var.get()])
-            config.hotkey = HotkeyConfig(**hotkey_binding)
+            fresh.hotkey = HotkeyConfig(**hotkey_binding)
 
             x, y = _get_pos()
-            config.ui.settings_pos = Pos(x=x, y=y)
-            config.ui.open_console_on_boot = open_console_var.get()
+            fresh.ui.settings_pos = Pos(x=x, y=y)
+            fresh.ui.open_console_on_boot = open_console_var.get()
 
-            save_settings(config)
+            save_settings(fresh)
 
             settings_win.destroy()
             self.restart_daemon()
 
         def on_close():
+            # Re-read for the same reason as save_and_restart.
+            fresh, _ = load_settings()
             x, y = _get_pos()
-            config.ui.settings_pos = Pos(x=x, y=y)
-            save_settings(config)
+            fresh.ui.settings_pos = Pos(x=x, y=y)
+            save_settings(fresh)
             settings_win.destroy()
 
         settings_win.protocol("WM_DELETE_WINDOW", on_close)

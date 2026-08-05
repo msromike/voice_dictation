@@ -2,8 +2,8 @@ VOICE DICTATION - PLAN: SPLIT vdict_tray.py INTO vdict/tray/ (P4)
 
 Reference for the vdict-encap build sheet.
 
-No blockers. P4a (core-arch-plan-prep.txt) lands before the build sheet is
-written; everything else here is ready to build from.
+No blockers. The dpi scale() prerequisite landed 2026-08-04; this file and
+vdict-encap-build-sheet-v2.txt are the whole of P4's design.
 
 
 ==============================================================================
@@ -23,9 +23,11 @@ OPEN ISSUES -- worth tracking, does not gate the build sheet
 ==============================================================================
 MEASURED 2026-08-04 -- STATIC DISCOVERY OVER vdict_tray.py
 ==============================================================================
-AST-derived, not read by eye. Re-measured 2026-08-04 after P4a landed;
-vdict_tray.py was 1519 lines. If it has changed, re-measure rather than
-trust this section.
+AST-derived, not read by eye. Re-measured 2026-08-04 after P4a landed. The
+load_settings and save_settings counts were re-derived after the stale-copy
+fix landed in save_and_restart and on_close; nothing else here was re-run
+then. Re-derive whatever figure the current step depends on rather than
+trusting it -- an AST pass over one symbol is one command.
 
 Counts are per innermost enclosing function. A pass that attributes a
 nested function's references to its parent as well double-counts -- that
@@ -73,10 +75,10 @@ MODULE-LEVEL NAMES WITH CONSUMERS IN MORE THAN ONE PROSPECTIVE MODULE
   - __version__ -- _show_about and open_settings.
   - MB_ICONERROR -- _report_callback_exception and _log_startup_crash.
   - ICON_PATH -- __init__ and create_tray_icon.
-  - load_settings has six call sites (_build_hotkey_row,
-    _log_session_block, _rebind_on_close, _save_console_state,
-    open_settings, run); save_settings has four (_save_console_state,
-    on_close, run, save_and_restart).
+  - load_settings has eight call sites (_build_hotkey_row,
+    _log_session_block, _rebind_on_close, _save_console_state, on_close,
+    open_settings, run, save_and_restart); save_settings has four
+    (_save_console_state, on_close, run, save_and_restart).
 
 IMPORT CYCLE
 Two chains were traced. The first -- _drain_output_queue -> _show_mic_fault
@@ -145,7 +147,7 @@ defers them to the plan that owns each:
   - DEFAULT_MIC_LABEL's dead System Default option.
   - tk.OptionMenu's missing on-open refresh (input-device-plan.txt's
     WIDGET GAP).
-  - load_settings' six call sites -- core-arch-plan.txt's shared live
+  - load_settings' eight call sites -- core-arch-plan.txt's shared live
     Config object.
   - backlog B23's Settings regroup.
   - vdict_daemon.py's duplicate __version__ (backlog B25).
@@ -260,7 +262,7 @@ file, which forces every extracted module that calls load_settings to
 import the entry file that imports them back.
 
 WINDOW GEOMETRY
-Registry per core-arch-plan-prep.txt's P4 entry -- track(window,
+Registry, not one-off per-window save calls -- track(window,
 config_field), one save_all(config). Flushed at exit AND at hide, keeping
 today's two trigger points, not exit only. What exit-only beat: nothing --
 it loses everything since the last clean exit for anyone who quits via
@@ -269,6 +271,11 @@ unsaved-drag-on-crash case that entry accepted. track() needs a <Destroy>
 hook that captures a window's final geometry into the cache, because
 Settings is a transient Toplevel destroyed long before exit; without it
 settings_pos is silently dropped.
+
+The point of the registry is that a new window is covered by one track()
+call rather than a shutdown-step edit someone has to remember. Anything
+that replaces it with per-window save calls has undone the reason it
+exists, however tidy it looks.
   -> core-arch-plan.txt's CONFIG PERSISTENCE bullet ("Written at
      checkpoints -- Save, window hidden, geometry settled") needs a pass
      against this.

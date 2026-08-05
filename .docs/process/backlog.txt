@@ -98,7 +98,7 @@ THE WORK
     logic without the dialog.
 
 exit_app's entry-point-aware gating sits on _force_quit/_run_shutdown_steps,
-which core-arch-plan-prep.txt's P4 already marks as disappearing, not
+which vdict-encap-plan.txt's DECISIONS marks as disappearing, not
 relocated, once the daemon subprocess merges away -- this logic gets
 re-pointed at core-arch's shutdown sequence then, not rebuilt.
 

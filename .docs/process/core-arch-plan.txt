@@ -2,6 +2,22 @@ VOICE DICTATION - PLAN: CORE ARCHITECTURE (ORCHESTRATOR REFACTOR)
 
 Reference for the core-arch build sheet.
 
+SEQUENCING, DECIDED 2026-08-02, CARRIED FORWARD 2026-08-04: this build
+waits for the vdict_tray split (vdict-encap-plan.txt and
+vdict-encap-build-sheet-v2.txt) to land, then input-device-plan.txt follows
+this one. Splitting first is safe because each piece presents an API rather
+than just relocating code, so this refactor becomes one more caller of
+interfaces that already exist instead of a rewrite. That is also why
+Settings takes an on_save callable rather than owning its own save flow --
+the Save handler being a separate actor, per ARCHITECTURE below, is built
+into the split rather than retrofitted here.
+
+STTEngine.reload's vulture finding stays overridden at commit time until the
+orchestrator calls it. Nothing calls .reload( anywhere today -- measured
+2026-08-04. Its caller is already designed, in COMMON TO BOTH and BLOCK A
+below, so unlike portaudio_io.py's six there is no question of whether this
+one survives.
+
 BLOCKERS -- resolve before build sheet, not during:
   - log()'s new mechanism. What replaces print()+reparse for getting
     output from a worker thread onto the console widget. Not decided yet.
@@ -114,9 +130,11 @@ CONFIG PERSISTENCE
     NEEDS A PASS once P4's geometry registry exists: vdict-encap-plan.txt
     puts geometry on exit-and-hide only, with no per-settle write, which
     contradicts "geometry settled" here.
-  - One shared, live Config object instead of six independent stale reads
-    fixes B12 (Settings overwriting a change made elsewhere while open)
-    and D9 (six load_settings() call sites) as a side effect.
+  - One shared, live Config object instead of eight independent stale
+    reads. Settings overwriting a change made elsewhere while open is NOT
+    among the things this fixes -- that landed separately, as the re-read
+    in save_and_restart and on_close. What is left here is collapsing the
+    eight reads into one.
   - Every checkpoint write uses the same atomic write (temp file, then
     os.replace()) -- already required by B1, applies to all of them here,
     not just Save. Every one of those writes is explicit encoding="utf-8",

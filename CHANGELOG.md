@@ -87,6 +87,13 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- Closing Settings no longer undoes changes made while it was open. The
+  dialog used to write back a copy of your settings taken the moment it
+  opened, so anything altered in the meantime was silently reverted --
+  resize the output window, hide it to the tray, then Save & Restart, and
+  it came back at its old size and text size. Every way of closing Settings
+  was affected: Save & Restart, Escape, and the X.
+
 - Settings no longer stays pinned above every other window for as long as
   it's open. It still pops to the front the moment it appears, but releases
   that afterward, so switching to another app no longer leaves it floating
