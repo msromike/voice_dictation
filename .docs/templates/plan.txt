@@ -27,11 +27,11 @@ NEVER OMIT       GOAL (a paragraph), EVIDENCE, SCRATCHPAD.
 
 
 ==============================================================================
-SCRATCHPAD -- empty when this plan is done thinking
+SCRATCHPAD -- the plan is done when it is accurate and this is empty
 ==============================================================================
 <Unrefined ideas, in the order they arrived. Nothing here is a decision and
-nothing downstream cites it. Punch an item down when it settles and delete it
-here in the same edit.>
+nothing downstream cites it. A settled item lands wherever it belongs, often
+in several sections at once, and is deleted here in the same edit.>
 
 
 ==============================================================================
