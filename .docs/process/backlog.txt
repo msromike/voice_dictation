@@ -102,10 +102,9 @@ THE WORK
     logic without the dialog.
 
 exit_app's entry-point-aware gating sits on app's _force_quit and
-_run_shutdown_steps,
-which vdict-encap-plan.txt's DECISIONS marks as disappearing, not
-relocated, once the daemon subprocess merges away -- this logic gets
-re-pointed at core-arch's shutdown sequence then, not rebuilt.
+_run_shutdown_steps, whose daemon-stopping half disappears rather than
+relocating once the subprocess merges away -- this logic gets re-pointed
+at core-arch's shutdown sequence then, not rebuilt.
 
 app's _save_state already runs inside hide_window. Geometry tracking is bound
 to <Configure> inside geometry.manage() and is unaffected.
@@ -145,7 +144,7 @@ shipping; the toggle has value independent of what, if anything, ends up
 built on top of the data.
 
 Mechanism built 2026-07-31 as part of the unified output-logging
-redesign (output-logging-build-sheet.txt STEP 7, 7c/7d) --
+redesign (ref-output-logging-build-sheet.txt STEP 7, 7c/7d) --
 transcript.write(text), a dedicated logger with one RotatingFileHandler
 (maxBytes=100MB, backupCount=5, encoding="utf-8"), LOG_DIR /
 "transcript_log.txt". Gated on vdict/tray/transcript.py's ENABLED (a module

@@ -235,10 +235,9 @@ exists for. Shared mode only, always. The reason exclusive mode matters
 here at all is the reverse case -- SOME OTHER app grabbing it exclusively,
 which this app has to fail gracefully against, not request itself.
 
-ERROR CONDITIONS -- self-contained, not a pointer to build-v2-plan.txt's
-THE SPEC. build-v2 predates this design and is deliberately left stale
-until this subsystem lands, then gets one consolidated pass -- not chased
-incrementally. Exactly one FAIL condition, three moments it can trigger:
+ERROR CONDITIONS -- self-contained. The build-v2 spec these once pointed at
+predated this design and has since been retired, so there is nothing left to
+reconcile against. Exactly one FAIL condition, three moments it can trigger:
   AT LAUNCH       named device absent (returning user, not first run --
                   see DESIGN above) -> FAIL
   AT PTT PRESS    named device absent, held exclusively elsewhere, or the

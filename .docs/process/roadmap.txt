@@ -10,12 +10,11 @@ phase sits where it does. Everything else is backlog.
 ==============================================================================
 ORDER
 ==============================================================================
-NOW   The vdict_tray.py split -- vdict-encap-build-sheet-v2.txt.
+NOW   Discovery pass over the post-split tree. Throwaway measurement, no
+      shippable code, probe deleted at the end. Produces the Qt plan.
 
 THEN
-  1  Discovery pass over the post-split tree. Throwaway measurement, no
-     shippable code, probe deleted at the end. Produces the Qt plan.
-  2  Core-arch prework -- two spikes and one build sheet:
+  1  Core-arch prework -- two spikes and one build sheet:
        - Whisper/GPU cleanup: does swapping WhisperModel release CUDA memory
          across repeated loads. Answer lands in core-arch-plan.txt BLOCKERS.
        - Device swap during an active recording: rebuild() racing
@@ -23,16 +22,16 @@ THEN
        - Live shared Config object, replacing eight stale load_settings
          reads. Real code, so its own build sheet.
      Both spikes are toolkit-independent -- Qt neither helps nor hurts them.
-  3  Qt port. PySide6, not PyQt6: LGPL imposes nothing on an MIT project.
+  2  Qt port. PySide6, not PyQt6: LGPL imposes nothing on an MIT project.
      Dark and light theming is now an expectation. Tk makes it expensive --
      colors are hardcoded per widget -- and QSS makes it a stylesheet. That
      is part of why the port is worth doing, not a feature request.
      A CRT phosphor theme rides the same mechanism. That one is flex.
-  4  core-arch-plan.txt
-  5  input-device-plan.txt
-  6  backlog REFINEMENTS
-  7  pre-push.txt, then decide whether to ship
-  8  backlog NEW FEATURES
+  3  core-arch-plan.txt
+  4  input-device-plan.txt
+  5  backlog REFINEMENTS
+  6  pre-push.txt, then decide whether to ship
+  7  backlog NEW FEATURES
      FUTURE / MAJOR EXPANSION is not queued.
 
 

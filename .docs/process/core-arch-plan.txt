@@ -2,15 +2,13 @@ VOICE DICTATION - PLAN: CORE ARCHITECTURE (ORCHESTRATOR REFACTOR)
 
 Reference for the core-arch build sheet.
 
-SEQUENCING, DECIDED 2026-08-02, CARRIED FORWARD 2026-08-04: this build
-waits for the vdict_tray split (vdict-encap-plan.txt and
-vdict-encap-build-sheet-v2.txt) to land, then input-device-plan.txt follows
-this one. Splitting first is safe because each piece presents an API rather
-than just relocating code, so this refactor becomes one more caller of
-interfaces that already exist instead of a rewrite. That is also why
-Settings takes an on_save callable rather than owning its own save flow --
-the Save handler being a separate actor, per ARCHITECTURE below, is built
-into the split rather than retrofitted here.
+SEQUENCING: the vdict_tray split has landed. roadmap.txt holds what comes
+before this build and why. Splitting first was safe because each piece
+presents an API rather than just relocating code, so this refactor is one
+more caller of interfaces that already exist instead of a rewrite. That is
+also why Settings takes an on_save callable rather than owning its own save
+flow -- the Save handler being a separate actor, per ARCHITECTURE below,
+was built into the split rather than retrofitted here.
 
 STTEngine.reload's vulture finding stays overridden at commit time until the
 orchestrator calls it. Nothing calls .reload( anywhere today -- measured
@@ -287,9 +285,10 @@ FATAL VS RECOVERABLE
 ==============================================================================
 LOGGING MIGRATION
 ==============================================================================
-Full detail: output-logging-build-sheet.txt and output-logging-categories-
-results.csv, restored to .docs/process/ from git history for this purpose
--- not comprehensive here on purpose, that's what they're for.
+Full detail: ref-output-logging-build-sheet.txt and
+ref-output-logging-categories-results.csv, restored to .docs/process/ from
+git history for this purpose -- not comprehensive here on purpose, that's
+what they're for.
 
   - GENERAL RULE: when a function or branch gets rewritten or removed by
     this refactor, any log() call inside it must be explicitly carried
@@ -326,7 +325,7 @@ results.csv, restored to .docs/process/ from git history for this purpose
 ==============================================================================
 SUPERSEDES
 ==============================================================================
-  - build-v2-plan.txt / build-v2-build-sheet.txt -- stays untouched, dealt
-    with in its own proper true-up later.
+  - build-v2, retired before this plan and no longer on disk. Nothing here
+    owes it a true-up; git history is the only copy.
   - B1 as backlog.txt describes it -- its four tiers survive as the
     orchestrator's dispatch table, not a separate layer.
