@@ -37,8 +37,8 @@ in several sections at once, and is deleted here in the same edit.>
 ==============================================================================
 GOAL
 ==============================================================================
-<Why this is worth doing, one paragraph, pitched at whoever decides to fund
-it rather than whoever builds it.>
+<What this work is, one paragraph, plain. A directive, not a pitch -- whoever
+funds it does not need convincing and will not read a justification.>
 
 
 ==============================================================================

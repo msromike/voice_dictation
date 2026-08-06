@@ -44,39 +44,59 @@ here in the same edit.
         refused for a reason that no longer holds. A refusal need not name the
         cause -- the volume mixer was refused over four pythonw entries
     Then a grep for moved symbols, which is TRUE-UP's and not a lens.
-    Qt-shaped is the lens already run; it found eight and cannot find these.
+    Qt-shaped is the lens already run, and it cannot find these.
     Backlog earns all three. Smaller docs earn one pass.
+    Runs after the audio rig. Most of the forward impact already known is
+    audio, so a bad rig result shrinks the surface before it is swept.
+  - What defines a Tk touchpoint? EVIDENCE's module facts came from a census
+    against a recalled pattern list -- bind, protocol, after, StringVar,
+    tag_config and so on -- so any idiom outside it is invisible, and the
+    facts are recorded as though complete. Same blind spot as the import
+    sweep that missed pyperclip. Derive the set before re-running. Separate
+    from the forward-reference sweep: that one reads documents, this one
+    reads our code.
+  - What would a Qt developer's plan for this app contain that this one does
+    not? Every pass so far asked what is wrong with the plan. Nobody has read
+    it against what someone who had never seen Tk would have written. Same
+    blind spot that swept 45 Qt example categories against today's feature
+    set and dismissed most of them. GOAL carries the per-decision version --
+    ask what Qt exposes first -- and nothing checks the document as a whole.
   - Should stt.py's GPU-primer thread become QRunnable on QThreadPool?
 
 
 ==============================================================================
 GOAL
 ==============================================================================
-Make this a Qt app. Port everything that makes sense to port. Where
-hand-rolled code stays, the code says why -- after a real decision, not by
-omission. Qt6 exposes capabilities that did not exist when this app was
-designed: find them, and decide whether each is useful now, useful later, or
-not at all. Anything worth keeping gets written down, not left in the
-conversation that found it.
+Make this a Qt app. Port everything that makes sense to port -- ask what Qt
+exposes before designing around what we have. Where hand-rolled code stays,
+the code says why -- after a real decision, not by omission. Qt6 exposes
+capabilities that did not exist when this app was designed: find them, and
+decide whether each is useful now, useful later, or not at all. Anything worth
+keeping gets written down, not left in the conversation that found it.
 
 
 ==============================================================================
 DELIVERABLES
 ==============================================================================
 PASS 1 -- THE FRAMEWORK
-Atomic: one event loop owns the main thread. Parity means every menu item,
-dialog, binding and behaviour a user can reach still works. Not the
+Treated as atomic on the claim that one event loop owns the main thread, which
+DESIGN still lists as unverified. Parity means every menu item, dialog,
+binding and behaviour a user can reach still works. Not the
 implementation -- reproducing a Tk accident is not parity.
   - The app runs under QApplication. Every window rebuilt.
   - The tray icon is Qt. pystray goes, and its background thread with it.
   - No widget sets its own appearance. One QSS file holds all of it, carrying
     today's colours. Themes come later; the mechanism cannot.
   - Worker output reaches the console through signals. output_queue, the
-    100ms tick and console.drain() stop existing.
+    100ms tick and console.drain() stop existing, and something else reports
+    the daemon's exit -- the tick does that too today.
+  - pynput's callbacks cross into the Qt thread on a signal, not on
+    root.after(0, ...).
+  - Single instance is enforced through Qt. win32event.CreateMutex goes.
   - geometry.py and dpi.py are deleted. Window state persists through Qt.
-  - The hotkey message pump runs in Qt's event loop. hotkey.py keeps
-    RegisterHotKey and loses its thread and its PostThreadMessage plumbing.
-  - Modals are Qt. The two crash-path ones are open in DESIGN.
+  - The hotkey message pump runs in Qt's event loop, if the spike says it can.
+    hotkey.py keeps RegisterHotKey either way.
+  - Modals are Qt. The crash-path ones are open in DESIGN.
   - Clipboard reads and writes are Qt. pyperclip goes.
   - Config keeps its current pydantic shape unless the spike says otherwise.
   - Every non-Qt survivor carries the fact that keeps it.
@@ -86,8 +106,10 @@ AFTER PASS 1 -- INDEPENDENT, IN ANY ORDER
 AUDIO. Separable because it owns no windows. Must land before input-device
 work, or portaudio_io.py gets wired and a deletion becomes a rework.
   - Capture and playback run through Qt. sounddevice goes.
-  - Tones are generated, not loaded. The three WAVs, _load_tone, the wave
-    import, _tone_queue and the mixing callback all go.
+  - Tones are numpy into a QAudioSink, generated with a 1ms cosine tail.
+    Deleted, not ported: vdict/sounds' three wav files, _load_tone, the wave
+    import, _resolve_output_device, the persistent OutputStream, _tone_queue,
+    _current_tone, _current_tone_pos and _output_callback.
   - Device changes arrive as signals rather than being polled for.
   - Settings has a mic test with a live level meter. Reference
     implementation is Qt's own examples/multimedia/audiosource.
@@ -117,6 +139,16 @@ READ FROM THIS TREE
     three key bindings
   - worker output: module-level queue, 100ms Tk timer drains it.
     console.drain() is the tray's most complex function
+  - app._tick does two jobs on that same timer, not one -- console.drain()
+    and daemon_proc.poll(), which reports the daemon's exit once
+  - the daemon holds ONE sd.OutputStream open for the whole process life and
+    queues tones into its callback, which writes silence when the queue is
+    empty. The persistence is the point: closing and reopening puts a click
+    on the first tones. That architecture is a workaround, not a preference
+  - ptt_capture marshals every pynput callback back to the Tk thread with
+    root.after(0, ...). pynput's listener runs on its own thread
+  - vdict_tray.py enforces single instance with win32event.CreateMutex and
+    an ERROR_ALREADY_EXISTS check
   - app.py raises the window via
     win32gui.SetForegroundWindow(int(window.wm_frame(), 0)), and detects
     minimize via <Unmap> plus state()=='iconic'
@@ -137,7 +169,25 @@ READ FROM THIS TREE
     settings.py. Derive dependencies by reading
   - session.py, const.py and transcript.py contain no Tk mechanisms
 
-READ FROM PYSIDE6  (clone: .reference/pyside-setup, gitignored)
+MEASURED  (one session, one machine, default input 'Microphone (PDP Audio
+Device)'. Re-run against a different device before trusting any of it.)
+  - press-to-first-sample, five trials each, same device same session:
+    QAudioSource 13-17ms, sounddevice 40-52ms after a 157ms first call that
+    is PortAudio cold init. Qt is faster and pays no cold penalty.
+  - a beep through QAudioSink does not block capture. 121 reads across 1.2s,
+    largest gap 11.9ms which is the read cadence itself. No error either side.
+  - QCoreApplication is enough. No GUI application object is needed to
+    capture or play.
+  - the default input accepts 16kHz mono Int16 directly, isFormatSupported
+    true, so nothing resamples.
+  - QAudioDevice.id() is a Windows MMDevice endpoint id, shaped
+    {0.0.1.00000000}.{guid}. Whether it survives a replug is still open.
+  - tones need a cosine fade over the final 1ms or they click. A QAudioSink
+    built and destroyed per tone is clean, so no persistent stream.
+
+READ FROM PYSIDE6  (clone: .reference/pyside-setup, and the type stubs at
+venv/Lib/site-packages/PySide6/*.pyi. Both gitignored. The stubs are what
+make a Qt symbol checkable instead of recalled.)
   - theming: QApplication.setStyleSheet(qss) is app-wide.
     doc/tutorials/basictutorial/widgetstyling.rst
   - window state: saveGeometry/restoreGeometry.
@@ -161,9 +211,24 @@ READ FROM PYSIDE6  (clone: .reference/pyside-setup, gitignored)
     QObject
 
 ASSUMED
-  [ ] saveGeometry returns an opaque QByteArray; Qt's example stores it via
-      QSettings, registry on Windows. We use config.json. Read whether
-      QByteArray has a text round-trip.
+  [ ] Does audioInputsChanged fire on plug and unplug. The signal exists in
+      the stubs, and existence is not behaviour. The other two questions the
+      rig carried are answered and sit in MEASURED.
+  [ ] Is QAudioDevice.id() stable, and across what -- session, reboot, driver
+      update. Called stable on no evidence.
+  [ ] Do two event loops genuinely exclude each other. Hybrid pumping exists;
+      find out what it costs before ruling it out.
+  [ ] What does Qt expose for a system-wide key press. hotkey.py exists
+      because Tk could not receive Win32 messages at all, and Qt's loop
+      already pumps them.
+  [ ] Does Qt's dispatcher see WM_HOTKEY from RegisterHotKey(None, ...),
+      which posts to the thread queue rather than to a window. Read the
+      Windows event dispatcher, then confirm on hardware.
+  [ ] Does QByteArray have a text round-trip that survives JSON.
+  [ ] Which config shape survives a real Settings dialog -- pydantic
+      throughout with reads at point of use, or pydantic at the disk boundary
+      and a QObject carrying Property(notify=). Build one, do not reason
+      about it.
   [ ] Are the wanted error-handling improvements Qt-enabled, or Tk-able
       tomorrow? Name each, ask what in Tk blocks it.
 
@@ -173,11 +238,12 @@ DESIGN
 ==============================================================================
 SETTLED
   - All in on Qt, not a GUI-only port. Beat: moving only widgets, which leaves
-    two device vocabularies to map between. Overturn if the latency spike
-    shows Qt cannot meet press-to-first-sample.
-  - hotkey.py keeps RegisterHotKey and loses its message-pump thread.
-    QAbstractNativeEventFilter plus installNativeEventFilter deliver WM_HOTKEY
-    into Qt's own loop. Beat: leaving the module alone.
+    two device vocabularies to map between. Both overturn conditions have
+    been tested and neither held -- see MEASURED.
+  - Audio moves to Qt and can be its own sheet. All three gates cleared:
+    latency, QCoreApplication, and the tone click. Beat: keeping sounddevice
+    because the beeps worked -- they worked through forty lines of machinery
+    that a 1ms fade makes unnecessary.
   - pynput stays for PTT. RegisterHotKey gives a discrete press; PTT needs
     press-and-hold and mouse x1/x2/middle. Beat: hand-rolled SetWindowsHookEx.
   - pyautogui keeps synthesising the Ctrl+V. Qt injects no keystrokes.
@@ -187,21 +253,23 @@ SETTLED
     parse and _clamp_to_desktop both go.
   - Appearance comes from one QSS file. Beat: per-widget setStyleSheet.
 
-BLOCKED ON A SPIKE
-  - Audio viability. Measure press-to-first-sample through QAudioSource
-    against sounddevice today, and confirm a beep through QAudioSink does not
-    block capture.
-  - Can audio be its own sheet. Does QAudioSource run under QCoreApplication
-    with no GUI application object, and do its signals arrive.
-  - Where window geometry persists. saveGeometry returns an opaque QByteArray;
-    we keep state in config.json. Test whether it has a text round-trip that
-    survives JSON.
-  - Config object shape. Pydantic throughout with reads at point of use, or
-    pydantic at the disk boundary and a QObject carrying Property(notify=) in
-    memory. Decide against a real Settings dialog, not on paper.
+BLOCKED ON EVIDENCE
+  - Does hotkey.py survive at all, and if so does it keep its own thread.
+    Blocked on what Qt exposes for a system-wide key press, then on whether
+    the dispatcher sees WM_HOTKEY.
+  - Is pass 1 atomic, and therefore is the SEAMS cut the only one available.
+    Blocked on whether two event loops exclude each other.
+  - Where does a Qt app persist window state, and is config.json the right
+    home. Qt's own example uses QSettings, and splitting -- app settings in
+    JSON, window state in QSettings -- is what Qt apps normally do. Blocked
+    on the QByteArray round-trip only if we keep it in config.json.
+  - Does config persist a device id instead of matching on a name. Blocked on
+    whether QAudioDevice.id() is stable.
+  - Config object shape. Blocked on which shape survives a real Settings
+    dialog.
 
 JUDGMENT, NO SPIKE NEEDED
-  - Do the two crash-path modals convert to Qt. The startup crash fires before
+  - Do the crash-path modals convert to Qt. The startup crash fires before
     any window exists; the callback handler fires when the toolkit may be what
     broke.
   - Does daemon_proc become QProcess. core-arch deletes the subprocess soon
@@ -212,9 +280,9 @@ JUDGMENT, NO SPIKE NEEDED
   - FLAC. QMediaRecorder records a capture session to a file; audio_io.py
     encodes a numpy buffer after transcription. Keep soundfile, or restructure
     to record-during-capture.
-  - Which backlog items ride the port beyond the meter. Seven others are
-    Qt-shaped: tone volume; minimize/X/exit differing; Settings and the output
-    window opening and closing together; both model dropdown entries;
+  - Which backlog items ride the port beyond the meter. Also Qt-shaped: tone
+    volume; minimize/X/exit differing; Settings and the output window
+    opening and closing together; both model dropdown entries;
     relaunch raising the running instance; Settings layout grouped by
     function.
   - Tones generated or read from WAV. Someone moved from generate_tone to WAV
@@ -224,13 +292,14 @@ JUDGMENT, NO SPIKE NEEDED
 ==============================================================================
 SEAMS
 ==============================================================================
-  - Pass 1, the framework. Qt is built alongside the Tk tray, importing
-    nothing, until a single switch of the entry point. The switch is the risk
-    boundary; everything before it is inert.
-  - Audio. Separable -- it owns no windows. Conditional on the
-    QCoreApplication spike.
-  - Appearance. No seam of its own; it lands on pass 1's stylesheet.
-  - Everything after. No predetermined cuts.
+  - The entry-point switch is the one hard cut. Qt is built alongside the Tk
+    tray, importing nothing, until that switch. Everything before it is inert.
+  - Audio cuts away from the rest because it owns no windows, and needs no
+    GUI application object to do it.
+  - Appearance has no cut of its own; it lands on the stylesheet pass 1 ships.
+  - Later work has no predetermined cuts. What replaces them: each piece must
+    be independently shippable, so any one can be skipped without stranding
+    the others.
 
 
 ==============================================================================
@@ -240,13 +309,8 @@ MOVED SYMBOLS
 Derive once DESIGN is empty of open items, spikes and judgment alike.
 
 BREADCRUMBS
-  - input-device-plan.txt. Names portaudio_io six times. CONFIRMED FROM SOURCE
-    and TESTED ON REAL HARDWARE are PortAudio semantics that die with the
-    library; WIDGET GAP dies with tk.OptionMenu; scope reopens on
-    audioInputsChanged. The three failure moments survive.
-  - core-arch-plan.txt. Its log() blocker dissolves into signals. LIVE-READ
-    SETTINGS gains a Qt shape in Property(notify=) that the section does not
-    describe. Re-derive how Tk-shaped the rest is when its sheet is written.
+  - input-device-plan.txt rests throughout on constraints this port removes.
+  - core-arch-plan.txt: the log() blocker and LIVE-READ SETTINGS both change.
 
 
 ==============================================================================
@@ -254,5 +318,5 @@ DRAINS
 ==============================================================================
   - backlog: Settings mic test button with level meter.
 
-The other seven are candidates, not drains, until DESIGN's "which backlog
-items ride the port" closes.
+The rest are candidates, not drains, until DESIGN's "which backlog items
+ride the port" closes.
