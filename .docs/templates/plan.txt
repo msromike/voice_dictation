@@ -1,0 +1,91 @@
+VOICE DICTATION - PLAN: <TITLE>
+
+<Filename <topic>-plan.txt. The sheet that drains it is
+<topic>-build-sheet.txt, same topic, so one grep finds the pair.>
+
+
+==============================================================================
+HOUSE STYLE -- delete this block when the plan is finished
+==============================================================================
+Audience is whoever writes the sheet. Record the fact and where to re-check
+it, never the argument for it. Saying it twice means you are arguing.
+
+Every bucket feeds a build-sheet slot. One that feeds nothing gets cut.
+GOAL is the exception: nothing reads it, it exists to be argued before
+anything gets built.
+
+No fact that needs maintaining -- derived lists only. Symbols this work
+moves, never which docs point here.
+No counts. Write how to re-derive it.
+No dates, IDs, tags or line numbers. Greppable symbols.
+
+One decision costs one doc edit or none. Flag ONE line in the plan it
+breaks, or breadcrumb it in TRUE-UP. Never both.
+
+OMIT WHEN EMPTY  GOVERNING RULE, DRAINS. SEAMS folds into DESIGN.
+NEVER OMIT       GOAL (a paragraph), EVIDENCE, SCRATCHPAD.
+
+
+==============================================================================
+SCRATCHPAD -- empty when this plan is done thinking
+==============================================================================
+<Unrefined ideas, in the order they arrived. Nothing here is a decision and
+nothing downstream cites it. Punch an item down when it settles and delete it
+here in the same edit.>
+
+
+==============================================================================
+GOAL
+==============================================================================
+<Why this is worth doing, one paragraph, pitched at whoever decides to fund
+it rather than whoever builds it.>
+
+
+==============================================================================
+DELIVERABLES
+==============================================================================
+<What ships, checkable by someone else. The sheet's Done line comes from
+here. Nothing observable here means the sheet invents one.>
+
+
+==============================================================================
+GOVERNING RULE
+==============================================================================
+<The invariant every step must hold, three sentences. What would make
+shipping the deliverables worthless if violated. Omit when there isn't one.>
+
+
+==============================================================================
+EVIDENCE
+==============================================================================
+<What is known and where to re-check it. Assumptions as [ ] questions naming
+the method that answers them.>
+
+
+==============================================================================
+DESIGN
+==============================================================================
+<Decisions. Each: what was chosen, what it beat, what would overturn it.>
+
+
+==============================================================================
+SEAMS
+==============================================================================
+<Where to cut so every piece leaves a working app. Risk boundaries, not
+feature boundaries. The sheet turns these into steps, it does not invent
+them.>
+
+
+==============================================================================
+TRUE-UP -- consumed by the sheet's DOC SYNC, then empty
+==============================================================================
+MOVED SYMBOLS  <every name this work relocates, renames or deletes, derived
+               from DESIGN, not hand-listed>
+BREADCRUMBS    <forward-dependent plans this probably disturbs, one line
+               each. Delete at true-up, acted on or not.>
+
+
+==============================================================================
+DRAINS
+==============================================================================
+<backlog.txt and defects.txt entries this closes, by title. Omit when none.>

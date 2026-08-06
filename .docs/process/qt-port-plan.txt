@@ -1,0 +1,238 @@
+VOICE DICTATION - PLAN: QT PORT
+
+Drains to qt-port-build-sheet.txt.
+
+
+==============================================================================
+HOUSE STYLE -- delete this block when the plan is finished
+==============================================================================
+Audience is whoever writes the sheet. Record the fact and where to re-check
+it, never the argument for it. Saying it twice means you are arguing.
+
+Every bucket feeds a build-sheet slot. One that feeds nothing gets cut.
+GOAL is the exception: nothing reads it, it exists to be argued before
+anything gets built.
+
+No fact that needs maintaining -- derived lists only. Symbols this work
+moves, never which docs point here.
+No counts. Write how to re-derive it.
+No dates, IDs, tags or line numbers. Greppable symbols.
+
+One decision costs one doc edit or none. Flag ONE line in the plan it
+breaks, or breadcrumb it in TRUE-UP. Never both.
+
+OMIT WHEN EMPTY  GOVERNING RULE, DRAINS. SEAMS folds into DESIGN.
+NEVER OMIT       GOAL (a paragraph), EVIDENCE, SCRATCHPAD.
+
+
+==============================================================================
+SCRATCHPAD -- empty when this plan is done thinking
+==============================================================================
+Nothing here is a decision and nothing downstream may cite it. Punch an item
+down when it settles and delete it here in the same edit.
+
+  - Output path as signals from day one, not a verbatim queue-and-tick port.
+    Core-arch then changes who emits, not how it is received. Coupled to the
+    QProcess call.
+  - stt.py's GPU-primer thread could be QRunnable on QThreadPool.globalInstance
+
+
+==============================================================================
+GOAL
+==============================================================================
+Tk provides no theming, no window-state persistence, no DPI handling, and no
+path from a worker thread to a widget. All four exist in this project as code
+we wrote and have to maintain. Qt ships all four. The port trades bespoke
+mechanism for toolkit behavior, which makes the app cheaper to extend and
+cheaper to hand to an AI -- every hand-rolled mechanism is context that has to
+be rebuilt before anything near it can be changed safely.
+
+
+==============================================================================
+DELIVERABLES
+==============================================================================
+  - Themes. One stylesheet, dark and light following the system.
+  - The modals are Qt. Scope is open: two of them exist to fire when the
+    toolkit is the broken thing, and whether those convert is a question in
+    SCRATCHPAD, not settled here.
+  - geometry.py and dpi.py are deleted, not ported. Qt provides window-state
+    persistence and DPI scaling natively.
+  - Worker output reaches the console without a queue, a timer or a drain.
+    output_queue, the 100ms tick and console.drain() stop existing.
+  - Widgets refresh themselves on open, closing input-device-plan.txt's
+    WIDGET GAP without a postcommand workaround.
+  - Settings has a mic test with a live level meter. Reference
+    implementation is Qt's own examples/multimedia/audiosource.
+
+
+==============================================================================
+GOVERNING RULE
+==============================================================================
+Appearance is never set on a widget. Every color, font and metric comes from
+the application stylesheet, so changing how the app looks is one file and
+never a search across modules. Qt does not enforce this -- per-widget
+setStyleSheet is equally available and its own tutorial teaches that first --
+which is what makes it a rule here rather than a property of the toolkit.
+
+
+==============================================================================
+EVIDENCE
+==============================================================================
+READ FROM THIS TREE
+  - console.py sets appearance on the constructor -- bg, fg, selectbackground,
+    inactiveselectbackground, font. No central definition
+  - console.py zoom is hand-built: set_font_size, zoom_step, _zoom_wheel and
+    three key bindings
+  - worker output: module-level queue, 100ms Tk timer drains it.
+    console.drain() is the tray's most complex function
+  - app.py raises the window via
+    win32gui.SetForegroundWindow(int(window.wm_frame(), 0)), and detects
+    minimize via <Unmap> plus state()=='iconic'
+  - geometry.py: Tk persists no window state, and it parses the geometry
+    string with a regex. Windows keeps its own restore rect --
+    update_idletasks() between geometry() and state("zoomed")
+  - dpi.py: Tk exposes no scaling. Inverse trap -- Tk already scales point
+    sizes, so fonts must NOT go through scale()
+  - menu.py: tk accelerator= is display text only, bound separately. The Help
+    menu refreshes via tk.Menu postcommand
+  - settings.py mic dropdown is a plain tk.OptionMenu, no on-open hook
+  - faults.py builds modality from Toplevel + transient + grab_set
+  - icon.py picks an .ico frame via GetSystemMetrics(SM_CXSMICON) plus PIL
+  - pystray runs its own background thread
+  - portaudio_io.py is built but unwired -- vulture flags every function
+  - deferred imports hide from a leading-import grep: pyperclip and pyautogui
+    in daemon/keyboard.py, huggingface_hub in stt.py, ctranslate2 in
+    settings.py. Derive dependencies by reading
+  - untouched by the port: session.py, const.py, transcript.py
+
+READ FROM PYSIDE6  (clone: .reference/pyside-setup, gitignored)
+GOAL's load-bearing claim holds -- Qt provides all four.
+  - theming: QApplication.setStyleSheet(qss) is app-wide.
+    doc/tutorials/basictutorial/widgetstyling.rst
+  - window state: saveGeometry/restoreGeometry.
+    examples/widgets/mainwindows/application
+  - dpi: on by default in Qt 6, cannot be disabled.
+    doc/faq/porting_from2.rst
+  - threads: default AutoConnection runs the receiver in the receiver's
+    thread. doc/tutorials/basictutorial/signals_and_slots.rst
+  - tray: QSystemTrayIcon -- context menu, activated with
+    Trigger/DoubleClick/MiddleClick, showMessage for toasts
+  - audio out: QAudioSink.start() returns a QIODevice to write, plus
+    setVolume()
+  - audio in: QMediaDevices audioInputs, defaultAudioInput,
+    audioInputsChanged
+  - console: QTextEdit.zoomIn/zoomOut
+  - menus: QAction.setShortcut wires the shortcut; QMenu.aboutToShow replaces
+    postcommand
+  - key capture: QKeySequenceEdit. Result still needs mapping to Win32 VK
+  - icons: QIcon reads multi-resolution .ico natively
+  - QDataWidgetMapper maps widgets to a QAbstractItemModel, not to a plain
+    QObject
+
+ASSUMED
+  [ ] saveGeometry returns an opaque QByteArray; Qt's example stores it via
+      QSettings, registry on Windows. We use config.json. Read whether
+      QByteArray has a text round-trip.
+  [ ] Are the wanted error-handling improvements Qt-enabled, or Tk-able
+      tomorrow? Name each, ask what in Tk blocks it.
+
+
+==============================================================================
+DESIGN
+==============================================================================
+SETTLED
+  - All in on Qt, not a GUI-only port. Beat: keeping sounddevice and moving
+    only widgets, which leaves two device vocabularies to map between --
+    Qt reporting a change in its names, portaudio resolving in its own.
+    Overturn if the latency spike shows Qt cannot meet press-to-first-sample.
+  - hotkey.py keeps RegisterHotKey and loses its message-pump thread.
+    QAbstractNativeEventFilter plus installNativeEventFilter deliver WM_HOTKEY
+    into Qt's own loop, so the thread and its PostThreadMessage command
+    plumbing go. Beat: leaving the module alone, which was my reading until
+    the second-opinion pass corrected it.
+  - pynput stays for PTT. RegisterHotKey gives a discrete press; PTT needs
+    press-and-hold and mouse x1/x2/middle. Beat: hand-rolled SetWindowsHookEx,
+    which adds the kind of code this port exists to delete.
+  - pyautogui keeps synthesising the Ctrl+V. Qt reads and writes the clipboard
+    but injects no keystrokes. QGuiApplication.clipboard() does replace
+    pyperclip.
+  - geometry.py and dpi.py are deleted, not ported. Qt 6 has high DPI on by
+    default and cannot disable it; restoreGeometry takes an opaque blob, so
+    the regex parse and _clamp_to_desktop both go.
+  - Appearance comes from one QSS file, never from a widget. That is the
+    governing rule's mechanism. Beat: per-widget setStyleSheet, which Qt makes
+    equally easy and its own tutorial teaches first.
+
+BLOCKED ON A SPIKE
+  - Audio viability. Measure press-to-first-sample through QAudioSource
+    against what sounddevice delivers today, and confirm a beep through
+    QAudioSink does not block capture. Everything above rests on this.
+  - Can audio be its own sheet. Does QAudioSource run under QCoreApplication
+    with no GUI application object, and do its signals arrive.
+  - Where window geometry persists. saveGeometry returns an opaque QByteArray
+    and Qt's example stores it via QSettings, the registry on Windows. We keep
+    state in config.json. Test whether QByteArray has a text round-trip that
+    survives JSON.
+  - Config object shape. Pydantic throughout with reads at point of use, or
+    pydantic at the disk boundary and a QObject carrying Property(notify=)
+    in memory. The second is how the rest of the app will be built; the first
+    is fewer moving parts. Decide against a real Settings dialog, not on paper.
+
+JUDGMENT, NO SPIKE NEEDED
+  - Do the two crash-path modals convert to Qt. The startup crash fires before
+    any window exists; the callback handler fires when the toolkit may be what
+    broke. Native was chosen for not depending on the toolkit at all.
+  - Does daemon_proc become QProcess. readyReadStandardOutput would delete the
+    polling, but core-arch deletes the subprocess outright soon after, so the
+    question is whether the window between them pays for the rewrite.
+  - How far input-device-plan's scope reopens. It was stripped to a minimum
+    because hot-swap detection was too hard to hand-roll; audioInputsChanged
+    hands it over. Largest open question in this port.
+  - FLAC. QMediaRecorder records a capture session to a file; audio_io.py
+    encodes a numpy buffer after transcription. Keep soundfile, or restructure
+    to record-during-capture.
+  - Which backlog items ride the port. Eight are Qt-shaped: tone volume
+    control; window controls minimize/X/exit differing; Settings and the
+    output window opening and closing together; both Settings model dropdown
+    entries; the mic test with level meter; relaunch raising the running
+    instance; Settings dialog layout grouped by function. The meter is
+    already a deliverable. Tone volume is nearly free once setVolume exists,
+    and the layout grouping nearly free with QFormLayout and QGroupBox.
+    Deliverables, or still backlog.
+  - Tones generated or read from WAV. Someone moved from generate_tone to WAV
+    files and the reason is unrecorded. Read git before reverting.
+
+
+==============================================================================
+SEAMS
+==============================================================================
+<Where this work can be cut so every piece leaves a working app.>
+
+
+==============================================================================
+TRUE-UP -- consumed by the sheet's DOC SYNC, then empty
+==============================================================================
+MOVED SYMBOLS
+Derive once DESIGN's four blocked items close. Partial today, so deriving now
+would produce a list that has to be redone.
+
+BREADCRUMBS
+  - input-device-plan.txt. Names portaudio_io six times, and its CONFIRMED
+    FROM SOURCE and TESTED ON REAL HARDWARE sections are PortAudio semantics
+    that die with the library. WIDGET GAP dies with tk.OptionMenu. Its scope
+    reopens on audioInputsChanged. What survives is the three failure
+    moments, which are requirements rather than PortAudio artifacts.
+  - core-arch-plan.txt. Its open log() blocker dissolves into signals, and
+    LIVE-READ SETTINGS gains a Qt shape in Property(notify=) that the section
+    does not describe. Still Tk-shaped in places -- re-derive how much when
+    its build sheet is written; a keyword count is the wrong instrument.
+
+
+==============================================================================
+DRAINS
+==============================================================================
+  - backlog: Settings mic test button with level meter. It is a deliverable
+    here, so the port closes it.
+
+The other seven Qt-shaped backlog entries are candidates, not drains, until
+DESIGN's "which backlog items ride the port" closes.
