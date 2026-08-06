@@ -11,7 +11,7 @@ Blocks action on input-device-plan.txt until drained.
    thing to build, not this.
 
 2. Mic-fault modal's Close-button behavior is undefined for a daemon that
-   never exits on a mic fault. Today's _show_mic_fault (vdict_tray.py)
+   never exits on a mic fault. Today's faults.show_mic_fault
    writes MIC_FAULT_FLAG_PATH and force-quits, relying on a relaunch to
    reopen Settings -- that whole mechanism assumes the old exit-on-fault
    daemon. Once B1's never-exit loop exists: does Close just dismiss (daemon

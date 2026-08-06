@@ -1,0 +1,79 @@
+VOICE DICTATION - ROADMAP
+
+Order of the work and why. Not design -- plans hold that. Not tasks -- build
+sheets hold those. Living document: edit it when the order changes.
+
+A phase's deliverables belong here only when the delivery is part of why the
+phase sits where it does. Everything else is backlog.
+
+
+==============================================================================
+ORDER
+==============================================================================
+NOW   The vdict_tray.py split -- vdict-encap-build-sheet-v2.txt.
+
+THEN
+  1  Discovery pass over the post-split tree. Throwaway measurement, no
+     shippable code, probe deleted at the end. Produces the Qt plan.
+  2  Core-arch prework -- two spikes and one build sheet:
+       - Whisper/GPU cleanup: does swapping WhisperModel release CUDA memory
+         across repeated loads. Answer lands in core-arch-plan.txt BLOCKERS.
+       - Device swap during an active recording: rebuild() racing
+         start_capture(). Same home.
+       - Live shared Config object, replacing eight stale load_settings
+         reads. Real code, so its own build sheet.
+     Both spikes are toolkit-independent -- Qt neither helps nor hurts them.
+  3  Qt port. PySide6, not PyQt6: LGPL imposes nothing on an MIT project.
+     Dark and light theming is now an expectation. Tk makes it expensive --
+     colors are hardcoded per widget -- and QSS makes it a stylesheet. That
+     is part of why the port is worth doing, not a feature request.
+     A CRT phosphor theme rides the same mechanism. That one is flex.
+  4  core-arch-plan.txt
+  5  input-device-plan.txt
+  6  backlog REFINEMENTS
+  7  pre-push.txt, then decide whether to ship
+  8  backlog NEW FEATURES
+     FUTURE / MAJOR EXPANSION is not queued.
+
+
+==============================================================================
+WHY QT BEFORE CORE-ARCH
+==============================================================================
+core-arch's open log() blocker -- what carries worker-thread output to the
+console widget -- is a Tk problem. Qt answers it with signals and slots: no
+queue, no 100ms tick, no drain. Solving it in Tk first builds the thing the
+port deletes.
+
+input-device-plan's WIDGET GAP (tk.OptionMenu has no on-open refresh hook) is
+the same shape: a Tk deficiency that stops existing in Qt.
+
+What this beat: core-arch first, on the claim that porting would rebuild the
+tray UI twice. It would not -- core-arch touches orchestration, not widgets.
+
+Overturn it if the Qt port needs core-arch's threading model settled first.
+It should not: Qt's model is that answer.
+
+
+==============================================================================
+COSTS ALREADY WEIGHED
+==============================================================================
+  - geometry.py and dpi.py are deletions on port. Qt does both natively.
+  - Split steps 8, 9 and 11 build Tk faults, settings and menu that Qt
+    rewrites. What survives is their API shape and the wiring, which is the
+    point of the split.
+  - core-arch-plan.txt is roughly a third Tk-shaped and needs a true-up. That
+    surfaces when its build sheet is written, not before.
+  - Qt fixes GUI plumbing only. The global hotkey, pynput capture, synthetic
+    paste and WASAPI stay exactly as Windows-bound as they are now.
+
+
+==============================================================================
+OPEN
+==============================================================================
+  - The Qt plan cannot be written until the split lands and discovery runs.
+    Planning it against today's vdict_tray.py plans against a file that is
+    about to stop existing.
+  - Build the Qt console's output path as signals from day one, while the
+    daemon is still a subprocess. Then core-arch changes who emits, not how
+    it is received. Port the queue-and-tick verbatim instead and core-arch
+    has to unpick it.

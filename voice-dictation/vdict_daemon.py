@@ -107,12 +107,12 @@ TONE_VOLUME_LOW = 0.18225
 
 
 def play_tone(tone_type, enabled=True, volume=1.0):
-    """Play the requested tone 100% asynchronously. enabled silences start,
-    stop and too_short; ready and timeout always sound."""
+    """Play the requested tone 100% asynchronously. enabled silences every
+    tone -- ready still reaches the console line and its tray toast."""
+    if not enabled:
+        return
     if tone_type in ("timeout", "ready"):
         tone, reference_volume = TONE_LOW_DOUBLE, TONE_VOLUME_LOW
-    elif not enabled:
-        return
     elif tone_type == "start":
         tone, reference_volume = TONE_HIGH, TONE_VOLUME_HIGH
     elif tone_type == "stop":

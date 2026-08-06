@@ -40,10 +40,10 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
-- Enable Audio Beeps now silences only the start and stop tones. The double beep
-  keeps sounding, because it reports the engine coming up or a toggle recording
-  abandoned after two minutes -- both worth knowing whether or not you want a
-  beep on every dictation.
+- Enable Audio Beeps now silences every tone, the ready and timeout double beeps
+  included. Off means silent. The output window still reports the engine coming
+  up and a toggle recording abandoned after two minutes, so nothing is lost by
+  turning them off -- it just stops being announced.
 
 - A broken config.json now resets only the affected setting, not the whole
   file. The output window names exactly what changed and what it reset to,

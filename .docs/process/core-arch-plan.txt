@@ -21,6 +21,16 @@ one survives.
 BLOCKERS -- resolve before build sheet, not during:
   - log()'s new mechanism. What replaces print()+reparse for getting
     output from a worker thread onto the console widget. Not decided yet.
+    REQUIREMENT, measured 2026-08-05: one event has to carry both a human
+    sentence and a traceback, with each destination deciding whether to
+    render the traceback -- what logging's own exc_info plus per-handler
+    formatters give. Today log() and error_log() are separate functions
+    and every site wanting both must call both. Re-measured after
+    error_log gained its screen flag: of its five call sites, two pair an
+    explicit log() sentence with screen=False, and three rely on
+    error_log's own screen dump. That flag is itself a per-call-site
+    convention -- the kind this requirement says does not hold -- so the
+    capability still belongs in the mechanism.
   - Whisper/GPU-cleanup spike -- whether swapping WhisperModel objects in
     place actually releases GPU/CUDA memory cleanly across repeated
     loads. Same treatment PortAudio got: source plus real hardware
@@ -69,12 +79,14 @@ ARCHITECTURE
     gives this for free (the daemon doesn't start until Save & Restart
     launches it); the merged process has to enforce it on purpose.
     Mechanism is FIRST RUN's own build-sheet work, not decided here.
-  - Settings (today's vdict_tray.py open_settings()) is a pure view --
-    returns the raw snapshot of what the user picked, no diffing inside it.
-  - The Save handler (today's save_and_restart()) is a separate actor
-    from Settings, same dialog, same thread, different code. Settings'
-    job ends at returning the snapshot; the handler around it is
-    orchestrator code -- it writes to disk and dispatches to consumers.
+  - Settings (vdict/tray/settings.py) is a pure view -- returns the raw
+    snapshot of what the user picked, no diffing inside it. BUILT: the
+    dialog reads its widgets and calls on_save(config), nothing else.
+  - The Save handler is a separate actor from Settings, same dialog, same
+    thread, different code. Settings' job ends at returning the snapshot;
+    the handler around it is orchestrator code -- it writes to disk and
+    dispatches to consumers. BUILT as app's _on_settings_save, which does
+    save_settings, settings.close and restart. save_and_restart is gone.
   - No central diff step. Each consumer decides for itself, at the point it
     would act, whether its own slice changed -- cheap stuff (beep volume)
     just reapplies, expensive stuff (model reload) checks first.
@@ -124,16 +136,32 @@ CONFIG PERSISTENCE
     vdict.common.config.Config, the existing pydantic model, not a new
     type -- passed by reference, never serialized just to move between
     Settings, the Save handler, and consumers.
-  - Written at checkpoints -- Save, window hidden, geometry settled --
-    same pattern _save_console_state()/_remember_geometry() already use
-    for window position today.
-    NEEDS A PASS once P4's geometry registry exists: vdict-encap-plan.txt
-    puts geometry on exit-and-hide only, with no per-settle write, which
-    contradicts "geometry settled" here.
+  - Written at checkpoints -- Settings Save, window hidden, tracked window
+    destroyed, and at exit. Three of those four are app's _save_state(),
+    which calls geometry.save_all() to flush every window the registry
+    tracks and then save_settings(). Save is its own path, app's
+    _on_settings_save.
+  - Checkpoint flush, not a per-settle write. geometry.manage() caches on
+    <Configure>, and disk is touched only at a checkpoint, so dragging a
+    window costs nothing until one of those four fires. That is what the
+    split built, and it is what this section's earlier "geometry settled"
+    wording would have meant instead -- a write per settle, putting disk
+    I/O on every drag. Revisit only if a checkpoint proves too coarse to
+    survive a crash with the layout intact.
+  - STANDING VULTURE OVERRIDE: ui.settings_pos and ui.console_geometry are
+    reported unused at every commit, and that is expected. geometry.py's
+    registry reaches both by name rather than by attribute, so vulture
+    cannot see the usage; config.py carries a comment at the fields saying
+    the same thing. No whitelist entry: a bare name there exempts the
+    identifier everywhere and forever, and this finding ends on its own
+    when the Qt port deletes geometry.py. What that beat: making the
+    registry attribute-addressable so the scan goes quiet, which trades a
+    working design for a clean tool run.
   - One shared, live Config object instead of eight independent stale
     reads. Settings overwriting a change made elsewhere while open is NOT
     among the things this fixes -- that landed separately, as the re-read
-    in save_and_restart and on_close. What is left here is collapsing the
+    in the dialog's two writers, both since gone. What is left here is
+    collapsing the
     eight reads into one.
   - Every checkpoint write uses the same atomic write (temp file, then
     os.replace()) -- already required by B1, applies to all of them here,
@@ -183,7 +211,7 @@ LIVE-READ SETTINGS (no reconfigure entry point)
   - The reseed-if-missing logic consolidates into one shared helper in
     vdict/common/config.py, replacing two separate implementations that
     only existed because tray and daemon used to be different processes
-    (vdict_tray.py's _reseed_vocabulary_if_missing, which copies from the
+    (common/config.py's reseed_vocabulary_if_missing, which copies from the
     template, and load_vocabulary()'s current raise-if-missing). Both the
     tray's boot-time reseed and File > Vocabulary's reseed become thin
     callers of the same function the live-read path uses.
@@ -210,7 +238,7 @@ COMMON TO BOTH
     start_capture() only reads it, checked once, before starting a new
     cycle. Not three independent flags -- there's only one decision being
     protected, three things that can hold it closed.
-  - STTEngine.reload(config) already exists, P3's own prep work,
+  - STTEngine.reload(config) already exists, landed as prep work
     2026-08-02 -- its busy_flag constructor param (defaults to its own
     threading.Event() when nothing is shared in) is this exact flag. The
     orchestrator doesn't invent it; it constructs one Event and passes the
@@ -237,13 +265,13 @@ FATAL VS RECOVERABLE
   - Orchestrator's call, no watchdog/survivor process.
   - Unrecoverable means the whole stack exits -- red error, "Unrecoverable
     error" modal, log captured to disk first (generalizing
-    _report_callback_exception's existing pattern -- native MessageBoxW,
+    app._report_callback_exception's existing pattern -- native MessageBoxW,
     not Tk, since Tk itself might be compromised), a bug-report link.
   - User re-clicking the desktop icon is the accepted recovery gesture.
   - threading.excepthook gets built (cheap, catches silent
     thread-death-by-exception).
   - Every unhandled exception feeds the same path: threading.excepthook
-    (background threads), the generalized _report_callback_exception
+    (background threads), the generalized app._report_callback_exception
     pattern (main thread, Tk and .after() callbacks alike), and a raw
     try/except around startup itself before Tk exists (today's
     _log_startup_crash). Three catch points, one destination.
@@ -269,11 +297,12 @@ results.csv, restored to .docs/process/ from git history for this purpose
     because the code around it does -- check it at every site being
     touched, don't assume it follows along.
   - Survives unchanged: the CATEGORIES table (color/marker/box/toast),
-    error_log()'s disk-write-first pattern, transcript_log()'s dedicated
+    error_log()'s disk-write-first pattern (vdict/tray/log.py),
+    transcript.write()'s dedicated
     logger. None of these need to change in their own definitions, only
     in how they get called.
   - The disk-write half (write_error_log, formerly tray-only
-    _write_error_log) already moved to vdict/common/output.py as P2's own
+    _write_error_log) already moved to vdict/common/output.py as that
     prep work, 2026-08-02 -- vdict_daemon.py already calls it directly
     today. This refactor doesn't need to invent that cross-process bridge,
     it already exists.
@@ -281,7 +310,7 @@ results.csv, restored to .docs/process/ from git history for this purpose
     (loading, ready, block, rec/note/done, transcript, plus
     _resolve_output_device()'s two error calls) that all need a home in
     whatever the new thread-body version of this file looks like.
-  - _log_session_block() currently reports the daemon subprocess's PID
+  - session.log_session_block() currently reports the subprocess's PID
     and fires on every start/restart -- under this design a restart is
     rare (unrecoverable fault only), so this block's trigger point and
     content need redefining, not just relocating verbatim.

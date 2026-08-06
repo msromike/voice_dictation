@@ -1,9 +1,9 @@
-VOICE DICTATION - PLAN: SPLIT vdict_tray.py INTO vdict/tray/ (P4)
+VOICE DICTATION - PLAN: SPLIT vdict_tray.py INTO vdict/tray/
 
 Reference for the vdict-encap build sheet.
 
 No blockers. The dpi scale() prerequisite landed 2026-08-04; this file and
-vdict-encap-build-sheet-v2.txt are the whole of P4's design.
+vdict-encap-build-sheet-v2.txt are the whole of this split's design.
 
 
 ==============================================================================
@@ -17,17 +17,18 @@ OPEN ISSUES -- worth tracking, does not gate the build sheet
     rhythm, not something it can execute.
   - core-arch-plan.txt's CONFIG PERSISTENCE bullet lists window-hidden and
     geometry-settled as write checkpoints. See WINDOW GEOMETRY below --
-    that bullet needs a pass once P4's registry exists.
+    that bullet needs a pass once this split's registry exists.
 
 
 ==============================================================================
 MEASURED 2026-08-04 -- STATIC DISCOVERY OVER vdict_tray.py
 ==============================================================================
-AST-derived, not read by eye. Re-measured 2026-08-04 after P4a landed. The
-load_settings and save_settings counts were re-derived after the stale-copy
-fix landed in save_and_restart and on_close; nothing else here was re-run
-then. Re-derive whatever figure the current step depends on rather than
-trusting it -- an AST pass over one symbol is one command.
+AST-derived, not read by eye. Re-measured 2026-08-04 after dpi.py's
+scale() landed. The load_settings and save_settings counts were re-derived
+after the stale-copy fix landed in save_and_restart and on_close; nothing
+else here was re-run then. Re-derive whatever figure the current step
+depends on rather than trusting it -- an AST pass over one symbol is one
+command.
 
 Counts are per innermost enclosing function. A pass that attributes a
 nested function's references to its parent as well double-counts -- that
@@ -75,10 +76,13 @@ MODULE-LEVEL NAMES WITH CONSUMERS IN MORE THAN ONE PROSPECTIVE MODULE
   - __version__ -- _show_about and open_settings.
   - MB_ICONERROR -- _report_callback_exception and _log_startup_crash.
   - ICON_PATH -- __init__ and create_tray_icon.
-  - load_settings has eight call sites (_build_hotkey_row,
-    _log_session_block, _rebind_on_close, _save_console_state, on_close,
-    open_settings, run, save_and_restart); save_settings has four
-    (_save_console_state, on_close, run, save_and_restart).
+  - load_settings has seven call sites (_build_hotkey_row,
+    _rebind_on_close, _save_state, open_settings, run, save_and_restart,
+    start_vdict); save_settings has three (_save_state, run,
+    save_and_restart). Re-derived by AST after step 6, not decremented.
+    Step 3 renamed _save_console_state to _save_state and deleted on_close
+    outright; step 6 moved the read out of _log_session_block into
+    start_vdict, its only caller.
 
 IMPORT CYCLE
 Two chains were traced. The first -- _drain_output_queue -> _show_mic_fault
@@ -139,7 +143,7 @@ IN: relocation behind APIs, the window-geometry registry, and any decision
 the split itself forces about state that would otherwise straddle two
 modules.
 
-OUT, and surviving P4 on purpose -- the split does not endorse these, it
+OUT, and surviving this split on purpose -- it does not endorse these, it
 defers them to the plan that owns each:
   - _build_microphone_row's direct sd.query_hostapis()/sd.query_devices()
     calls, against input-device-plan.txt's one-module-owns-sounddevice
@@ -147,7 +151,7 @@ defers them to the plan that owns each:
   - DEFAULT_MIC_LABEL's dead System Default option.
   - tk.OptionMenu's missing on-open refresh (input-device-plan.txt's
     WIDGET GAP).
-  - load_settings' eight call sites -- core-arch-plan.txt's shared live
+  - load_settings' call sites -- core-arch-plan.txt's shared live
     Config object.
   - backlog B23's Settings regroup.
   - vdict_daemon.py's duplicate __version__ (backlog B25).
@@ -184,12 +188,14 @@ LEAVES
                      from. One home so the four-.parent math happens once
                      -- this is what stops the silent MIC_FAULT_FLAG_PATH
                      failure from being reintroduced by a moved module.
-  dpi.py             scale(px) and the DPI read. Built by P4a.
+  dpi.py             scale(px) and the DPI read. Already built.
   log.py             Owns the output queue. log() enqueues; error_log()
                      writes disk, then calls a screen-writer that console
                      installs.
-  geometry.py        track(window, config_field), save_all(config),
-                     _clamp_to_desktop, _geometry_parts.
+  geometry.py        manage(window, config, field, shape) restores then
+                     tracks; save_all(config) flushes; set_flush(fn) is the
+                     save a destroyed window triggers. Clamping, parsing and
+                     the maximized marker are internal.
   session.py         The session block. _summary_line, _human_size,
                      _model_size_on_disk, _format_bind, DEVICE_LABELS,
                      _hotkey_line. Stateless -- pid, config and hotkey
@@ -253,7 +259,7 @@ _read_output, _stop_daemon, restart_daemon, _run_shutdown_steps) goes into
 one module with a deliberately minimal surface, which core-arch deletes
 whole; _read_output is a queue producer, so core-arch swaps producers
 without touching the console. Config load/heal (load_settings,
-save_settings, _reseed_vocabulary_if_missing, FIELD_LABELS,
+save_settings, reseed_vocabulary_if_missing, FIELD_LABELS,
 _delete_at_path, _format_value, _wholesale_reset_message,
 _summarize_config_error) relocates verbatim into vdict/common/config.py,
 no consolidation and no signature changes -- where core-arch's own
@@ -262,15 +268,55 @@ file, which forces every extracted module that calls load_settings to
 import the entry file that imports them back.
 
 WINDOW GEOMETRY
+BUILT AS manage(), which merged restore and track into one call -- track()
+below is what this plan proposed, not what shipped. geometry.py is a
+deletion on the Qt port; roadmap.txt says why.
+
 Registry, not one-off per-window save calls -- track(window,
-config_field), one save_all(config). Flushed at exit AND at hide, keeping
-today's two trigger points, not exit only. What exit-only beat: nothing --
-it loses everything since the last clean exit for anyone who quits via
-Task Manager or a Windows shutdown, which is a larger loss than the
-unsaved-drag-on-crash case that entry accepted. track() needs a <Destroy>
-hook that captures a window's final geometry into the cache, because
-Settings is a transient Toplevel destroyed long before exit; without it
-settings_pos is silently dropped.
+config_field), one save_all(config). Flushed at exit, at hide, AND when a
+tracked window is destroyed. What exit-only beat: nothing -- it loses
+everything since the last clean exit for anyone who quits via Task Manager
+or a Windows shutdown, which is a larger loss than the unsaved-drag-on-crash
+case that entry accepted. track() needs a <Destroy> hook because Settings is
+a transient Toplevel destroyed long before exit; without it settings_pos is
+silently dropped.
+
+The destroy flush is the third trigger point, added after exit-and-hide
+alone shipped and failed. Windows have two lifecycles and one flush policy
+cannot serve both: the console restores ONCE per process, in run(), from
+disk the previous exit wrote, so a late flush is fine. Settings restores
+MANY times per process, in open_settings, from disk -- so a position sitting
+only in the cache is invisible to the very next open, and reopening Settings
+put it back where it used to be. The removed save_and_restart/on_close
+writes were not merely durability against a Task Manager kill; they were
+what made reopen work at all.
+  - The flush stays registry-level, one set_flush(fn) app registers once,
+    never a save call bolted onto Settings. Per-window save calls are the
+    thing this registry exists to replace, so a fix shaped that way would
+    have undone it.
+THE REGISTRY OWNS RESTORE TOO. Reversed after save-only shipped and broke
+twice. Save-only leaves TWO sources of truth for one value -- the in-memory
+cache and the config on disk -- and every failure was the gap between them.
+One call, manage(), restores from config and then tracks, so storing and
+retrieving cannot disagree. It returns False when nothing was saved, which
+is how a caller keeps its own first-run placement without the module knowing
+about it.
+  - What save-only bought: each window kept a bespoke restore. What it cost:
+    Settings reopened at a stale position, and the fix for that broke the
+    console. Bespoke restore was never worth two sources of truth.
+  - Maximized state is stored, not discarded. A GEOMETRY field may carry a
+    "zoomed " prefix ahead of the pre-maximize geometry, which is what
+    un-maximizing has to return to. Without it a maximized or Snapped window
+    comes back at an arbitrary stale position -- a wrong answer, not a
+    missing nicety, which is why it is in scope for a must-be feature.
+  - MEASURED: Windows keeps its own restore rectangle. Setting geometry and
+    then state("zoomed") on an already-mapped window leaves un-maximize
+    landing where the window was first mapped; update_idletasks() between
+    the two fixes it. The tray withdraws both windows before restoring, so
+    this never bit the app -- the module does not rely on callers doing so.
+  - Verified headlessly against a real Tk root: first run, move, flush,
+    maximize, restore-as-zoomed, un-maximize, destroy-flush, POS extraction,
+    and an unparseable cache leaving its field alone. Ten checks.
 
 The point of the registry is that a new window is covered by one track()
 call rather than a shutdown-step edit someone has to remember. Anything
@@ -296,7 +342,7 @@ Both live in log.py, split by whether the call can be asynchronous.
     which frees the name at no cost.
 
 dpi_scale
-Gone. P4a retired it -- vdict/tray/dpi.py owns the DPI read outright and
+Gone. vdict/tray/dpi.py owns the DPI read outright and
 every scaled dimension goes through its scale(px). No module holds a DPI
 value, app included, so nothing receives one at construction. scale()
 reads lazily and caches, which is what keeps it from running before

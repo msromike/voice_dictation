@@ -1,0 +1,138 @@
+VOICE DICTATION - BUILD SHEET: <TITLE>
+
+<Pick ONE of the two blocks below. Delete the other.>
+
+FROM A PLAN
+  <Plan filename, and the defect or backlog entry it drains if there is one.
+  The plan is the authority if the sheet and the plan disagree.>
+
+ON THE FLY
+  WHY THIS SHAPE
+  <The reasoning that has nowhere else to live, because no plan holds it.
+  FOUR LINES, hard cap. Overflowing the cap is the signal: stop here, write
+  a plan, come back. Do not compress a fifth line into the fourth.>
+
+Done = <one observable sentence. What is true when this sheet is finished,
+stated so someone else could check it.>
+
+
+==============================================================================
+HOUSE STYLE -- delete this block when the sheet is finished
+==============================================================================
+Actions only. The decision belongs here; the discussion that produced it
+does not. No rationale, no history, no meeting notes.
+
+No dates. Git and the file timestamps carry them. A dated measurement reads
+as fresh and invites trust -- an undated one invites re-derivation, which is
+what you actually want. Where a figure could go stale, write the instruction
+to re-derive it, not the day it was taken.
+
+Name a greppable symbol, never a line number.
+
+Steps are vertical slices: extract the piece, rewire every caller, delete the
+original, all inside one step. Never move in one step and rewire in the next.
+Every step leaves a working app, so work can stop at any boundary.
+
+Verification lives in the step whose work it proves. A step whose work is not
+observable on its own moves its gesture down to the step where it becomes
+observable, physically -- never a "deferred, see step N" pointer.
+
+Temporary test hooks are either harmless if left in permanently, or removed
+in the step that stops needing them. Never parked in a cleanup step that may
+never be reached.
+
+A check belongs at a step boundary only when failing it means stop and fix
+before continuing. A check whose failure means "note it and decide later" is
+a decision queue, not a gate -- it runs at CLEANUP and at commit, where there
+is time to think. Test any new gate against this before adding it.
+
+SCALING -- a two-step sheet should cost two minutes to write:
+  GOVERNING RULE  omit when there isn't one. On an ON THE FLY sheet it often
+                  collapses into WHY THIS SHAPE -- never write both saying
+                  the same thing.
+  DOC SYNC        fold into CLEANUP on a sheet of three steps or fewer.
+  UNVERIFIED      never omitted. Nothing unverified is itself a claim, so
+                  write that one line rather than deleting the block.
+
+WHY THIS SHAPE's four-line cap is the plan/no-plan test: run out of room and
+the work needed a plan. It measures explanation, not risk -- a change that
+explains in one line can still touch thirty call sites. The second signal is
+steps that cannot be stated as vertical slices each leaving a working app.
+Neither one alone is enough.
+
+
+==============================================================================
+UNVERIFIED
+==============================================================================
+  [ ] <An assumption this sheet rests on that has not been read or measured.
+      If a throwaway script answers it in under a minute, run it now, write
+      the answer inline, and mark it [x] before Step 1 starts. Only leave it
+      open when the built system itself is needed to observe it.>
+
+
+==============================================================================
+GOVERNING RULE
+==============================================================================
+<The one rule every step below serves, in three sentences. Omit this block
+when there isn't one.>
+
+
+==============================================================================
+STEP 1  <NAME>
+==============================================================================
+  [ ] 1a  <A thing to do, not an explanation of why.>
+  [ ] 1b  <...>
+
+EXIT
+  [ ] Mark every action box above [x]. Here, never at the next ENTRY -- a
+      gate that marks its own boxes cannot audit them.
+  [ ] ruff, pyright, check_docstrings -- at zero, reported separately from
+      the gesture below
+  [ ] <The gesture to run, naming what to look for>, or "no launch test
+      this step". Marked only after Mike confirms, so action boxes ticked
+      with this one open reads as "code in, unverified, waiting on him".
+
+
+==============================================================================
+STEP 2  <NAME>
+==============================================================================
+ENTRY
+  [ ] Every box in STEP 1 is [x]. Stop and close it if not.
+
+  [ ] 2a  <...>
+
+EXIT
+  [ ] ruff, pyright, check_docstrings -- at zero, reported separately from
+      the gesture below
+  [ ] <gesture>, or "no launch test this step"
+
+
+==============================================================================
+STEP n-1  DOC SYNC
+==============================================================================
+ENTRY
+  [ ] Every box in the prior step is [x]. Stop and close it if not.
+
+  [ ] Grep every doc for names this sheet made stale. Re-derive counts from
+      source rather than incrementing them.
+  [ ] Repoint each hit at a surviving code symbol -- the module and the
+      functions in it, never at a doc that named them.
+
+
+==============================================================================
+STEP n  CLEANUP
+==============================================================================
+ENTRY
+  [ ] Every box in the prior step is [x]. Stop and close it if not.
+
+  [ ] vulture -- read every finding and decide it. Not a step gate:
+      unreferenced is the normal transient state mid-refactor, and a finding
+      left red on purpose is a decision, not a failure.
+  [ ] Drain the defects.txt or backlog.txt entries this sheet closes.
+  [ ] Delete every harness and spike this sheet created.
+  [ ] Make this sheet safe to delete: grep its own filename and any ID it
+      introduced, and repoint every hit. Grep, do not recall -- the count
+      has been zero and it has been seven.
+  [ ] State what git status should show.
+
+Mike deletes this sheet.

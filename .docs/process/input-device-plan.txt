@@ -6,11 +6,20 @@ SEQUENCING, DECIDED 2026-08-02: build this after core-arch-plan.txt's own
 build lands, not before. Wires AudioCapture.rebuild() once, against the
 post-merge architecture, instead of once now and once again after.
 portaudio_io.py's vulture findings (reinit, resolve_by_name, open_probe,
-start_hold, stop_hold, time_info) stay overridden at commit time until
-this build actually calls them. Nothing imports the module at all today --
+start_hold, stop_hold) stay overridden at commit time until this build
+actually calls them. Nothing imports the module at all today --
 measured 2026-08-04, it is the only unreferenced module in the package.
 
-DECIDE WHEN THIS BUILD SHEET IS WRITTEN: which of those six survive.
+time_info is a sixth vulture finding and is NOT waiting on a call site. It
+is a positional parameter in sounddevice's callback signature (indata,
+frames, time_info, status) -- PortAudio passes all four whether the body
+reads them or not, and vulture flags only this one of the three the body
+ignores. It ends as an inline suppression beside start_hold's callback,
+never as a caller; deleting the parameter to clear the warning breaks the
+callback. Overturned only by start_hold not surviving the decision below,
+which takes the whole function and this note with it.
+
+DECIDE WHEN THIS BUILD SHEET IS WRITTEN: which of those five survive.
 Whatever the sheet does not call is dead for good, and the sheet is the
 first document that has to name every call site, so the question answers
 itself there rather than needing a guess earlier. reinit,
@@ -138,6 +147,17 @@ DETECTION, TWO TOOLS FOR TWO DIFFERENT MOMENTS:
   - Did the actual recording attempt fail? The real open, at PTT press --
     not a separate check, just handling that attempt's own outcome.
 
+SILENT WAIT AT LAUNCH -- observed, not yet designed. Today AudioCapture
+resolves the device in its constructor, before stt.load(), retrying 5 times
+a second apart. Nothing is logged before or during that window, so the
+console shows the session block and then up to five seconds of nothing --
+which reads as the model loading, because that is the next thing that
+appears. Observed live while forcing a mic-fault: no output at all until the
+fault modal, and no loading dots, because the daemon never reached its
+"Loading model" line. Whatever replaces this check should say something
+while it works. Ties to input-device-plan-defects.txt item 3, which asks
+whether the retry survives at all -- this applies either way.
+
 Dropdown queries fresh every time it is pulled down, not once at Settings-
 open. Plug in, pull down, device appears. This IS the hot-swap mechanism --
 no watcher, no live state. One shared query function, called on demand by
@@ -147,14 +167,17 @@ reinit() THEN enumerate_inputs()/resolve_by_name() -- enumerate alone
 returns stale data (CONFIRMED FROM SOURCE above). A build that calls
 enumerate_inputs() by itself, without reinit first, is not this design.
 
-WIDGET GAP: vdict_tray.py's mic dropdown is currently a plain tk.OptionMenu
-(still offering the now-dead DEFAULT_MIC_LABEL/System-Default choice --
+WIDGET GAP: the mic dropdown (settings.py) is
+currently a plain tk.OptionMenu
+(still offering the now-dead settings.DEFAULT_MIC_LABEL/System-Default
+choice --
 untouched, real build-sheet work), and tk.OptionMenu has no native
 on-open refresh hook -- "queries fresh every pull-down" needs one added.
-Same file already has a working precedent: the Help menu's tk.Menu uses
-postcommand (_sync_help_menu) to refresh its Error Log state on every open,
+menu.py already has a working precedent: the Help menu's tk.Menu uses
+postcommand (menu._sync_help_menu) to refresh its Error Log state on every
+open,
 and OptionMenu exposes that same underlying tk.Menu via ["menu"] (already
-used elsewhere in this file too). Copy that pattern, don't invent a new
+used elsewhere in settings.py). Copy that pattern, don't invent a new
 one or swap widgets.
 
 ONE MODULE OWNS ALL DIRECT sounddevice CONTACT -- enumerate, resolve-by-
@@ -250,7 +273,7 @@ categories:
     a proposed pattern, not an established one. Exact category (done vs
     block vs a new one) not picked -- build-sheet decision.
   Which restart happened (full vs PortAudio-only) -> worth surfacing.
-    vdict_tray.py's _log_session_block already logs session details on
+    session.py's log_session_block already logs session details on
     every restart right now (confirmed in current code) -- unrelated to
     B1, which hasn't started -- this would ride along with that existing
     mechanism, not need a new one.

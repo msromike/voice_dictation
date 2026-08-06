@@ -3,9 +3,12 @@ VOICE DICTATION - BACKLOG
 Work not yet done. Drains to empty.
 Wrong-now -> defects.txt.
 
-Four groups, in order: REFINEMENTS, NEW FEATURES, PRE-PUSH, then FUTURE /
+Four groups, in order: REFINEMENTS, PRE-PUSH, NEW FEATURES, then FUTURE /
 MAJOR EXPANSION at the bottom -- items whose scale changes the shape of
 the product, not just what it does within today's shape.
+
+PRE-PUSH sits ahead of NEW FEATURES because shipping is a decision point
+reached once refinements drain, not the last thing after every feature.
 
 
 ------------------------------------------------------------------------------
@@ -67,7 +70,7 @@ B8. WINDOW CONTROLS -- MINIMIZE, X AND EXIT SHOULD DIFFER -- REFINEMENT
 The confirm dialog needs icon=WARNING.
 
 THE PROBLEM
-X kills the daemon. vdict_tray.py maps WM_DELETE_WINDOW to exit_app, so closing
+X kills the daemon. app.py maps WM_DELETE_WINDOW to exit_app, so closing
 the output window stops dictation. The confirm dialog exists to guard a
 behavior users do not expect; conventional actions do not need one.
 
@@ -84,7 +87,8 @@ THE ARRANGEMENT
               deliberate, conventional actions, nothing to guard.
 
 THE WORK
-  - Remove the <Unmap> binding and _on_unmap so minimize is native.
+  - Remove the <Unmap> binding and _on_unmap (app.py) so minimize
+    is native.
   - Repoint WM_DELETE_WINDOW from exit_app to hide_window, or to a
     confirm-then-exit path when ui.close_button_exits is set.
   - The Config model gains ui.close_button_exits, default False.
@@ -97,13 +101,14 @@ THE WORK
     it's on). Tray menu Exit and File > Exit call the same underlying quit
     logic without the dialog.
 
-exit_app's entry-point-aware gating sits on _force_quit/_run_shutdown_steps,
+exit_app's entry-point-aware gating sits on app's _force_quit and
+_run_shutdown_steps,
 which vdict-encap-plan.txt's DECISIONS marks as disappearing, not
 relocated, once the daemon subprocess merges away -- this logic gets
 re-pointed at core-arch's shutdown sequence then, not rebuilt.
 
-_save_console_state already runs inside hide_window. Geometry tracking is bound
-to <Configure> and is unaffected.
+app's _save_state already runs inside hide_window. Geometry tracking is bound
+to <Configure> inside geometry.manage() and is unaffected.
 
 Re-verify the hotkey raises a taskbar-minimized output window.
 
@@ -115,14 +120,16 @@ tray icon". The app only disappears when the user asks it to.
 ==============================================================================
 B11. SETTINGS AND THE OUTPUT WINDOW SHOULD OPEN AND CLOSE TOGETHER -- REFINEMENT
 ==============================================================================
-open_settings doesn't show the output window -- Settings can be open with
+settings.open_settings doesn't show the output window -- Settings can be
+open with
 no visible feedback while dictating. hide_window doesn't close Settings if
 it's open either. Neither currently happens; README's "Opens Settings
 without opening the output window first" is accurate today, becomes wrong
 once this lands.
 
-Fix: open_settings calls show_window first, ahead of the existing-window
-return. hide_window calls Settings' on_close if a settings_win exists.
+Fix: settings.open_settings calls show_window first, ahead of the
+existing-window
+return. hide_window closes Settings if one is open.
 Closing Settings on its own does not touch the output window -- one
 direction only.
 
@@ -139,9 +146,9 @@ built on top of the data.
 
 Mechanism built 2026-07-31 as part of the unified output-logging
 redesign (output-logging-build-sheet.txt STEP 7, 7c/7d) --
-transcript_log(text), a dedicated logger with one RotatingFileHandler
+transcript.write(text), a dedicated logger with one RotatingFileHandler
 (maxBytes=100MB, backupCount=5, encoding="utf-8"), LOG_DIR /
-"transcript_log.txt". Gated on TRANSCRIPT_LOG_ENABLED (a module
+"transcript_log.txt". Gated on vdict/tray/transcript.py's ENABLED (a module
 constant, not a Settings checkbox) -- what's left here is only the
 View-menu toggle itself, still not built.
 
@@ -168,7 +175,7 @@ produce labeled examples for that, but would not run the training itself).
 
 Prototype as a standalone sidecar script first, not in-app. Cheapest way
 to prove the risky part (does this actually improve punctuation quality)
-without touching vdict_tray.py's menu, process management, or model-
+without touching the app's menu, process management, or model-
 loading code at all. Integrate into the app later only if it earns it --
 could just as easily stay a documented external tool in the README.
 
@@ -176,7 +183,8 @@ could just as easily stay a documented external tool in the README.
 ==============================================================================
 B17. SETTINGS MODEL DROPDOWN -- CURATED LIST, NOT AUTO-GENERATED -- REFINEMENT
 ==============================================================================
-open_settings hardcodes five models ("tiny.en", "base.en", "small.en",
+settings._build_model_row hardcodes five models ("tiny.en", "base.en",
+"small.en",
 "medium.en", "large-v3"). faster_whisper currently supports 19, read from
 faster_whisper.utils._MODELS -- count drifts, don't hardcode it in prose.
 
@@ -189,13 +197,14 @@ the safe default; adding large-v3-turbo is a build-sheet call, not
 decided here. Write the population logic so B22's escape hatch can reuse
 the same available_models() call, filtered differently.
 
-No gate, no P-item -- independent of P1's mechanical open_settings split.
+No gate -- independent of the mechanical open_settings split.
 
 
 ==============================================================================
 B20. RELAUNCH RAISES THE RUNNING INSTANCE INSTEAD OF JUST SAYING SO -- REFINEMENT
 ==============================================================================
-The mutex check (vdict_tray.py:1502-1514) already detects a second launch
+The mutex check (vdict_tray.py's ERROR_ALREADY_EXISTS branch) already
+detects a second launch
 attempt -- currently just shows "already running" and exits, leaving the
 user to find the tray icon themselves. Standard single-instance behavior
 elsewhere is to bring the running instance forward instead.
@@ -213,7 +222,7 @@ the acknowledgment.
 ==============================================================================
 B23. SETTINGS DIALOG LAYOUT -- GROUP BY FUNCTION, NOT ONE LONG STACK -- REFINEMENT
 ==============================================================================
-open_settings lays out every control in one vertical stack -- microphone,
+settings.py lays out every control in one vertical stack -- microphone,
 PTT button, PTT mode, AI model, compute device, audio beeps, console-on-boot,
 console hotkey -- no grouping, no visual separation between unrelated settings.
 
@@ -225,16 +234,16 @@ comes up.
 
 
 ==============================================================================
-B25. __version__ IS DEFINED THREE TIMES -- REFINEMENT
+B25. __version__ IS DEFINED TWICE -- REFINEMENT
 ==============================================================================
-vdict/__init__.py, vdict_daemon.py and vdict_tray.py each declare
-__version__ = "1.0.0". Consumed by the daemon's ready banner, the About
+vdict/__init__.py and vdict_daemon.py each declare __version__ = "1.0.0".
+vdict_tray.py's third copy died with the split's step 12. Consumed by the daemon's ready banner, the About
 box, and the Settings version label. Bump one and miss the others and the
 About box silently ships the wrong number -- no error, no test catches it.
 
-P4 removes the vdict_tray.py copy as a side effect of gutting that file
+The vdict_tray split removes that copy as a side effect of gutting the file
 (tray side reads vdict/__init__.py). This item is the vdict_daemon.py copy
-only, which P4 leaves alone as out of scope.
+only, which that split leaves alone as out of scope.
 
 
 ------------------------------------------------------------------------------
@@ -297,8 +306,8 @@ PUSH-DAY ACTIONS (blocked: no remote, repo does not exist yet)
     and shown in search results. Currently unset.
   - A tagged release: indexed separately from the repo, gives people a
     download target instead of a clone.
-  - PROJECT_URL is a 404 (vdict_tray.py:39, github.com/msromike/voice_
-    dictation) -- Help > Documentation, F1, and the About box all open a
+  - PROJECT_URL is a 404 (github.com/msromike/voice_dictation) --
+    Help > Documentation, F1, and the About box all open a
     dead link today. Resolves itself on push if the repo name matches
     exactly -- verify after pushing.
 
@@ -533,7 +542,7 @@ ever trained .en variants for tiny/base/small/medium -- large-tier
 models (including large-v3-turbo, in the show-all list) are
 multilingual-only, no .en version exists to switch to.
 
-CUDA detection already exists -- _has_cuda() (vdict_tray.py, Compute
+CUDA detection already exists -- settings._has_cuda() (Compute
 Device section) already probes and disables the GPU option when no CUDA
 device is found. Reuse it, don't reinvent the probe.
 
@@ -743,7 +752,7 @@ the same identifiable voice across multiple separate videos/sessions,
 not one clip -- just play a different video from the same channel each
 session instead of downloading a batch.
 
-DEV-ONLY CAPTURE FLAG, same pattern as P7's FLAC_CORPUS_CAPTURE_ENABLED:
+DEV-ONLY CAPTURE FLAG, same pattern as FLAC_CORPUS_CAPTURE_ENABLED:
 a bare code constant, not Settings, gates whether ambient mode's
 processed chunks are retained instead of deleted. Needed to feed real
 multi-speaker corpora (including the spike above) through the actual

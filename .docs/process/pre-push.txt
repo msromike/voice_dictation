@@ -24,7 +24,8 @@ False positives live in tools\vulture_whitelist.py.
 ==============================================================================
 P3. VERSION AND CHANGELOG
 ==============================================================================
-__version__ in vdict_tray.py bumped.
+__version__ bumped in vdict/__init__.py and vdict_daemon.py -- two copies
+today, both must match.
 CHANGELOG.md [Unreleased] promoted to a dated version matching it.
 
 

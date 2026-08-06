@@ -13,7 +13,19 @@ Never propose+implement same turn. Never explain an item from the build sheet's 
 first confirming it against the code as it exists right now.
 The re-review IS a review. Code disagreeing with the sheet is a finding -- surface it before
 the explanation, never reconcile it into one silently.
-Explain in plain English.
+Per item, grep .docs/ for the symbols that item moves. A doc disagreeing with the sheet is
+a finding too, same as code. Catches a contradiction at the step that causes it, not at the
+cleanup step nine items later.
+The report says what that grep returned, "no hits" included. A check that is silent when
+clean cannot be told apart from one that never ran.
+Explain in plain English, at recap length. Name the expansion axes, don't spend
+them -- "deeper on request: X, Y" says depth exists without paying for it.
+Expansion axes are explanation depth only. An open choice is a question, never a
+"deeper on request" note -- approval turns that note into my own call, made where you
+cannot see it. Two open choices -> ask one, carry the other.
+Explain closes with a fixed block, in order: what changes on disk, concrete enough to
+reject -- then either one open choice as options with a REC, or the words "nothing
+open". Never a third thing.
 Report names what ran separately from what linted. Never one word for both.
 Report ends with the gesture to run, or "no launch test this step". Never implied.
 Item boundary = risk seam, not feature size. Cross-process state (tray/daemon) or a required
@@ -57,15 +69,38 @@ it beat, why. Stops re-derivation, not questioning. Build sheets: ALREADY WEIGHE
 ## Docs
 backlog.txt = work to do.    Drains to empty. A reminder, not a design doc.
 defects.txt = wrong now.     Drains to empty.
+An observation inside a live plan's scope goes into that plan, not backlog --
+backlog is for work with no owning plan. Capture it there when found; the
+plan's own true-up integrates it. Waiting for the true-up to rediscover it
+is how it gets lost.
 Done = app runs + backlog empty + defects empty.
+Defects drain at the end of the build sheet that owns the code, before the next
+plan starts. pre-push.txt's empty-defects gate is the outer bound, not the
+cadence. A defect whose sites relocate mid-sheet drains after they land, so each
+one is touched once.
+No sheet owns the code, or it loses data or blocks launch -> drains now. Waiting
+on a boundary it does not have is how a defect becomes push-only by accident.
 A backlog entry is a few lines. Design goes in a build sheet when the item comes up.
+Writing a build sheet starts by copying .docs/templates/build-sheet.txt. Copy it,
+fill the slots, delete its HOUSE STYLE block at the end. Never write one from
+scratch or from another sheet -- that is how the gates went missing.
 Mike deletes the sheet himself, once it is no longer needed.
 NO LINE NUMBERS in docs. Name a greppable symbol.
+NO BARE TAGS in docs. The title is the identifier -- "the vdict_tray.py split",
+not "P4". Tags are conversational shorthand; nothing durable depends on one.
+One letter, one series. B=backlog, D=defects, P=pre-push. A new series never
+reuses a taken letter.
 Durable facts go in a code comment at the point of temptation
+
+## Build order
+.docs/process/roadmap.txt holds the order of the work and why. Read it before
+proposing what comes next -- it changes far more often than this file, and a
+second copy of the order here is how it went stale in a day.
 
 ## Processes
 venv\Scripts\pythonw.exe is a redirector stub -- every logical process appears TWICE.
 Four pythonw = normal. Filter on "vdict", not "voice_dictation".
 
 ## Search
-.docs/ is hidden+gitignored -- ripgrep skips it by default; .rgignore re-includes it.
+.docs/ is hidden -- ripgrep skips it by default; .rgignore re-includes it.
+Tracked in git on purpose during development. Gitignored before the push.
