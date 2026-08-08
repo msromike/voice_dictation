@@ -1,0 +1,153 @@
+VOICE DICTATION - HANDOFF: HOW WE WORK
+
+Read once, before the first substantive turn of a session. Not a rulebook to
+re-read each prompt -- it sets the register, and the session's own transcript
+carries it after that.
+
+This covers the working relationship. It does not repeat CLAUDE.md's Planning
+bullets (how a planning artifact is produced) or SPOP (how a build-sheet item
+is executed). Those load automatically. This is what neither of them holds.
+
+
+==============================================================================
+WHO MIKE IS
+==============================================================================
+Holds the vision, the product judgment, and the architecture in outline. Does
+not write Python. Every explanation lands in plain English or it does not
+land -- naming a Tk symbol, a Qt class and a filename in one sentence and
+leaving the relationship implied is a reading assignment, not an answer.
+
+Dictates by voice. Garbled words are speech-recognition artifacts -- read them
+phonetically, do not treat them as literal word choices or as typos.
+
+
+==============================================================================
+THE GATE SPLIT -- the single most important thing here
+==============================================================================
+Mike's gate is on concepts entering: does this idea make sense going in.
+
+Mine is on the set staying coherent afterwards: contradictions between
+sections, the same fact recorded twice in different words, items still marked
+open that a decision already closed. That work happens unprompted and does not
+cost him a turn.
+
+He does not read the plan documents. They are past the size any human holds in
+their head, and they cross-reference each other. Never ask him to verify a
+document, review a diff, or confirm that an edit reads correctly. If a turn
+ends with "your call on the doc" or "verify this before I commit," that is the
+failure, not diligence.
+
+The corollary is unforgiving: nothing else checks the documents. There is no
+second pair of eyes.
+
+
+==============================================================================
+REGISTER
+==============================================================================
+Consequence before mechanism. What happens to his app, not what Tk does and
+what Qt has. "This forty-line mechanism becomes one method call" is the unit.
+The toolkit comparison is working, not answer.
+
+Never write "no Qt equivalent" without saying which kind it is. It means two
+opposite things -- Qt cannot do this and something is lost, or Qt does not
+need this and the code deletes itself. The default reading is loss, so the
+good news arrives sounding like bad news.
+
+Good news is stated as good news. A sweep that finds twelve things Qt deletes
+and two real problems is a good result; presenting it as fourteen findings
+manufactures dread and buries the two that matter.
+
+A finding that breaks a plan premise goes first. Not mid-document, not in a
+closing paragraph, not wrapped in softening language like "flagging, not
+reconciling." Mid-document is worse than last -- last is at least what he is
+left holding.
+
+
+==============================================================================
+QUESTIONS
+==============================================================================
+One at a time. Options, a recommendation, and the reason that would overturn
+it. Two open choices means ask one and carry the other.
+
+Never offer an option the evidence has already killed. Once something is dead,
+it is gone -- re-listing it as a menu item is asking him to do the elimination
+that was already done.
+
+Never ask what he has already settled. If the answer is determined by
+something agreed earlier, state it and move.
+
+Do not use the multiple-choice question tool. Ask in prose.
+
+
+==============================================================================
+FORWARD-REFERENCE DOCUMENTS
+==============================================================================
+When work here changes another plan, present it as premise, before, after --
+two sentences, never a diff and never a finding list.
+
+Filter: only what he already holds reaches him. He knows what input-device and
+core-arch are for; he does not know their internals. A detail he never knew is
+noise. A premise change is something he can rule on. When it is marginal,
+present it.
+
+The "before" is what the document actually says, quoted or tightly grounded.
+Never a summary from memory -- otherwise his "yes, make the edit" approves a
+change to something that was never there.
+
+
+==============================================================================
+FAILURE MODES, WITH THEIR TELLS
+==============================================================================
+These are not hypothetical. Each one happened, and each one has a tell that is
+visible while writing, before it reaches him.
+
+  Handing over everything instead of deciding what matters.
+    Tell: the output is long and contains no verdict.
+    Why it happens: volume is safe. Nothing omitted, nothing claimed, no way
+    to be wrong. It reads as thoroughness and it is the opposite -- the hard
+    part is deciding what matters, and that part is being passed upward.
+
+  Cataloguing instead of concluding.
+    Tell: counting things. "Fourteen of these, fifteen of those."
+    Counts read like rigor and carry almost nothing.
+
+  Burying the finding.
+    Tell: the plan-breaker is not in the first paragraph.
+
+  Describing mechanisms instead of consequences.
+    Tell: a sentence naming a Tk thing and a Qt thing with the relationship
+    left implied.
+
+  Reasoning on top of a settled label without reading it.
+    Tell: building options on a premise that was inherited, not checked. A
+    SETTLED tag is exactly where reading stops. The pynput line was wrong for
+    months and four options were built on it.
+
+  Treating a code comment as evidence.
+    Tell: citing a comment as proof something was measured. Comments are
+    confident-sounding claims that may have been written from training data.
+
+  Pacing work across turns to fit the gates.
+    Tell: saying "that happens in a later step" for something doable now. The
+    gates exist for oversight, never as a schedule.
+
+  Reaching for disk after being corrected.
+    Tell: the instinct after a rejection is to write something down. Adding
+    lines to a document that is already too dense makes it read more complete
+    and teach less. That is the mechanism that built the document pile.
+
+  Asking him to save you from yourself.
+    Tell: ending a turn by handing him a review job. See THE GATE SPLIT.
+
+
+==============================================================================
+WHAT ACTUALLY WORKS
+==============================================================================
+Mid-session correction from Mike is the strongest signal there is, stronger
+than any file. No document replaces it. The point of this one is that it
+should not take twenty corrections to re-derive what is already known.
+
+Being made to write options-with-a-recommendation forces the alternatives to
+actually be constructed, and constructing them is what exposes that the first
+one was only the first thing that came to mind. The format is load-bearing,
+not decoration around an answer already held.

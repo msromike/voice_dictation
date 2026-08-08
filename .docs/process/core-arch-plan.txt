@@ -48,6 +48,9 @@ OPEN ISSUES -- worth tracking, does not gate the build sheet
     output-window hotkey are both confirmed Listener-category fields that
     weren't in the original inventory. Finish this when the build sheet
     gets drafted, not as a separate pre-step.
+  - stt.py's GPU-primer thread: QRunnable on QThreadPool, or left as a
+    plain thread? Moved from the Qt port plan -- it is mechanics, and this
+    plan is what restructures that code.
   - Hotkey extensibility. hotkey.py's existing register()/unregister()
     (one thread, one Windows message pump) generalizes cheaply to
     multiple registered hotkeys -- _HOTKEY_ID=1 is the only thing
@@ -285,11 +288,6 @@ FATAL VS RECOVERABLE
 ==============================================================================
 LOGGING MIGRATION
 ==============================================================================
-Full detail: ref-output-logging-build-sheet.txt and
-ref-output-logging-categories-results.csv, restored to .docs/process/ from
-git history for this purpose -- not comprehensive here on purpose, that's
-what they're for.
-
   - GENERAL RULE: when a function or branch gets rewritten or removed by
     this refactor, any log() call inside it must be explicitly carried
     into whatever replaces it. Logging does not survive by default just
@@ -315,9 +313,10 @@ what they're for.
     content need redefining, not just relocating verbatim.
   - mic-fault/model-fault survive as categories, but their modal/dispatch
     bundles don't carry over as-is -- they need to match FATAL VS
-    RECOVERABLE's recoverable-vs-unrecoverable split. Already flagged
-    from the input-device side (input-device-plan-defects.txt item 2);
-    same rework, cross-referenced here from the logging side.
+    RECOVERABLE's recoverable-vs-unrecoverable split. Open for the mic-fault
+    modal specifically, once the daemon no longer exits on a mic fault: does
+    Close just dismiss, with the daemon already running and Settings already
+    open underneath, and does MIC_FAULT_FLAG_PATH get deleted outright?
   - log()'s actual new mechanism is still the BLOCKERS item at the top --
     this section doesn't resolve that, it's why that blocker matters.
 

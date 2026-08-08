@@ -122,6 +122,13 @@ on it.
 ==============================================================================
 DESIGN
 ==============================================================================
+CONTINGENT ON THE LIVE CONFIG OBJECT. Three pieces of this design assume the
+re-read/diff loop and the audio.device in-process rebind tier already exist:
+AudioCapture rebuilt in place, Settings' immediate-probe-then-live-or-restart
+branch, and the daemon never exiting on a mic fault. Built against today's
+full-restart-only daemon, all three get rewritten when that lands. Order is
+roadmap.txt's, not restated here.
+
 NO SYSTEM DEFAULT. ANYWHERE. EVER. This app never reads Windows' notion of
 a default input device, not even once at bootstrap. The dropdown lists
 real device names only -- System Default is not, and never will be, an
@@ -155,8 +162,9 @@ which reads as the model loading, because that is the next thing that
 appears. Observed live while forcing a mic-fault: no output at all until the
 fault modal, and no loading dots, because the daemon never reached its
 "Loading model" line. Whatever replaces this check should say something
-while it works. Ties to input-device-plan-defects.txt item 3, which asks
-whether the retry survives at all -- this applies either way.
+while it works. Open: does the 5-attempt retry survive at all, or does the
+sleep/wake USB re-enumeration case need to survive somewhere else once
+resolution moves off a cached device_id? Applies either way.
 
 Dropdown queries fresh every time it is pulled down, not once at Settings-
 open. Plug in, pull down, device appears. This IS the hot-swap mechanism --

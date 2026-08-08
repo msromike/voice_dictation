@@ -26,16 +26,16 @@ NEVER OMIT       GOAL (a paragraph), EVIDENCE, SCRATCHPAD.
 
 
 ==============================================================================
-SCRATCHPAD -- the plan is done when it is accurate and this is empty
+SCRATCHPAD -- discovery not yet run. First of four to drain; DESIGN names
+the order and what empties each
 ==============================================================================
 Nothing here is a decision and nothing downstream may cite it. A settled item
 lands wherever it belongs, often in several sections at once, and is deleted
 here in the same edit.
 
   - What else does the port break downstream? Only input-device and core-arch
-    surfaced, both by accident. Sweep backlog, pre-push, both plans,
-    spike-notes and the logging reference. Three reading lenses, run
-    separately -- a lens is a reading mode and modes do not compose:
+    surfaced, both by accident. Three reading lenses, run separately -- a lens
+    is a reading mode and modes do not compose:
       survival: does the item still make sense as written, or was it designed
         against a constraint that is gone
       cost:     does the port make it cheaper or more expensive. More
@@ -45,23 +45,42 @@ here in the same edit.
         cause -- the volume mixer was refused over four pythonw entries
     Then a grep for moved symbols, which is TRUE-UP's and not a lens.
     Qt-shaped is the lens already run, and it cannot find these.
-    Backlog earns all three. Smaller docs earn one pass.
-    Runs after the audio rig. Most of the forward impact already known is
-    audio, so a bad rig result shrinks the surface before it is swept.
-  - What defines a Tk touchpoint? EVIDENCE's module facts came from a census
-    against a recalled pattern list -- bind, protocol, after, StringVar,
-    tag_config and so on -- so any idiom outside it is invisible, and the
-    facts are recorded as though complete. Same blind spot as the import
-    sweep that missed pyperclip. Derive the set before re-running. Separate
-    from the forward-reference sweep: that one reads documents, this one
-    reads our code.
+    Passes, in order. Each is its own chunk; the item drains when the last
+    one lands:
+      1  input-device-plan.txt, all three lenses -- hit hardest, already
+         breadcrumbed, and the next roadmap item after the port
+      2  core-arch-plan.txt, all three lenses
+      3  pre-push.txt and spike-notes.txt, survival and cost only -- neither
+         carries a rejection block
+      4  backlog.txt, survival
+      5  backlog.txt, cost
+      6  backlog.txt, revival
+    Output is findings for this plan plus a TRUE-UP breadcrumb, never an edit
+    to the doc being read.
+  - What can a user actually do today? DELIVERABLES defines parity as every
+    menu item, dialog, binding and behaviour a user can reach, and no such
+    list exists. The census derived Tk mechanisms -- what the code uses, not
+    what a user can do. Different sets. Derive from the source, never from
+    memory of using the app: every menu entry and its command, every bound
+    key sequence, every tray action, every dialog and its buttons, and every
+    behaviour reachable without touching a menu. Parity is checked against
+    this at build time, and the Qt-surface sweep below reads against it.
+  - What breaks when the port's dependencies go? Derive the set from
+    requirements.txt and from the imports actually present in the tree, then
+    mark each keep, drop or replace. Never hand-list it -- sounddevice,
+    pystray, pyperclip and win32event are known drops and a starting point,
+    not the set. Deferred imports hide from a leading-import grep, so read
+    rather than grep. Nothing has derived what imports each, or what depends
+    on a library's behaviour rather than its name.
   - What would a Qt developer's plan for this app contain that this one does
     not? Every pass so far asked what is wrong with the plan. Nobody has read
-    it against what someone who had never seen Tk would have written. Same
-    blind spot that swept 45 Qt example categories against today's feature
-    set and dismissed most of them. GOAL carries the per-decision version --
-    ask what Qt exposes first -- and nothing checks the document as a whole.
-  - Should stt.py's GPU-primer thread become QRunnable on QThreadPool?
+    it against what someone who had never seen Tk would have written. GOAL
+    carries the per-decision version -- ask what Qt exposes first -- and
+    nothing checks the document as a whole. Method: enumerate Qt's installed
+    module surface and the example categories in the pyside-setup clone, then
+    read each against the parity inventory, never against today's feature
+    set. Reading against today's features can only confirm what was already
+    built -- that is what dismissed 45 example categories the first time.
 
 
 ==============================================================================
@@ -78,6 +97,11 @@ keeping gets written down, not left in the conversation that found it.
 ==============================================================================
 DELIVERABLES
 ==============================================================================
+This list grows. A discovery pass that turns up something Qt makes possible
+adds a deliverable here, and assigns it to a pass -- that is what the passes
+are for, not scope creep to be resisted. GOAL's "useful now, useful later,
+or not at all" is the filter; nothing else gates entry.
+
 PASS 1 -- THE FRAMEWORK
 Treated as atomic on the claim that one event loop owns the main thread, which
 DESIGN still lists as unverified. Parity means every menu item, dialog,
@@ -90,14 +114,18 @@ implementation -- reproducing a Tk accident is not parity.
   - Worker output reaches the console through signals. output_queue, the
     100ms tick and console.drain() stop existing, and something else reports
     the daemon's exit -- the tick does that too today.
-  - pynput's callbacks cross into the Qt thread on a signal, not on
-    root.after(0, ...).
+  - pynput leaves the tray. Both Settings captures become an event filter on
+    the dialog reading ordinary Qt events -- no global hooks, no
+    root.after(0, ...) marshalling. UX unchanged: the armed button greys via
+    the stylesheet, left-click ends the capture, Escape still means two
+    things. pynput survives in the daemon only.
   - Single instance is enforced through Qt. win32event.CreateMutex goes.
   - geometry.py and dpi.py are deleted. Window state persists through Qt.
   - The hotkey message pump runs in Qt's event loop, if the spike says it can.
     hotkey.py keeps RegisterHotKey either way.
   - Modals are Qt. The crash-path ones are open in DESIGN.
-  - Clipboard reads and writes are Qt. pyperclip goes.
+  - Clipboard reads and writes are Qt. pyperclip goes, and so do the console's
+    two Tk clipboard paths.
   - Config keeps its current pydantic shape unless the spike says otherwise.
   - Every non-Qt survivor carries the fact that keeps it.
 
@@ -132,41 +160,109 @@ setStyleSheet is equally available.
 ==============================================================================
 EVIDENCE
 ==============================================================================
-READ FROM THIS TREE
-  - console.py sets appearance on the constructor -- bg, fg, selectbackground,
-    inactiveselectbackground, font. No central definition
+READ FROM THIS TREE  (grouped by the surface being rebuilt. A new fact files
+into a group; cross-cutting is for facts no single surface owns.)
+
+OUTPUT WINDOW
   - console.py zoom is hand-built: set_font_size, zoom_step, _zoom_wheel and
     three key bindings
   - worker output: module-level queue, 100ms Tk timer drains it.
     console.drain() is the tray's most complex function
-  - app._tick does two jobs on that same timer, not one -- console.drain()
-    and daemon_proc.poll(), which reports the daemon's exit once
-  - the daemon holds ONE sd.OutputStream open for the whole process life and
-    queues tones into its callback, which writes silence when the queue is
-    empty. The persistence is the point: closing and reopening puts a click
-    on the first tones. That architecture is a workaround, not a preference
+  - the console text widget is permanently DISABLED; every write flips it to
+    NORMAL and back. inactiveselectbackground exists only because a disabled
+    widget never takes focus, so the inactive colour is the only selection that
+    ever draws
+  - console.drain decides a toast by reading root.state() != 'normal'
+
+SETTINGS
+  - settings.py has four tk.OptionMenus -- mic, PTT mode, model size, compute
+    device. None has an on-open hook. The compute-device one reaches into
+    ["menu"] to disable a single entry
+  - settings.py opens with withdraw, -topmost on, update_idletasks, screen
+    measurement, deiconify, update_idletasks, -topmost off, focus_force. All of
+    it prevents a position flash
+  - settings.py guards against stacked windows with a module global,
+    winfo_exists and a caught TclError
+  - two unrelated key-capture paths. hotkey_capture binds <KeyPress> on the
+    button; ptt_capture runs global pynput hooks because it disables the button
+    first, and a disabled widget receives no events
   - ptt_capture marshals every pynput callback back to the Tk thread with
     root.after(0, ...). pynput's listener runs on its own thread
-  - vdict_tray.py enforces single instance with win32event.CreateMutex and
-    an ERROR_ALREADY_EXISTS check
+  - Escape means cancel-capture or close-dialog depending on focus. The capture
+    handler returns "break" so the dialog never sees it
+
+MENU
+  - menu.py: tk accelerator= is display text only, bound separately. The Help
+    menu refreshes via tk.Menu postcommand
+  - menu mnemonics are underline= character indices, and accelerator= is
+    separate from the binding that implements it, so a label can disagree with
+    its key
+
+TRAY AND APP
+  - app._tick does two jobs on that same timer, not one -- console.drain()
+    and daemon_proc.poll(), which reports the daemon's exit once
   - app.py raises the window via
     win32gui.SetForegroundWindow(int(window.wm_frame(), 0)), and detects
     minimize via <Unmap> plus state()=='iconic'
+  - icon.py picks an .ico frame via GetSystemMetrics(SM_CXSMICON) plus PIL
+  - pystray runs its own background thread
+
+MODALS AND CRASH PATH
+  - faults.py builds modality from Toplevel + transient + grab_set
+  - app.py assigns report_callback_exception -- Tk routes every exception
+    raised inside a callback there. It reports through a native MessageBoxW,
+    not a Tk modal, because Tk may be what broke
+  - a Tk modal runs a nested event loop; hotkey_capture unbinds before opening
+    one. Qt dialogs do the same, so this hazard survives the port
+
+WINDOW STATE AND DPI
   - geometry.py: Tk persists no window state, and it parses the geometry
     string with a regex. Windows keeps its own restore rect --
     update_idletasks() between geometry() and state("zoomed")
   - dpi.py: Tk exposes no scaling. Inverse trap -- Tk already scales point
     sizes, so fonts must NOT go through scale()
-  - menu.py: tk accelerator= is display text only, bound separately. The Help
-    menu refreshes via tk.Menu postcommand
-  - settings.py mic dropdown is a plain tk.OptionMenu, no on-open hook
-  - faults.py builds modality from Toplevel + transient + grab_set
-  - icon.py picks an .ico frame via GetSystemMetrics(SM_CXSMICON) plus PIL
-  - pystray runs its own background thread
+  - dpi.py's scale() wraps every pixel dimension in settings.py and faults.py.
+    Deleting dpi.py touches all of them
+
+ENTRY POINT
+  - vdict_tray.py enforces single instance with win32event.CreateMutex and
+    an ERROR_ALREADY_EXISTS check
+  - vdict_tray.py builds a throwaway Tk root and messagebox for the
+    already-running path, separate from app's
+
+AUDIO
+  - the daemon holds ONE sd.OutputStream open for the whole process life and
+    queues tones into its callback, which writes silence when the queue is
+    empty. The persistence is the point: closing and reopening puts a click
+    on the first tones. That architecture is a workaround, not a preference
   - portaudio_io.py is built but unwired -- vulture flags every function
+
+CROSS-CUTTING
+  - appearance is set per widget in console.py (bg, fg, selectbackground,
+    inactiveselectbackground, font) and in settings.py (the banner font, the
+    version label's fg and font). No central definition
+  - a symbol grep cannot see Tk's string-shaped API: the sequences passed to
+    bind(), "break" returned to stop propagation, text indices "1.0" and END,
+    the state() values normal/iconic/zoomed, "WM_DELETE_WINDOW", and widget
+    state strings. Re-derive by reading the tray modules, never by grepping
+    tkinter's names
+  - three clipboards, not one: console.copy fires the <<Copy>> virtual event,
+    console.copy_all uses root.clipboard_clear/clipboard_append, and
+    daemon/keyboard.py uses pyperclip
+  - the dead-widget test is tk.TclError plus winfo_exists, in console.copy and
+    settings.open_settings
+  - layout is pack() throughout. No grid, no place
   - deferred imports hide from a leading-import grep: pyperclip and pyautogui
     in daemon/keyboard.py, huggingface_hub in stt.py, ctranslate2 in
     settings.py. Derive dependencies by reading
+  - three deliberate decisions the rebuild must carry, none of them in a code
+    comment today. They become comments when the rebuilt code is written:
+      "Loading model" is left unterminated on purpose -- the console appends
+        the dots one at a time, so no periods belong in the text
+      CATEGORIES["transcript"] has an empty marker and no colour on purpose --
+        bare text is the point, it must stay copy-paste clean
+      app._force_quit's showerror is a direct call, not category dispatch --
+        it is the half guaranteed to be seen when the console may be gone
   - session.py, const.py and transcript.py contain no Tk mechanisms
 
 MEASURED  (one session, one machine, default input 'Microphone (PDP Audio
@@ -205,7 +301,15 @@ make a Qt symbol checkable instead of recalled.)
   - console: QTextEdit.zoomIn/zoomOut
   - menus: QAction.setShortcut wires the shortcut; QMenu.aboutToShow replaces
     postcommand
-  - key capture: QKeySequenceEdit. Result still needs mapping to Win32 VK
+  - key capture: QKeyEvent.nativeVirtualKey() hands back the Windows VK
+    directly, so the existing Windows naming code needs no mapping layer.
+    QKeySequenceEdit yields a QKeySequence instead, which does
+  - mouse buttons: Qt.MouseButton names XButton1/XButton2 (also BackButton/
+    ForwardButton) and ExtraButton1 upward. QSinglePointEvent.button() reports
+    which one fired
+  - Qt.ShortcutContext.WidgetShortcut scopes a shortcut to a focused widget
+  - QObject.installEventFilter/eventFilter see events on the way to their
+    target; returning False passes them through untouched
   - icons: QIcon reads multi-resolution .ico natively
   - QDataWidgetMapper maps widgets to a QAbstractItemModel, not to a plain
     QObject
@@ -236,6 +340,13 @@ ASSUMED
 ==============================================================================
 DESIGN
 ==============================================================================
+Four things hold open work, and they close in order. SCRATCHPAD is discovery
+not yet run -- it drains first. JUDGMENT waits on nobody and closes next,
+because settling it may collapse items below. ASSUMED is a fact we need and
+lack; each closes by spike or by an explicit decision to build without it.
+BLOCKED waits on a named ASSUMED item and cannot close before it. The plan is
+done when all four are empty -- not when the scratchpad is.
+
 SETTLED
   - All in on Qt, not a GUI-only port. Beat: moving only widgets, which leaves
     two device vocabularies to map between. Both overturn conditions have
@@ -244,8 +355,21 @@ SETTLED
     latency, QCoreApplication, and the tone click. Beat: keeping sounddevice
     because the beeps worked -- they worked through forty lines of machinery
     that a 1ms fade makes unnecessary.
-  - pynput stays for PTT. RegisterHotKey gives a discrete press; PTT needs
-    press-and-hold and mouse x1/x2/middle. Beat: hand-rolled SetWindowsHookEx.
+  - pynput stays in the daemon. PTT must fire while the app is unfocused with
+    the cursor anywhere, which no widget event can do. Not the button naming --
+    Qt names XButton1/XButton2. Beat: hand-rolled SetWindowsHookEx.
+  - pynput leaves Settings. Both captures become ordinary Qt events, read by an
+    event filter on the dialog. Global hooks were only ever needed because
+    ptt_capture disables the button, and a disabled widget receives no events.
+  - the capture UX is unchanged -- the button greys while armed, the captured
+    key appears on its face. Greyed is a stylesheet state, not a disabled
+    widget, or it cannot receive the press.
+  - left-click anywhere in the dialog is not a valid binding: it restores the
+    previous value and ends the capture, while still doing whatever it was
+    going to do. Clicking the armed button toggles the capture off, so "left
+    click ends the capture" holds everywhere with no exception to teach.
+  - Escape stays two things. The armed filter marks it handled; unhandled keys
+    reach the dialog on their own.
   - pyautogui keeps synthesising the Ctrl+V. Qt injects no keystrokes.
     QGuiApplication.clipboard() does replace pyperclip.
   - geometry.py and dpi.py are deleted. Qt 6 has high DPI on by default and

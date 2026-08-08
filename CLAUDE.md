@@ -1,6 +1,10 @@
 # Voice Dictation
 Windows desktop PTT daemon.
 
+Read `.docs/process/handoff.txt` before the first substantive turn of a
+session. It defines how findings are presented, what Mike reviews and what he
+does not, and the failure modes with their tells. Once, not every prompt.
+
 ## Commit Protocol
 Use the `commit-per-protocol` skill, not the global Commit Protocol.
 
@@ -40,6 +44,24 @@ extract the set, then assert.
 Every recommendation: could someone execute this from this text alone?
 End of every planning chunk: what is still open is either settled or written
 where it is found without me.
+
+An investigation chunk reports findings, each carrying a disposition. A bare
+list is not a report -- ordering by discovery hands the sorting back to Mike.
+Dispositions come from the material, never a fixed set. A finding that fits no
+bucket means a missing bucket or a finding not yet understood -- say which.
+Open with how the item's own premise held. Nothing else validates the next
+item before it is run.
+A finding that differs states three things: what was assumed, what was found,
+and whether it is open for discussion or already decided and awaiting approval.
+A finding surfaced mid-discussion re-enters as a finding. Absorbing it into the
+step in flight is how a premise correction gets lost.
+Too coarse is counted in decisions, not findings. More than two needing a
+decision means the item should have been split.
+Disk preview shows every line that came from a decision and every line whose
+phrasing I invented, mechanical lines skipped. A sample I pick for confidence
+proves nothing.
+After the write, re-read for what the edit broke. Report what that found,
+"nothing" included.
 
 ## Verification
 Config-forced tests: BAK AND RESTORE. Copy config.json to config.json.bak

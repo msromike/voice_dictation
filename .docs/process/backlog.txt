@@ -144,8 +144,7 @@ shipping; the toggle has value independent of what, if anything, ends up
 built on top of the data.
 
 Mechanism built 2026-07-31 as part of the unified output-logging
-redesign (ref-output-logging-build-sheet.txt STEP 7, 7c/7d) --
-transcript.write(text), a dedicated logger with one RotatingFileHandler
+redesign -- transcript.write(text), a dedicated logger with one RotatingFileHandler
 (maxBytes=100MB, backupCount=5, encoding="utf-8"), LOG_DIR /
 "transcript_log.txt". Gated on vdict/tray/transcript.py's ENABLED (a module
 constant, not a Settings checkbox) -- what's left here is only the
