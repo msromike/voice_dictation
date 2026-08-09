@@ -101,12 +101,14 @@ EXIT
   [x] Mark every action box above [x]. Here, never at the next ENTRY -- a
       gate that marks its own boxes cannot audit them.
   [x] Launch vdict_run.bat, dictate once, confirm a new FLAC lands in
-      userdata/flac. Exit from the tray, rename dev-flags.toml away, launch
+      userdata/flac -- 1d has since renamed that directory to
+      voice_recordings_PRIVATE, so re-running this looks there instead.
+      Exit from the tray, rename dev-flags.toml away, launch
       again, dictate, confirm none does. Rename it back. Both directions,
       because proving only the ON half passes even if the file is never
       read -- and the relaunch matters: the flag is read at daemon start, so
       renaming it mid-session proves nothing.
-  [ ] "commit per protocol" -- this step is a commit boundary. It replaces
+  [x] "commit per protocol" -- this step is a commit boundary. It replaces
       the hand-run lint line: the protocol runs ruff, pyright, vulture,
       check_docstrings, the complexity report and the imperative-comment
       report, which is strictly more. Gates only run at commit.
@@ -116,13 +118,13 @@ EXIT
 STEP 1  SCHEMA AND THE WRITE POINT
 ==============================================================================
 ENTRY
-  [ ] The prior step's COMMIT exists. git log, not the boxes -- a box is a
+  [x] The prior step's COMMIT exists. git log, not the boxes -- a box is a
       claim anyone can tick in any tool, a commit is a receipt carrying the
       gates that produced it and a message saying what landed. No commit
       means the work was never gated: review the code against the prior step
       and report what is there, then continue. Do NOT stop -- a missing
       commit is a state surprise, and the disk answers it.
-  [ ] Every box in STEP 0 is [x]. The human record, read after the
+  [x] Every box in STEP 0 is [x]. The human record, read after the
       commit, never instead of it.
 
   [x] 1a  userdata/dictation_history_PRIVATE.db, beside the recordings
@@ -247,7 +249,7 @@ EXIT
       gate that marks its own boxes cannot audit them.
   [x] Launch vdict_run.bat, dictate once, and read the row back. The audio
       path in it opens the clip that produced the text.
-  [ ] "commit per protocol" -- this step is a commit boundary. It replaces
+  [x] "commit per protocol" -- this step is a commit boundary. It replaces
       the hand-run lint line: the protocol runs ruff, pyright, vulture,
       check_docstrings, the complexity report and the imperative-comment
       report, which is strictly more. Gates only run at commit.
@@ -283,8 +285,17 @@ ENTRY
           to a clean baseline without needing a watchdog timer.
           TRADE-OFF ACCEPTED: If the user clicks "Send" with a mouse instead of
           pressing `Enter`, and never changes windows, the next dictation will 
-          fuse into the same block_id. This loss of fidelity is accepted because 
+          fuse into the same block_id. This loss of fidelity is accepted because
           the RAG system can natively split blocks with massive timestamp gaps.
+          THE KEYBOARD LISTENER DOES NOT EXIST YET. PTTListener builds either a
+          mouse.Listener or a keyboard.Listener, never both, and the default PTT
+          is a mouse button. This adds a second, always-on one -- and it tracks
+          modifier press/release itself, because pynput's Enter event does not
+          carry modifier state. B5's "what this records" section names it.
+          BLOCK_ID NEEDS SUB-SECOND RESOLUTION. Epoch seconds collide when two
+          windows open a block in the same second. It only has to be unique.
+          WINDOWS RECYCLES HWNDS. Entries only leave active_blocks on Enter, so
+          a closed window's handle can be reassigned and inherit its block.
   [ ] 2f  WRONG NOW, both writing bad data on every capture. Fix before the
           other items here -- rows are the permanent half of this system and
           neither column can be reconstructed afterwards.

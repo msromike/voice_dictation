@@ -24,14 +24,17 @@ plan.
 ==============================================================================
 ORDER
 ==============================================================================
-NOW   corpus-database-build-sheet.txt, on Mike's word. Written, unstarted.
-      One SQLite row per capture linking audio to text, because ambient mode
-      needs a corpus that already exists and a corpus cannot be back-filled.
-      Its own STEP 0 lands dev-flags.toml, which replaces the FLAC capture
-      constant -- absent file means every flag off, so a handed-out copy no
-      longer records whoever receives it. portable-folder-build-sheet.txt 1f
-      defines that file and is ticked when STEP 0 passes. Nothing else gates
-      this sheet.
+NOW   corpus-database-build-sheet.txt, STEP 2. STEP 0 and STEP 1 are built,
+      verified and committed. One SQLite row per capture linking audio to
+      text, because ambient mode needs a corpus that already exists and a
+      corpus cannot be back-filled.
+      Landed so far: dev-flags.toml replaces the FLAC capture constant, so an
+      absent file means every flag off and a handed-out copy records nothing
+      -- that also ticks portable-folder-build-sheet.txt 1f. The captures
+      table, the recordings folder renamed and moved under date subfolders,
+      and daily transcript rotation.
+      STEP 2 opens on 2f, not 2a: two columns are writing wrong data on every
+      capture and the sheet says why. Nothing gates this sheet.
 
       inference-tuning-build-sheet.txt -- written, unstarted, and its
       hardest question is already answered in spike-notes.txt. Measures which
