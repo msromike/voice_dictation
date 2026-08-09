@@ -49,13 +49,16 @@ STEP 1  THE RIG
           model at a given device and compute type, transcribes a fixed clip
           list, and writes one row per clip: config, seconds, audio duration,
           text.
-  [ ] 1b  Select ~200 clips from userdata/flac stratified by duration, and
-          freeze that list to a file. Every arm reads the same list or the
-          numbers are not comparable. Re-derive the corpus size rather than
-          trusting a figure written here.
-          Glob RECURSIVELY. The corpus sheet moves clips into flac/YYYY/MM/DD,
-          so a flat listing silently finds nothing or finds only the
-          stragglers, depending on which sheet landed first.
+  [ ] 1b  Select ~200 clips from the recordings directory stratified by
+          duration, and freeze that list to a file. Every arm reads the same
+          list or the numbers are not comparable. Re-derive the corpus size
+          rather than trusting a figure written here.
+          THE DIRECTORY DEPENDS ON WHICH SHEET LANDED. The corpus sheet
+          renames userdata/flac to userdata/voice_recordings_PRIVATE and puts
+          clips under YYYY/MM/DD inside it. Read FLAC_CORPUS_DIR in
+          vdict_daemon.py rather than either name here, and glob RECURSIVELY
+          -- a flat listing silently finds nothing or finds only the
+          stragglers.
   [ ] 1c  Reference run: large-v3, cuda, float32, over the frozen list. Its
           output is the pseudo-truth every other config is scored against.
           It is not truth; it is the best available and it is consistent.

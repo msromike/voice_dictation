@@ -177,6 +177,24 @@ without touching the app's menu, process management, or model-
 loading code at all. Integrate into the app later only if it earns it --
 could just as easily stay a documented external tool in the README.
 
+THIS TOGGLE IS ALSO THE DISCLOSURE CONTROL, which the item was not written
+for. transcript_log.txt records every transcript on any machine that runs
+the app, with no flag and nothing telling the user it exists. It stays out
+of dev-flags.toml -- portable-folder-build-sheet.txt 1f settled that, and
+for a reason that still holds: this is an unfinished feature waiting on
+Settings, not dev tooling. But that question was "is it a dev flag," never
+"should a handed-out copy write it silently." So the toggle carries a second
+job, and B5's "what this records" section names the file whether or not the
+toggle exists yet.
+DECIDE ITS NAME AND PLACE WHEN THE TOGGLE IS BUILT, not before.
+userdata/logs holds the app's own diagnostics -- tray_error.log and the
+console log -- and this is the only file in there containing the user's own
+words. Three ways out: the PRIVATE label like the database and the
+recordings folder, a move up out of logs/, or leave it. Unlike those two,
+this filename is already self-describing, so the label adds posture and no
+information. Cost of a rename, derived by grep, not recalled: two code sites
+in vdict/tray/transcript.py and nine doc references.
+
 
 ==============================================================================
 B17. SETTINGS MODEL DROPDOWN -- CURATED LIST, NOT AUTO-GENERATED -- REFINEMENT
@@ -281,6 +299,22 @@ DEMO CLIP -- OUTSTANDING
 
   Keep it short, large media is slow on mobile. Image files live in
   images/ at the repo root, which is tracked -- not .docs.
+
+"WHAT THIS RECORDS" SECTION -- OUTSTANDING, WRITE THIS ONE
+  A named section in README.md, not a general instruction to make the README
+  accurate. Three things, in this order: every file the app writes that
+  contains the user's own words, where it puts them, and how to switch each
+  one off. Name them literally --
+  userdata/voice_recordings_PRIVATE, userdata/dictation_history_PRIVATE.db,
+  userdata/logs/transcript_log.txt -- so someone can grep the source and
+  confirm the list is complete.
+  It is the only place the privacy work becomes visible. dev-flags.toml
+  keeping a handed-out copy silent, userdata never riding along in a copy,
+  the PRIVATE filenames -- all of it is invisible to anyone who does not read
+  the code. The posture is that we know what we store, we are not hiding it,
+  and we made it easy to find. Nothing states that today.
+  Say it plainly and do not inflate it. The section is a fact list, not a
+  privacy pledge.
 
 SEO FINDING
   The README describes the app accurately but never uses the words people
@@ -644,6 +678,34 @@ API. Cross-check other new-feature plans before sizing that extraction
 narrower-then-wider one feature at a time.
 
 
+==============================================================================
+B29. CORPUS OPT-IN THE USER CAN SEE AND SWITCH OFF -- NEW FEATURE
+==============================================================================
+dev-flags.toml is dev tooling: a handed-out copy captures nothing, which is
+the right default and the wrong ceiling. A user who never gets the choice
+starts from zero on the day any corpus feature ships, and a corpus cannot be
+back-filled -- the same reason the corpus database sits at the front of the
+roadmap applies to them.
+
+TWO CONDITIONS, both load-bearing.
+  They know up front. Disclosed at the moment it would start recording, in
+  plain words, naming what is stored: their voice, their transcripts, and the
+  title of whatever window they were dictating into.
+  They can turn it off without drama. One switch, no confirmation maze, no
+  warning about what they lose. Off means off from that point; it does not
+  delete what exists, and it does not have to.
+
+NOT dev-flags.toml and not a second flag file. A Settings control, because
+this is a user's choice about their own data and dev-flags is explicitly dev
+tooling only -- mixing them means that file never empties.
+
+The filenames carry the same posture: userdata/dictation_history_PRIVATE.db
+and userdata/voice_recordings_PRIVATE. Someone who opens the folder learns
+what is there without reading code.
+
+B24 ambient mode needs the identical switch on a much larger volume. Build
+one control, not two.
+
 ------------------------------------------------------------------------------
 FUTURE / MAJOR EXPANSION
 ------------------------------------------------------------------------------
@@ -818,3 +880,38 @@ inconsistent, so clipboard stays as the fallback.
 
 This edits documents rather than appending to them. A bug here destroys work
 rather than leaving a stray word.
+
+
+==============================================================================
+B28. SEARCH THE CORPUS BY MEANING -- FUTURE / MAJOR EXPANSION
+==============================================================================
+Ask a question in English and get back what you actually said about it,
+months ago, from a corpus that never left the machine. Embeddings in SQLite
+via the sqlite-vec extension, retrieval by pure vector math, a local LLM
+(Ollama) reading the retrieved rows and answering.
+
+Design lives in vector-analysis-investigation.txt. Read its provenance
+header first -- it is outside work and nothing in it was measured here.
+
+WHY IT IS NOT QUEUED. It adds an embedding model and a generative model to
+a dictation tool, which changes what the product is. It also assumes a
+corpus of ambient transcripts, and ambient mode is B24, unbuilt.
+
+WHAT MAKES IT POSSIBLE LATER IS ALREADY BEING BUILT. Text tied to a
+timestamp tied to an audio file is the whole substrate, and that is
+corpus-database-build-sheet.txt. Embeddings are derived from the text and
+can be computed over the entire history at any time, so the embedding model
+is not chosen now and choosing it early is the worse decision -- vectors
+from two models do not share a space, so any model change discards every
+vector ever stored.
+
+THE HARD PART IS NOT THE DATABASE. Measured over the existing corpus:
+median capture 7.3 seconds, 85 percent under fifteen. Those are utterances,
+not documents, and one embedded seven-second fragment carries almost no
+meaning on its own. Deciding what a retrievable unit is -- grouping
+consecutive captures, embedding windows rather than single rows -- is the
+feature. The storage and search half is arithmetic at this scale.
+
+FIRST CONCRETE STEP, whenever it is pulled: prove sqlite-vec loads, then
+backfill vectors over whatever rows have accumulated. Both run without
+touching the daemon, and the backfill improves the longer it waits.

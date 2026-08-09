@@ -46,6 +46,8 @@ stays open rather than blocking.
       Do this before STEP 2, which repoints the same file again. Debugging
       two unproven edits at once is how a five-minute problem becomes an
       afternoon.
+      corpus-database-build-sheet.txt 0a is that double-click. Tick this box
+      when it passes there.
   [ ] Does PATH alone LOAD the CUDA DLLs under the embeddable build. The
       spike proved the libraries can be located, not that they load: the test
       also called os.add_dll_directory(), which the shipped code does not,
@@ -111,6 +113,10 @@ STEP 1  MODEL INTO THE TREE
           capture_corpus. AN ABSENT FILE MEANS EVERY FLAG IS OFF -- the
           file's existence is the master switch and the capture branch never
           runs without it.
+          BUILT BY corpus-database-build-sheet.txt STEP 0, which runs first
+          and carries the facts needed to write it. Tick this box when that
+          step passes; building it twice is what this line prevents. The rest
+          of this item is the definition, and stays here.
           It travels by neither route: gitignored, and not on copy_usb.bat's
           include list. Name it once, here -- the daemon, .gitignore and the
           copy list all have to agree, and three sites inventing three
@@ -137,11 +143,10 @@ STEP 1  MODEL INTO THE TREE
           Honest limit: dragging the WHOLE tree by hand carries the file,
           exactly as it would carry a userdata folder. Nothing defends
           against copying everything, and it is not worth designing for.
-          The SQLite corpus sheet reads this file; it does not redefine it.
           pre-push.txt names FLAC_CORPUS_CAPTURE_ENABLED by symbol and goes
-          stale the moment this lands. Repoint it in the same step rather
-          than leaving it for DOC SYNC -- a pre-push gate naming a constant
-          that no longer exists is a gate that silently passes.
+          stale the moment this lands. Repointing it belongs to whichever
+          step writes the file -- a pre-push gate naming a constant that no
+          longer exists is a gate that silently passes.
 
 EXIT
   [ ] Mark every action box above [x]. Here, never at the next ENTRY -- a
@@ -211,8 +216,9 @@ ENTRY
   [ ] 3b  Confirm the copy rebuilds userdata on its own -- config.json from
           the model defaults, vocabulary.txt from templates. Read the seeded
           config and confirm corpus capture came back FALSE, and that no
-          flac directory appears after a dictation. That is 1f proved rather
-          than assumed.
+          recordings directory appears after a dictation -- FLAC_CORPUS_DIR
+          in vdict_daemon.py names it, and the corpus sheet renames it
+          mid-flight. That is 1f proved rather than assumed.
 
 EXIT
   [ ] ruff, pyright, check_docstrings -- at zero, reported separately from
@@ -241,9 +247,16 @@ ENTRY
           put in the folder -- the recipient then hits the download path.
   [ ] 4c  Name every folder it copies. An include list, never everything-
           minus-exclusions: the failure mode of an exclude list is shipping
-          userdata\flac, which is recordings of Mike's voice. Add README.md,
-          LICENSE and startup_folder_install.bat -- the recipient wants all
-          three and they cost nothing.
+          userdata, which holds voice recordings and the dictation history
+          database. That is the copier's own voice on the first hop and the
+          recipient's on every hop after -- the list protects whoever runs
+          it, not only Mike. Add README.md, LICENSE and
+          startup_folder_install.bat -- the recipient wants all three and
+          they cost nothing.
+          copy_usb.bat COPIES ITSELF. 4h ships a README pointing at it, so
+          leaving it behind hands the recipient instructions for a script
+          they do not have -- and the folder they drag by hand instead
+          carries their own recordings. Every copy can make a clean copy.
           Scope: the include list governs which top-level folders ship at
           all. Excluding a subfolder of one that is already shipping is a
           different thing and stays allowed -- see 4l.

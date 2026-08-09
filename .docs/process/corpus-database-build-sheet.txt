@@ -62,14 +62,73 @@ self-maintains and needs no rotation feature at all -- see 1e.
 
 
 ==============================================================================
+STEP 0  PREWORK
+==============================================================================
+  [ ] 0a  Double-click vdict_run.bat. The tray icon appears or it does not.
+          It was rewritten to call venv\Scripts\pythonw.exe directly instead
+          of going through activate.bat and has not been run since -- the
+          desktop shortcut bypasses the file entirely. Every gesture below
+          names this file, so an unproven launcher gets debugged as a corpus
+          fault.
+  [ ] 0b  dev-flags.toml at the repo root, one entry, capture_corpus. It
+          replaces FLAC_CORPUS_CAPTURE_ENABLED in vdict_daemon.py, a constant
+          set True in shipping source. A copy handed to anyone records its
+          recipient today, and from this sheet on it would record what they
+          said as well as the audio.
+          AN ABSENT FILE MEANS EVERY FLAG IS OFF. The file's existence is the
+          master switch and the capture branch never runs without it.
+          A MALFORMED FILE CRASHES. The asymmetry is deliberate: absence is
+          the normal shipped state and must be silent, broken syntax is a
+          developer's typo on a developer's machine and must be loud. tomllib
+          raises; let it.
+          THREE SITES HAVE TO SPELL IT THE SAME WAY -- the daemon that reads
+          it, .gitignore, and copy_usb.bat's include list when that exists.
+          It travels by neither route, and three sites inventing three
+          spellings is how this silently stops working.
+          Repoint pre-push.txt, which names FLAC_CORPUS_CAPTURE_ENABLED by
+          symbol. A pre-push gate naming a constant that no longer exists is
+          a gate that silently passes.
+          portable-folder-build-sheet.txt 1f defines this file -- why TOML,
+          why it is not a config.json field, and what does not belong in it.
+          Read it before writing, tick its box after.
+  [ ] 0c  Create dev-flags.toml on THIS machine with capture_corpus on. 0b
+          turns capture off by construction, so without this the daemon
+          records nothing and every step below is built against a corpus that
+          stopped growing. Its own item because stopping between 0b and 0c
+          leaves a machine that looks correct and captures nothing.
+
+EXIT
+  [ ] Mark every action box above [x]. Here, never at the next ENTRY -- a
+      gate that marks its own boxes cannot audit them.
+  [ ] ruff, pyright, check_docstrings -- at zero, reported separately from
+      the gesture below
+  [ ] Launch vdict_run.bat, dictate once, confirm a new FLAC lands in
+      userdata/flac. Exit from the tray, rename dev-flags.toml away, launch
+      again, dictate, confirm none does. Rename it back. Both directions,
+      because proving only the ON half passes even if the file is never
+      read -- and the relaunch matters: the flag is read at daemon start, so
+      renaming it mid-session proves nothing.
+
+
+==============================================================================
 STEP 1  SCHEMA AND THE WRITE POINT
 ==============================================================================
-  [ ] 1a  userdata/corpus.db, beside the flac directory. stdlib sqlite3, no
-          dependency. userdata never travels to a copy, so a personal corpus
-          cannot leak onto a handed-out stick.
-          Named here so it is named once. WAL adds corpus.db-wal and
-          corpus.db-shm beside it; those are SQLite's, not ours, and nothing
-          should ever open them directly.
+ENTRY
+  [ ] Every box in STEP 0 is [x]. Stop and close it if not.
+
+  [ ] 1a  userdata/dictation_history_PRIVATE.db, beside the recordings
+          directory. stdlib sqlite3, no dependency. userdata never travels to
+          a copy, so a personal corpus cannot leak onto a handed-out stick.
+          THE NAME IS THE POINT. Anyone opening this folder learns what the
+          file is and that it matters, without reading a line of code. The
+          label is posture, not caution -- we know what we are storing, we
+          are not hiding it, and we made it easy to find. Not "transcripts":
+          transcript_log.txt sits nearby and the two coexist on purpose (1e),
+          and a file called transcripts is how a later reader talks himself
+          into deleting one of them.
+          Named here so it is named once. WAL adds -wal and -shm files beside
+          it, inheriting the same name; those are SQLite's, not ours, and
+          nothing should ever open them directly.
           PRAGMA journal_mode=WAL and PRAGMA synchronous=NORMAL at connect.
           THEY DO NOT BEHAVE THE SAME WAY, verified: journal_mode is written
           into the database file and every later connection inherits it
@@ -109,17 +168,55 @@ STEP 1  SCHEMA AND THE WRITE POINT
               "what I said to type" with "what I asked an AI" poisons both
               voice-ID data and any later analysis. The column costs nothing
               now and cannot be reconstructed afterwards.
+            foreground window title and foreground process name, both from
+              the same GetForegroundWindow call. WRITTEN FROM THE FIRST ROW,
+              not reserved like speaker -- a column nothing populates is a
+              column nobody trusts later.
+              WHERE a thing was said is the strongest retrieval signal there
+              is and the only one that exists solely at the moment of
+              capture. Both, not one: the title is what a search matches, the
+              process name is the only half that stays stable across a year,
+              because the same app rewrites its title constantly.
+              The full title, not a sanitised one. Titles leak, and that is
+              accepted -- userdata never travels, capture requires a flag
+              file that ships with nothing, and local-only is what makes this
+              affordable when a cloud product could never take it.
+              OPEN, decide before writing this item: read the window at
+              button press or at injection. Press is where the speaker was
+              when they started, and it is the only moment all four outcomes
+              share -- too-short and no-speech never inject. Injection is
+              where the text actually landed. They differ whenever the user
+              switches windows mid-sentence, and only one of them can be
+              recorded.
   [ ] 1c  Write AFTER injection, never before. The user is waiting on text;
           nothing goes in front of that.
-  [ ] 1d  Date subfolders in write_timestamped_flac: flac/YYYY/MM/DD/, three
-          levels. Measured rate is roughly 570 clips a day, which is about
-          208,000 files and 34 GB a year -- Explorer and any recursive glob
-          give up long before that. Three levels keeps one folder per year at
-          the top and makes age-based rotation, when it is built, a single
+  [ ] 1d  RENAME userdata/flac to userdata/voice_recordings_PRIVATE, and give
+          it date subfolders: voice_recordings_PRIVATE/YYYY/MM/DD/, three
+          levels. Both halves here, in one pass over the same files.
+          The rename first, because "flac" is a codec and this is 34 GB a
+          year of someone's voice -- the folder that most needs to say what
+          it holds was the one named after a file format. Same reasoning as
+          1a's filename.
+          One code site defines it, FLAC_CORPUS_DIR in vdict_daemon.py --
+          derived by search, not recalled. write_timestamped_flac takes the
+          directory as an argument and only chooses the extension, so it
+          needs no change for the rename. Rename the constant with the
+          directory.
+          Measured rate is roughly 570 clips a day, which is about 208,000
+          files and 34 GB a year -- Explorer and any recursive glob give up
+          long before that. Three levels keeps one folder per year at the
+          top and makes age-based rotation, when it is built, a single
           directory removal rather than a query.
-          Move the existing flat files into the same layout in the same step.
-          Nothing references them by path -- the database does not exist yet
-          -- so this is the last moment it costs nothing.
+          Move the existing flat files into the new layout in the same step.
+          Nothing stores a path to them -- the database does not exist yet --
+          so this is the last moment either change costs nothing. After rows
+          carry paths, both become a data migration.
+          ZERO-BYTE FLACS EXIST. One is in the corpus now, measured, so
+          write_timestamped_flac can produce a file soundfile cannot reopen.
+          Decide it here, while every clip is being touched anyway: either
+          the writer refuses an empty buffer, or the row records the file it
+          wrote and the reader tolerates it. Not deciding leaves STEP 2's
+          count matching while one side holds nothing.
   [ ] 1e  transcript.py: swap RotatingFileHandler for TimedRotatingFileHandler,
           when="midnight", backupCount around 30. It currently rotates on
           SIZE at 100 MB, which is why pruning by time is impossible today.
@@ -134,13 +231,10 @@ STEP 1  SCHEMA AND THE WRITE POINT
           the other: the database is for queries and for reaching the audio,
           the text file is for scrolling back twenty lines and copying. A
           later reader will see overlap and want to delete one. Do not.
-  [ ] 1f  Capture is governed by dev-flags.toml at the repo root, which the
-          portable-folder sheet introduces -- absent file means every flag
-          off, so the capture branch never runs. This sheet READS it and does
-          not redefine it. If that sheet has not landed, land its 1f first;
-          without it, a handed-out copy records its recipient.
-          Row writing follows the same flag. A copy that is not capturing
-          audio has no business building a corpus either.
+  [ ] 1f  Row writing follows capture_corpus, the flag STEP 0 landed. A copy
+          that is not capturing audio has no business building a corpus
+          either. One flag, one branch -- a second switch for rows is how the
+          two get out of step.
 
 EXIT
   [ ] Mark every action box above [x]. Here, never at the next ENTRY -- a

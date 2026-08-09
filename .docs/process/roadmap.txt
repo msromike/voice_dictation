@@ -27,11 +27,11 @@ ORDER
 NOW   corpus-database-build-sheet.txt, on Mike's word. Written, unstarted.
       One SQLite row per capture linking audio to text, because ambient mode
       needs a corpus that already exists and a corpus cannot be back-filled.
-      GATED: portable-folder-build-sheet.txt step 1f lands first. It replaces
-      the FLAC capture constant with dev-flags.toml at the repo root --
-      absent file means every flag off -- and that file is neither on the
-      copy list nor in git. Without it, a handed-out copy records whoever
-      receives it.
+      Its own STEP 0 lands dev-flags.toml, which replaces the FLAC capture
+      constant -- absent file means every flag off, so a handed-out copy no
+      longer records whoever receives it. portable-folder-build-sheet.txt 1f
+      defines that file and is ticked when STEP 0 passes. Nothing else gates
+      this sheet.
 
       inference-tuning-build-sheet.txt -- written, unstarted, and its
       hardest question is already answered in spike-notes.txt. Measures which
@@ -48,13 +48,16 @@ ALSO LIVE, independent of each other and of the two above.
       unrun. DESIGN's four buckets are the done condition, not the scratchpad
       alone. The plan names its own closing order.
 
-      portable-folder-build-sheet.txt -- written, all three UNVERIFIED
-      spikes closed with their answers inline, no step started. It puts the
-      Whisper model and the Python interpreter inside the tree, so the
-      installed folder becomes the thing you hand someone: copy it anywhere,
-      nothing to install. It sits here rather than behind the port because
-      the port changes which packages are in the folder, never where
-      anything lives. CLAUDE.md's Code section carries the standing rule.
+      portable-folder-build-sheet.txt -- written, three UNVERIFIED spikes
+      closed with their answers inline and two still open, no step started
+      here. Its 1f and its launcher spike are both ticked from the corpus
+      sheet's STEP 0, so a ticked box in it does not mean this sheet is
+      under way. It puts the Whisper model and the Python interpreter inside
+      the tree, so the installed folder becomes the thing you hand someone:
+      copy it anywhere, nothing to install. It sits here rather than behind
+      the port because the port changes which packages are in the folder,
+      never where anything lives. CLAUDE.md's Code section carries the
+      standing rule.
 
 THEN
   1  Core-arch prework -- two spikes and one build sheet:
