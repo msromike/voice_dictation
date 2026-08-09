@@ -64,13 +64,13 @@ self-maintains and needs no rotation feature at all -- see 1e.
 ==============================================================================
 STEP 0  PREWORK
 ==============================================================================
-  [ ] 0a  Double-click vdict_run.bat. The tray icon appears or it does not.
+  [x] 0a  Double-click vdict_run.bat. The tray icon appears or it does not.
           It was rewritten to call venv\Scripts\pythonw.exe directly instead
           of going through activate.bat and has not been run since -- the
           desktop shortcut bypasses the file entirely. Every gesture below
           names this file, so an unproven launcher gets debugged as a corpus
           fault.
-  [ ] 0b  dev-flags.toml at the repo root, one entry, capture_corpus. It
+  [x] 0b  dev-flags.toml at the repo root, one entry, capture_corpus. It
           replaces FLAC_CORPUS_CAPTURE_ENABLED in vdict_daemon.py, a constant
           set True in shipping source. A copy handed to anyone records its
           recipient today, and from this sheet on it would record what they
@@ -91,32 +91,41 @@ STEP 0  PREWORK
           portable-folder-build-sheet.txt 1f defines this file -- why TOML,
           why it is not a config.json field, and what does not belong in it.
           Read it before writing, tick its box after.
-  [ ] 0c  Create dev-flags.toml on THIS machine with capture_corpus on. 0b
+  [x] 0c  Create dev-flags.toml on THIS machine with capture_corpus on. 0b
           turns capture off by construction, so without this the daemon
           records nothing and every step below is built against a corpus that
           stopped growing. Its own item because stopping between 0b and 0c
           leaves a machine that looks correct and captures nothing.
 
 EXIT
-  [ ] Mark every action box above [x]. Here, never at the next ENTRY -- a
+  [x] Mark every action box above [x]. Here, never at the next ENTRY -- a
       gate that marks its own boxes cannot audit them.
-  [ ] ruff, pyright, check_docstrings -- at zero, reported separately from
-      the gesture below
-  [ ] Launch vdict_run.bat, dictate once, confirm a new FLAC lands in
+  [x] Launch vdict_run.bat, dictate once, confirm a new FLAC lands in
       userdata/flac. Exit from the tray, rename dev-flags.toml away, launch
       again, dictate, confirm none does. Rename it back. Both directions,
       because proving only the ON half passes even if the file is never
       read -- and the relaunch matters: the flag is read at daemon start, so
       renaming it mid-session proves nothing.
+  [ ] "commit per protocol" -- this step is a commit boundary. It replaces
+      the hand-run lint line: the protocol runs ruff, pyright, vulture,
+      check_docstrings, the complexity report and the imperative-comment
+      report, which is strictly more. Gates only run at commit.
 
 
 ==============================================================================
 STEP 1  SCHEMA AND THE WRITE POINT
 ==============================================================================
 ENTRY
-  [ ] Every box in STEP 0 is [x]. Stop and close it if not.
+  [ ] The prior step's COMMIT exists. git log, not the boxes -- a box is a
+      claim anyone can tick in any tool, a commit is a receipt carrying the
+      gates that produced it and a message saying what landed. No commit
+      means the work was never gated: review the code against the prior step
+      and report what is there, then continue. Do NOT stop -- a missing
+      commit is a state surprise, and the disk answers it.
+  [ ] Every box in STEP 0 is [x]. The human record, read after the
+      commit, never instead of it.
 
-  [ ] 1a  userdata/dictation_history_PRIVATE.db, beside the recordings
+  [x] 1a  userdata/dictation_history_PRIVATE.db, beside the recordings
           directory. stdlib sqlite3, no dependency. userdata never travels to
           a copy, so a personal corpus cannot leak onto a handed-out stick.
           THE NAME IS THE POINT. Anyone opening this folder learns what the
@@ -148,7 +157,7 @@ ENTRY
           It creates -wal and -shm files beside the database. Normal, not a
           leak, and the copy set must not ship them either way -- userdata
           never travels.
-  [ ] 1b  One table, captures. One row per capture. Columns, all
+  [x] 1b  One table, captures. One row per capture. Columns, all
           observations:
             capture start and end time -- NOT the file-write time the FLAC
               filename already carries, which is later than both
@@ -181,16 +190,15 @@ ENTRY
               accepted -- userdata never travels, capture requires a flag
               file that ships with nothing, and local-only is what makes this
               affordable when a cloud product could never take it.
-              OPEN, decide before writing this item: read the window at
-              button press or at injection. Press is where the speaker was
-              when they started, and it is the only moment all four outcomes
-              share -- too-short and no-speech never inject. Injection is
-              where the text actually landed. They differ whenever the user
-              switches windows mid-sentence, and only one of them can be
-              recorded.
-  [ ] 1c  Write AFTER injection, never before. The user is waiting on text;
+              DECISION: Read the window at BUTTON PRESS. It is the only
+              moment all four outcomes share.
+              SAFEGUARD: GetForegroundWindow can return 0 (no focus,
+              desktop, etc) or fail. The capture MUST wrap this in a
+              try/except and gracefully log "Unknown" or empty text. It
+              must NEVER throw and crash the dictation daemon.
+  [x] 1c  Write AFTER injection, never before. The user is waiting on text;
           nothing goes in front of that.
-  [ ] 1d  RENAME userdata/flac to userdata/voice_recordings_PRIVATE, and give
+  [x] 1d  RENAME userdata/flac to userdata/voice_recordings_PRIVATE, and give
           it date subfolders: voice_recordings_PRIVATE/YYYY/MM/DD/, three
           levels. Both halves here, in one pass over the same files.
           The rename first, because "flac" is a codec and this is 34 GB a
@@ -213,11 +221,9 @@ ENTRY
           carry paths, both become a data migration.
           ZERO-BYTE FLACS EXIST. One is in the corpus now, measured, so
           write_timestamped_flac can produce a file soundfile cannot reopen.
-          Decide it here, while every clip is being touched anyway: either
-          the writer refuses an empty buffer, or the row records the file it
-          wrote and the reader tolerates it. Not deciding leaves STEP 2's
-          count matching while one side holds nothing.
-  [ ] 1e  transcript.py: swap RotatingFileHandler for TimedRotatingFileHandler,
+          DECISION: The writer MUST refuse an empty buffer. No zero-byte
+          FLAC is written to disk, keeping the corpus clean.
+  [x] 1e  transcript.py: swap RotatingFileHandler for TimedRotatingFileHandler,
           when="midnight", backupCount around 30. It currently rotates on
           SIZE at 100 MB, which is why pruning by time is impossible today.
           Rotating on time makes each day its own file, named with its own
@@ -231,25 +237,29 @@ ENTRY
           the other: the database is for queries and for reaching the audio,
           the text file is for scrolling back twenty lines and copying. A
           later reader will see overlap and want to delete one. Do not.
-  [ ] 1f  Row writing follows capture_corpus, the flag STEP 0 landed. A copy
+  [x] 1f  Row writing follows capture_corpus, the flag STEP 0 landed. A copy
           that is not capturing audio has no business building a corpus
           either. One flag, one branch -- a second switch for rows is how the
           two get out of step.
 
 EXIT
-  [ ] Mark every action box above [x]. Here, never at the next ENTRY -- a
+  [x] Mark every action box above [x]. Here, never at the next ENTRY -- a
       gate that marks its own boxes cannot audit them.
-  [ ] ruff, pyright, check_docstrings -- at zero, reported separately from
-      the gesture below
-  [ ] Launch vdict_run.bat, dictate once, and read the row back. The audio
+  [x] Launch vdict_run.bat, dictate once, and read the row back. The audio
       path in it opens the clip that produced the text.
+  [ ] "commit per protocol" -- this step is a commit boundary. It replaces
+      the hand-run lint line: the protocol runs ruff, pyright, vulture,
+      check_docstrings, the complexity report and the imperative-comment
+      report, which is strictly more. Gates only run at commit.
 
 
 ==============================================================================
 STEP 2  EVERY PATH WRITES
 ==============================================================================
 ENTRY
-  [ ] Every box in STEP 1 is [x]. Stop and close it if not.
+  [ ] The prior step's COMMIT exists -- see the first ENTRY in this sheet.
+  [ ] Every box in STEP 1 is [x]. The human record, read after the
+      commit, never instead of it.
 
   [ ] 2a  Four ways a capture ends, and three of them leave the loop early:
           too short, transcription threw, no speech detected, success. A
@@ -259,21 +269,74 @@ ENTRY
           is a finding, and a corpus containing only successes is biased in
           exactly the direction that hides problems.
   [ ] 2c  A row with no transcript is still a row. Outcome carries the reason.
+  [ ] 2d  Serialize the brackets (Paragraph Grouping). Add `block_id INTEGER` column
+          to the database. Maintain an in-memory dictionary of `active_blocks` 
+          mapped by the window's HWND (Handle). When PTT is pressed, grab the 
+          active HWND. If it has no block_id, generate an Integer Epoch timestamp. 
+          Dictations save with this block_id, while still capturing the literal 
+          window title for ambient state tracking. When a global PURE, UNMODIFIED 
+          `Enter` keypress is detected (ignoring Shift+Enter, etc), grab the active 
+          HWND and wipe its block_id from the dictionary. 
+          NOTE: This state machine is intrinsically self-healing. If a keystroke 
+          is dropped by the OS, the worst-case scenario is two paragraphs share 
+          one ID. The very next `Enter` keypress instantly hard-resets the state 
+          to a clean baseline without needing a watchdog timer.
+          TRADE-OFF ACCEPTED: If the user clicks "Send" with a mouse instead of
+          pressing `Enter`, and never changes windows, the next dictation will 
+          fuse into the same block_id. This loss of fidelity is accepted because 
+          the RAG system can natively split blocks with massive timestamp gaps.
+  [ ] 2f  WRONG NOW, both writing bad data on every capture. Fix before the
+          other items here -- rows are the permanent half of this system and
+          neither column can be reconstructed afterwards.
+            compute_type is the string literal "float16", passed straight
+              into the insert. It reads correctly only on CUDA. On CPU
+              stt.py loads float32 while the row keeps claiming float16.
+              The cause is that stt.py computes compute_type as a local in
+              both load() and reload() and stores it nowhere, so the daemon
+              has nothing to read. Fix: STTEngine remembers what it loaded.
+            start_time is taken at button press, two calls before
+              start_capture(), with a wait_for_release() between them in
+              toggle mode. end_time is datetime.now() at row-write, after
+              transcription and injection -- measured 1.2 to 2.1 seconds
+              past the audio. 1b defines both as capture start and end.
+              Fix: bracket stop_capture and start_capture.
+  [ ] 2g  A FIFTH exit path, not in 2a's four. Toggle mode's 120-second
+          timeout calls stop_capture() and continues -- no FLAC, no row,
+          nothing. Decide whether it earns a row. A capture abandoned by
+          walking away is a different fact from one the model failed on.
+  [ ] 2e  Two ruff findings on STEP 1's code were AUTHORIZED PAST at the STEP 1
+          commit, not suppressed -- no noqa was added, so both fire again on
+          every commit until they are fixed here.
+            _record_corpus_row  PLR0913 / PLR0917, 14 arguments against a
+              limit of 5. The row is one record, not fourteen loose values.
+            main  C901 complexity 13 against 10, PLR0912 14 branches
+              against 12.
+          They land here rather than at STEP 1 because 2a through 2d add
+          another exit path and another column to both of those functions.
+          Fixing them first means doing it twice.
+          NOT a reshape-to-pass: both numbers are describing the same thing
+          the items above already say -- the capture loop wants its body
+          extracted and the row wants a type. If the fix does not also make
+          the code read better, it is the wrong fix and the number stays.
 
 EXIT
-  [ ] ruff, pyright, check_docstrings -- at zero, reported separately from
-      the gesture below
   [ ] Force all four outcomes and confirm four rows. Too-short is a quick
       tap. No-speech is holding the button in silence. Error is reachable by
       pointing the model at a name that does not exist. Count the rows
       against the FLAC files written in the same session -- they must match.
+  [ ] "commit per protocol" -- this step is a commit boundary. It replaces
+      the hand-run lint line: the protocol runs ruff, pyright, vulture,
+      check_docstrings, the complexity report and the imperative-comment
+      report, which is strictly more. Gates only run at commit.
 
 
 ==============================================================================
 STEP 3  CLEANUP
 ==============================================================================
 ENTRY
-  [ ] Every box in STEP 2 is [x]. Stop and close it if not.
+  [ ] The prior step's COMMIT exists -- see the first ENTRY in this sheet.
+  [ ] Every box in STEP 2 is [x]. The human record, read after the
+      commit, never instead of it.
 
   [ ] Grep every doc for names this sheet made stale, and repoint each hit at
       a surviving code symbol rather than at a doc that named it.

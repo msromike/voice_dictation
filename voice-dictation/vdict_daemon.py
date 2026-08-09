@@ -23,6 +23,64 @@ import traceback
 from datetime import datetime
 import numpy as np
 import sounddevice as sd
+import tomllib
+import win32gui
+import win32process
+import win32api
+import win32con
+
+def get_window_context():
+    try:
+        hwnd = win32gui.GetForegroundWindow()
+        if hwnd == 0:
+            return "Unknown", "Unknown"
+        title = win32gui.GetWindowText(hwnd)
+        _, pid = win32process.GetWindowThreadProcessId(hwnd)
+        
+        try:
+            handle = win32api.OpenProcess(
+                win32con.PROCESS_QUERY_INFORMATION | win32con.PROCESS_VM_READ, 
+                False, pid)
+            exe_path = win32process.GetModuleFileNameEx(handle, 0)
+            win32api.CloseHandle(handle)
+            process_name = os.path.basename(exe_path)
+        except Exception:
+            process_name = "Unknown"
+            
+        return title or "Unknown", process_name
+    except Exception:
+        return "Unknown", "Unknown"
+
+def _record_corpus_row(start_time, end_time, file_timestamp, audio_path, audio_data, sample_rate,
+                       model, device, text, outcome, version, mode, win_title, proc_name):
+    if not FLAC_CORPUS_CAPTURE_ENABLED:
+        return
+    try:
+        from vdict.common.corpus_db import get_corpus_connection
+        duration = len(audio_data) / sample_rate
+        conn = get_corpus_connection()
+        try:
+            conn.execute("""
+                INSERT INTO captures (
+                    start_time, end_time, file_timestamp, audio_path,
+                    duration_sec, sample_rate, model, compute_device,
+                    compute_type, transcript_text, outcome, app_version,
+                    speaker, mode, window_title, process_name
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                start_time.isoformat(), end_time.isoformat(), 
+                file_timestamp if file_timestamp else "",
+                str(audio_path) if audio_path else "",
+                duration, sample_rate, model, device,
+                "float16", text, outcome, version, 
+                "", mode, win_title, proc_name
+            ))
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception as db_e:
+        log("error", f"Failed to record capture to database: {db_e}")
+        write_error_log("Database write failed", traceback.format_exc())
 
 __version__ = "1.0.0"
 
@@ -30,10 +88,15 @@ __version__ = "1.0.0"
 # 0.4 seconds at 16kHz. Shorter recordings are treated as accidental clicks.
 MIN_RECORDING_SAMPLES = 6400
 
-# P7 pre-spike, dev-only -- corpus capture for B24 Tier 3 voice-ID. Never a
-# Settings choice; off before any push (pre-push.txt P9).
-FLAC_CORPUS_CAPTURE_ENABLED = True
-FLAC_CORPUS_DIR = Path(__file__).parent.parent / "userdata" / "flac"
+_dev_flags_path = Path(__file__).parent.parent / "dev-flags.toml"
+if _dev_flags_path.exists():
+    with open(_dev_flags_path, "rb") as _f:
+        _dev_flags = tomllib.load(_f)
+        FLAC_CORPUS_CAPTURE_ENABLED = _dev_flags.get("capture_corpus", False)
+else:
+    FLAC_CORPUS_CAPTURE_ENABLED = False
+
+FLAC_CORPUS_DIR = Path(__file__).parent.parent / "userdata" / "voice_recordings_PRIVATE"
 
 
 def _load_tone(filename):
@@ -129,6 +192,13 @@ def main():  # noqa: PLR0915
     """Main daemon loop"""
     config = load_config()
 
+    if FLAC_CORPUS_CAPTURE_ENABLED:
+        from vdict.common.corpus_db import init_db
+        try:
+            init_db()
+        except Exception as e:
+            log("error", f"Failed to initialize corpus database: {e}")
+
     # Initialize components
     audio = AudioCapture(
         required_device=config.audio.device
@@ -176,6 +246,9 @@ def main():  # noqa: PLR0915
         while True:
             # Wait for button to be pressed
             ptt.wait_for_press()
+            
+            win_title, proc_name = get_window_context()
+            capture_start = datetime.now()
 
             # Fire the GPU primer to wake up CUDA cores while user is talking
             stt.wake_gpu()
@@ -206,8 +279,11 @@ def main():  # noqa: PLR0915
 
             audio_data = audio.stop_capture()
 
+            audio_path = None
+            file_timestamp = None
             if FLAC_CORPUS_CAPTURE_ENABLED:
-                write_timestamped_flac(FLAC_CORPUS_DIR, audio_data, audio.sample_rate)
+                audio_path, file_timestamp = write_timestamped_flac(
+                    FLAC_CORPUS_DIR, audio_data, audio.sample_rate)
 
             # Short captures can make Whisper hallucinate plausible-but-false
             # text instead of returning empty -- see spike_notes.txt.
@@ -215,24 +291,36 @@ def main():  # noqa: PLR0915
                 play_tone("too_short", enabled=audio_feedback)
                 log("note", "Not transcribed -- hold the button at least 0.4s.")
                 log("done", "")
+                _record_corpus_row(
+                    capture_start, datetime.now(), file_timestamp, audio_path, audio_data, 
+                    audio.sample_rate, config.stt.model, config.stt.device, "", "too-short", 
+                    __version__, "dictation", win_title, proc_name)
                 continue
 
             play_tone("stop", enabled=audio_feedback)
 
             # Transcribe with prompt for jargon biasing
+            outcome = "success"
+            text = ""
             try:
                 text = stt.transcribe(audio_data, initial_prompt=prompt)
             except Exception as e:
                 log("error", f"Transcription failed: {e}")
                 write_error_log("Transcription failed", traceback.format_exc())
-                log("done", "")
-                continue
+                outcome = "error"
 
-            if text:
-                log("transcript", text)
-                keyboard.inject(text)
-            else:
-                log("note", "No speech detected.")
+            if outcome == "success":
+                if text:
+                    log("transcript", text)
+                    keyboard.inject(text)
+                else:
+                    log("note", "No speech detected.")
+                    outcome = "no-speech"
+
+            _record_corpus_row(
+                capture_start, datetime.now(), file_timestamp, audio_path, audio_data, 
+                audio.sample_rate, config.stt.model, config.stt.device, text, outcome, 
+                __version__, "dictation", win_title, proc_name)
 
             log("done", "")
 

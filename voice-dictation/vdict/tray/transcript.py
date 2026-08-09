@@ -13,8 +13,8 @@ PATH = LOG_DIR / "transcript_log.txt"
 _logger = logging.getLogger("vdict.transcript")
 _logger.propagate = False
 _logger.setLevel(logging.INFO)
-_handler = logging.handlers.RotatingFileHandler(
-    PATH, maxBytes=100 * 1024 * 1024, backupCount=5,
+_handler = logging.handlers.TimedRotatingFileHandler(
+    PATH, when="midnight", backupCount=30,
     encoding="utf-8", delay=True)
 _handler.setFormatter(logging.Formatter("%(message)s"))
 _logger.addHandler(_handler)

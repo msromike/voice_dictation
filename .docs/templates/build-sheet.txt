@@ -86,32 +86,46 @@ STEP 1  <NAME>
 EXIT
   [ ] Mark every action box above [x]. Here, never at the next ENTRY -- a
       gate that marks its own boxes cannot audit them.
-  [ ] ruff, pyright, check_docstrings -- at zero, reported separately from
-      the gesture below
   [ ] <The gesture to run, naming what to look for>, or "no launch test
       this step". Marked only after Mike confirms, so action boxes ticked
       with this one open reads as "code in, unverified, waiting on him".
+  [ ] "commit per protocol". The step is a commit boundary -- every step is
+      a vertical slice leaving a working app, which is the definition of one.
+      This REPLACES a hand-run lint line rather than following it: the
+      protocol runs ruff, pyright, vulture, check_docstrings, the complexity
+      report and the imperative-comment report, which is strictly more than
+      any EXIT block was checking. The gates only run at commit, so work that
+      never commits is never gated.
+      Mike says the words. This is the prompt, never an autonomous commit.
 
 
 ==============================================================================
 STEP 2  <NAME>
 ==============================================================================
 ENTRY
-  [ ] Every box in STEP 1 is [x]. Stop and close it if not.
+  [ ] The prior step's COMMIT exists. git log, not the boxes above it -- a
+      box is a claim anyone can tick in any tool, a commit is a receipt that
+      carries the gates that produced it and a message saying what landed.
+      No commit -> the work was never gated. Review the code against the
+      prior step and report what is there, then continue. Do NOT stop: a
+      missing commit is a state surprise, and the disk answers it.
+  [ ] Every box in STEP 1 is [x]. The human record, read after the commit,
+      never instead of it.
 
   [ ] 2a  <...>
 
 EXIT
-  [ ] ruff, pyright, check_docstrings -- at zero, reported separately from
-      the gesture below
   [ ] <gesture>, or "no launch test this step"
+  [ ] "commit per protocol"
 
 
 ==============================================================================
 STEP n-1  DOC SYNC
 ==============================================================================
 ENTRY
-  [ ] Every box in the prior step is [x]. Stop and close it if not.
+  [ ] The prior step's COMMIT exists -- STEP 2's ENTRY says what a missing
+      one means and why the boxes are not the evidence.
+  [ ] Every box in the prior step is [x].
 
   [ ] Grep every doc for names this sheet made stale. Re-derive counts from
       source rather than incrementing them.
@@ -123,7 +137,9 @@ ENTRY
 STEP n  CLEANUP
 ==============================================================================
 ENTRY
-  [ ] Every box in the prior step is [x]. Stop and close it if not.
+  [ ] The prior step's COMMIT exists -- STEP 2's ENTRY says what a missing
+      one means and why the boxes are not the evidence.
+  [ ] Every box in the prior step is [x].
 
   [ ] vulture -- read every finding and decide it. Not a step gate:
       unreferenced is the normal transient state mid-refactor, and a finding

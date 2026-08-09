@@ -38,7 +38,8 @@ stays open rather than blocking.
       that build, so the CUDA search finds nothing and GPU degrades to CPU in
       silence. That is what 2g exists to fix.
 
-  [ ] Has vdict_run.bat ever been RUN since it was rewritten. It now calls
+  [x] Has vdict_run.bat ever been RUN since it was rewritten -- YES, it
+      launches and dictates. It now calls
       venv\Scripts\pythonw.exe directly instead of going through
       activate.bat, and that change has never been executed -- the desktop
       shortcut bypasses the .bat entirely, so normal use never exercises it.
@@ -104,7 +105,7 @@ STEP 1  MODEL INTO THE TREE
           explicit argument rather than through a process-wide environment
           variable. Same destination as 1a, narrower blast radius. Pick one;
           do not set both and leave a reader guessing which wins.
-  [ ] 1f  PRIVACY, and it blocks the handoff. FLAC_CORPUS_CAPTURE_ENABLED is
+  [x] 1f  PRIVACY, and it blocks the handoff. FLAC_CORPUS_CAPTURE_ENABLED is
           a constant set True in vdict_daemon.py, and source ships. A stick
           handed to anyone starts recording their voice to disk on first use.
           The code comment says it goes off "before any push" -- handing
@@ -151,19 +152,28 @@ STEP 1  MODEL INTO THE TREE
 EXIT
   [ ] Mark every action box above [x]. Here, never at the next ENTRY -- a
       gate that marks its own boxes cannot audit them.
-  [ ] ruff, pyright, check_docstrings -- at zero, reported separately from
-      the gesture below
   [ ] Launch vdict_run.bat. The session block's Model line reports a size and
       one dictation transcribes, with NO download line in the console. The
       download line is the real tell: looking in the wrong place still passes
       this gesture eventually, by fetching the whole model again.
+  [ ] "commit per protocol" -- this step is a commit boundary. It replaces
+      the hand-run lint line: the protocol runs ruff, pyright, vulture,
+      check_docstrings, the complexity report and the imperative-comment
+      report, which is strictly more. Gates only run at commit.
 
 
 ==============================================================================
 STEP 2  INTERPRETER INTO THE TREE
 ==============================================================================
 ENTRY
-  [ ] Every box in STEP 1 is [x]. Stop and close it if not.
+  [ ] The prior step's COMMIT exists. git log, not the boxes -- a box is a
+      claim anyone can tick in any tool, a commit is a receipt carrying the
+      gates that produced it and a message saying what landed. No commit
+      means the work was never gated: review the code against the prior step
+      and report what is there, then continue. Do NOT stop -- a missing
+      commit is a state surprise, and the disk answers it.
+  [ ] Every box in STEP 1 is [x]. The human record, read after the
+      commit, never instead of it.
 
   [ ] 2a  Put Python's embeddable build in python/ at the root.
   [ ] 2b  Point it at the packages by relative path, so nothing in the tree
@@ -195,19 +205,23 @@ ENTRY
           changes DLL search and can take GPU away without a symptom.
 
 EXIT
-  [ ] ruff, pyright, check_docstrings -- at zero, reported separately from
-      the gesture below
   [ ] Rename C:\bin\PortableTools\Python312 away, launch vdict_run.bat from
       the repo, dictate once, rename it back. This step is what makes the
       outside Python unnecessary, so this is where that becomes observable.
       Without the rename the gesture passes whether or not anything changed.
+  [ ] "commit per protocol" -- this step is a commit boundary. It replaces
+      the hand-run lint line: the protocol runs ruff, pyright, vulture,
+      check_docstrings, the complexity report and the imperative-comment
+      report, which is strictly more. Gates only run at commit.
 
 
 ==============================================================================
 STEP 3  PROVE THE COPY
 ==============================================================================
 ENTRY
-  [ ] Every box in STEP 2 is [x]. Stop and close it if not.
+  [ ] The prior step's COMMIT exists -- see the first ENTRY in this sheet.
+  [ ] Every box in STEP 2 is [x]. The human record, read after the
+      commit, never instead of it.
 
   [ ] 3a  Copy the tree to a second location, taking vdict_run.bat, venv,
           voice-dictation, images, templates, models and python. Leave
@@ -221,18 +235,22 @@ ENTRY
           mid-flight. That is 1f proved rather than assumed.
 
 EXIT
-  [ ] ruff, pyright, check_docstrings -- at zero, reported separately from
-      the gesture below
   [ ] Rename C:\bin\PortableTools\Python312 away, launch the COPY, dictate
       once, rename it back. Step 2 proved the repo needs nothing outside
       itself; this proves a copy carries that with it.
+  [ ] "commit per protocol" -- this step is a commit boundary. It replaces
+      the hand-run lint line: the protocol runs ruff, pyright, vulture,
+      check_docstrings, the complexity report and the imperative-comment
+      report, which is strictly more. Gates only run at commit.
 
 
 ==============================================================================
 STEP 4  COPY_USB.BAT
 ==============================================================================
 ENTRY
-  [ ] Every box in STEP 3 is [x]. Stop and close it if not.
+  [ ] The prior step's COMMIT exists -- see the first ENTRY in this sheet.
+  [ ] Every box in STEP 3 is [x]. The human record, read after the
+      commit, never instead of it.
 
   [ ] 4a  Write copy_usb.bat at the root. It takes a destination PATH as an
           argument and prompts for one only when none is given -- 4j calls it
@@ -293,19 +311,23 @@ ENTRY
           for wheels that drop runtime DLLs there before excluding it.
 
 EXIT
-  [ ] ruff, pyright, check_docstrings -- at zero, reported separately from
-      the gesture below
   [ ] Run copy_usb.bat twice: once to a stick, once to a folder on C:. Then
       launch vdict_run.bat FROM THE STICK, answer the guard with continue,
       and dictate once. Confirm no userdata folder rode along to either
       destination.
+  [ ] "commit per protocol" -- this step is a commit boundary. It replaces
+      the hand-run lint line: the protocol runs ruff, pyright, vulture,
+      check_docstrings, the complexity report and the imperative-comment
+      report, which is strictly more. Gates only run at commit.
 
 
 ==============================================================================
 STEP 5  DOC SYNC
 ==============================================================================
 ENTRY
-  [ ] Every box in STEP 4 is [x]. Stop and close it if not.
+  [ ] The prior step's COMMIT exists -- see the first ENTRY in this sheet.
+  [ ] Every box in STEP 4 is [x]. The human record, read after the
+      commit, never instead of it.
 
   [ ] Grep every doc for names this sheet made stale. Re-derive counts from
       source rather than incrementing them.
@@ -317,7 +339,9 @@ ENTRY
 STEP 6  CLEANUP
 ==============================================================================
 ENTRY
-  [ ] Every box in the prior step is [x]. Stop and close it if not.
+  [ ] The prior step's COMMIT exists -- see the first ENTRY in this sheet.
+  [ ] Every box in the prior step is [x]. The human record, read after the
+      commit, never instead of it.
 
   [ ] vulture -- read every finding and decide it. Not a step gate:
       unreferenced is the normal transient state mid-refactor, and a finding

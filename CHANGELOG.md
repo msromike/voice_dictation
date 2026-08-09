@@ -40,6 +40,13 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- The transcript log now starts a new file each midnight and keeps the last
+  thirty days, instead of growing to 100 MB and keeping the last five files.
+  Each day's transcripts are in a file named for that day, so finding what you
+  dictated on a given date no longer means scrolling through a single enormous
+  file. Nothing to run and nothing to configure -- old days drop off on their
+  own.
+
 - Enable Audio Beeps now silences every tone, the ready and timeout double beeps
   included. Off means silent. The output window still reports the engine coming
   up and a toggle recording abandoned after two minutes, so nothing is lost by
@@ -86,6 +93,12 @@ All notable changes to this project are documented here. Format follows
   own display code, which a toast or a styled dialog could not guarantee.
 
 ### Fixed
+
+- The app no longer records your voice to disk unless you deliberately turn it
+  on. A development flag for collecting audio samples shipped switched on, so
+  any copy of the source recorded every dictation as an audio file. Recording
+  now requires a file that is not part of the app and is never copied with it,
+  so a folder handed to someone else records nothing.
 
 - Closing Settings no longer undoes changes made while it was open. The
   dialog used to write back a copy of your settings taken the moment it

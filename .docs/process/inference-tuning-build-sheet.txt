@@ -70,18 +70,27 @@ STEP 1  THE RIG
 EXIT
   [ ] Mark every action box above [x]. Here, never at the next ENTRY -- a
       gate that marks its own boxes cannot audit them.
-  [ ] ruff, pyright, check_docstrings -- at zero, reported separately from
-      the gesture below
   [ ] Run the reference pass and one repeat of it. The same config against
       itself must score near-zero divergence. Anything else means the metric
       is measuring noise and every later number is fiction.
+  [ ] "commit per protocol" -- this step is a commit boundary. It replaces
+      the hand-run lint line: the protocol runs ruff, pyright, vulture,
+      check_docstrings, the complexity report and the imperative-comment
+      report, which is strictly more. Gates only run at commit.
 
 
 ==============================================================================
 STEP 2  CPU ARM  -- FIRST, BECAUSE IT ANSWERS A FEASIBILITY QUESTION
 ==============================================================================
 ENTRY
-  [ ] Every box in STEP 1 is [x]. Stop and close it if not.
+  [ ] The prior step's COMMIT exists. git log, not the boxes -- a box is a
+      claim anyone can tick in any tool, a commit is a receipt carrying the
+      gates that produced it and a message saying what landed. No commit
+      means the work was never gated: review the code against the prior step
+      and report what is there, then continue. Do NOT stop -- a missing
+      commit is a state surprise, and the disk answers it.
+  [ ] Every box in STEP 1 is [x]. The human record, read after the
+      commit, never instead of it.
 
   [ ] 2a  base.en and small.en only. NOT large-v3 -- nobody transcribes on a
           CPU with it, and the real users are a one-computer shop with no
@@ -96,18 +105,22 @@ ENTRY
           with which model.
 
 EXIT
-  [ ] ruff, pyright, check_docstrings -- at zero, reported separately from
-      the gesture below
   [ ] Report a ranked table: config, median seconds per clip, realtime ratio,
       divergence from reference. Name which configs clear a realtime ratio of
       1.0 and which do not.
+  [ ] "commit per protocol" -- this step is a commit boundary. It replaces
+      the hand-run lint line: the protocol runs ruff, pyright, vulture,
+      check_docstrings, the complexity report and the imperative-comment
+      report, which is strictly more. Gates only run at commit.
 
 
 ==============================================================================
 STEP 3  AMPERE ARM
 ==============================================================================
 ENTRY
-  [ ] Every box in STEP 2 is [x]. Stop and close it if not.
+  [ ] The prior step's COMMIT exists -- see the first ENTRY in this sheet.
+  [ ] Every box in STEP 2 is [x]. The human record, read after the
+      commit, never instead of it.
 
   [ ] 3a  RTX 3070 Ti, large-v3 only.
   [ ] 3b  float32 (the reference, already run), float16, bfloat16,
@@ -128,10 +141,12 @@ ENTRY
           is thin enough that this is a live hazard, not a precaution.
 
 EXIT
-  [ ] ruff, pyright, check_docstrings -- at zero, reported separately from
-      the gesture below
   [ ] Ranked table as STEP 2. Note any config whose divergence is large
       enough to see in real dictation, not merely non-zero.
+  [ ] "commit per protocol" -- this step is a commit boundary. It replaces
+      the hand-run lint line: the protocol runs ruff, pyright, vulture,
+      check_docstrings, the complexity report and the imperative-comment
+      report, which is strictly more. Gates only run at commit.
 
 
 ==============================================================================
@@ -158,6 +173,10 @@ EXIT
   [ ] "Deferred, float16 shipped unmeasured for pre-Ampere" recorded in
       spike-notes.txt, so nobody later reads the preference list and assumes
       every entry in it was measured.
+  [ ] "commit per protocol" -- this step is a commit boundary. It replaces
+      the hand-run lint line: the protocol runs ruff, pyright, vulture,
+      check_docstrings, the complexity report and the imperative-comment
+      report, which is strictly more. Gates only run at commit.
 
 
 ==============================================================================
@@ -182,18 +201,22 @@ ENTRY
           not live only in code comments.
 
 EXIT
-  [ ] ruff, pyright, check_docstrings -- at zero, reported separately from
-      the gesture below
   [ ] Launch vdict_run.bat. The session block names a compute type and a
       thread count. Dictate once on GPU, switch to CPU in Settings, Save &
       Restart, dictate again. Both report their own selection.
+  [ ] "commit per protocol" -- this step is a commit boundary. It replaces
+      the hand-run lint line: the protocol runs ruff, pyright, vulture,
+      check_docstrings, the complexity report and the imperative-comment
+      report, which is strictly more. Gates only run at commit.
 
 
 ==============================================================================
 STEP 6  DOC SYNC
 ==============================================================================
 ENTRY
-  [ ] Every box in STEP 5 is [x]. Stop and close it if not.
+  [ ] The prior step's COMMIT exists -- see the first ENTRY in this sheet.
+  [ ] Every box in STEP 5 is [x]. The human record, read after the
+      commit, never instead of it.
 
   [ ] Grep every doc for names this sheet made stale. Re-derive counts from
       source rather than incrementing them.
@@ -205,7 +228,9 @@ ENTRY
 STEP 7  CLEANUP
 ==============================================================================
 ENTRY
-  [ ] Every box in the prior step is [x]. Stop and close it if not.
+  [ ] The prior step's COMMIT exists -- see the first ENTRY in this sheet.
+  [ ] Every box in the prior step is [x]. The human record, read after the
+      commit, never instead of it.
 
   [ ] vulture -- read every finding and decide it. Not a step gate:
       unreferenced is the normal transient state mid-refactor, and a finding

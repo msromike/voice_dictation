@@ -102,17 +102,17 @@ Verify both shortcuts carry the icon. Launch from the Desktop shortcut
 ==============================================================================
 P9. DEV-ONLY CAPTURE FLAGS OFF
 ==============================================================================
-Both flags default off in the shipped code, verify by reading the
-constant, not by memory:
+Dev flags default off in the shipped code, verify by confirming the flag
+file is absent, not by memory:
 
-  vdict_daemon.py: FLAC_CORPUS_CAPTURE_ENABLED (PTT-mode utterance
-    capture for the voice-ID corpus, P7).
-  vdict_daemon.py (once built): ambient-mode's equivalent, for
+  dev-flags.toml: capture_corpus (PTT-mode utterance capture for the
+    voice-ID corpus, P7).
+  dev-flags.toml (once built): ambient-mode's equivalent, for
     building/validating the diarization pipeline against real corpora.
 
 Neither is a Settings-exposed choice -- a shipped user never captures
 audio for this purpose, on purpose. On for dev/corpus work, off before
-any push.
+any push. This file does not ship.
 
 Must be a CLONE, not the working tree. vdict_install.bat run in place
 reuses the existing venv and proves nothing about a fresh install.
