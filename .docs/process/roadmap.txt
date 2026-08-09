@@ -24,9 +24,37 @@ plan.
 ==============================================================================
 ORDER
 ==============================================================================
-NOW   Write the Qt plan. Requirements first -- what the port has to achieve.
-      Measurement happens inside it, under impact on existing code, where it
-      has a target to be measured against.
+NOW   corpus-database-build-sheet.txt, on Mike's word. Written, unstarted.
+      One SQLite row per capture linking audio to text, because ambient mode
+      needs a corpus that already exists and a corpus cannot be back-filled.
+      GATED: portable-folder-build-sheet.txt step 1f lands first. It replaces
+      the FLAC capture constant with dev-flags.toml at the repo root --
+      absent file means every flag off -- and that file is neither on the
+      copy list nor in git. Without it, a handed-out copy records whoever
+      receives it.
+
+      inference-tuning-build-sheet.txt -- written, unstarted, and its
+      hardest question is already answered in spike-notes.txt. Measures which
+      compute type wins per device class, CPU arm first because that one
+      decides whether ambient mode is possible on a machine without an NVIDIA
+      card rather than merely how fast it runs.
+
+ALSO LIVE, independent of each other and of the two above.
+
+      Qt plan -- written, not finished. Requirements first; measurement
+      happens inside it, under impact on existing code, where it has a
+      target to measure against. The parity inventory is done and lives in
+      qt-parity-inventory.txt; SCRATCHPAD's remaining discovery items are
+      unrun. DESIGN's four buckets are the done condition, not the scratchpad
+      alone. The plan names its own closing order.
+
+      portable-folder-build-sheet.txt -- written, all three UNVERIFIED
+      spikes closed with their answers inline, no step started. It puts the
+      Whisper model and the Python interpreter inside the tree, so the
+      installed folder becomes the thing you hand someone: copy it anywhere,
+      nothing to install. It sits here rather than behind the port because
+      the port changes which packages are in the folder, never where
+      anything lives. CLAUDE.md's Code section carries the standing rule.
 
 THEN
   1  Core-arch prework -- two spikes and one build sheet:

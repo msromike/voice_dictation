@@ -74,6 +74,7 @@ values, so restoring by hand loses real settings.
 - validate at boundaries only (config.json, audio device, model input)
 - install deps immediately; no workarounds
 - no emojis, anywhere; docs TXT (MD needs permission)
+- paths relative to __file__; the tree runs from any folder on the machine
 
 ## Lint
 The edit hook ignores C901, PLR09 and RUF100 on purpose. Complexity is not shown

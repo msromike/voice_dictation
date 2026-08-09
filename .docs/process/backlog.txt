@@ -768,3 +768,53 @@ Build plan first -- encapsulate only what it calls for, as a reusable
 API. Cross-check other new-feature plans before sizing that extraction
 -- not extra process, avoids rebuilding the same shared piece
 narrower-then-wider one feature at a time.
+
+The dev-only capture flag above copies a pattern that turned out to be
+broken. A bare code constant ships with the source, and "off before any
+push" never fires for a folder handed over on a USB stick -- the recipient
+gets recorded. Add an entry to dev-flags.toml, which
+portable-folder-build-sheet.txt introduces -- absent file means every flag
+off -- not a new constant and not a config field. That file is dev tooling
+only; it is gitignored and never on the copy list.
+
+
+==============================================================================
+B26. VOICE PROMPT MODE -- NEW FEATURE
+==============================================================================
+A second trigger, or a modifier on the existing one, marks speech as a
+prompt to a local model rather than as text to type.
+
+Decide first which of four behaviours version one is: generate at the
+cursor, transform a selection, answer in the output window, or run a
+command. They are four different features, not one with options.
+
+Needs its own start tone, or the user cannot tell which mode fired until the
+wrong thing appears. Needs a busy state -- a model reply takes seconds where
+transcription takes about one.
+
+The model runs in a separate process, so this is configured at home and does
+not travel in the portable folder.
+
+The corpus mode column already exists for it -- see
+corpus-database-build-sheet.txt.
+
+
+==============================================================================
+B27. SELECTION TRANSFORM -- NEW FEATURE
+==============================================================================
+Speak at selected text and have it replaced. Mechanically cheap: copying does
+not deselect, so Ctrl+C then Ctrl+V lands the replacement on the live
+selection with no cursor bookkeeping, and the app already owns both halves.
+
+Three hazards to design against. The selection can die while the user is
+still talking, so the copy happens at press and not at release. The paste
+replaces whatever is selected AT PASTE TIME, which may not be what was
+copied. An empty selection silently transforms a stale clipboard, so clear it
+first and check something arrived.
+
+Windows UI Automation reads and replaces text without the clipboard, which
+avoids all three and keeps formatting -- but coverage across applications is
+inconsistent, so clipboard stays as the fallback.
+
+This edits documents rather than appending to them. A bug here destroys work
+rather than leaving a stray word.

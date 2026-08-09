@@ -22,6 +22,82 @@ MIN_RECORDING_SAMPLES stays at 6400 (0.4s): it already filters the exact
 duration range where hallucination was observed.
 
 
+CPU CORE TOPOLOGY (Windows, hybrid P/E chips)
+
+Windows reports performance versus efficiency cores through
+GetLogicalProcessorInformationEx with RelationProcessorCore. Each record
+carries an EfficiencyClass byte at offset 9 of the record; higher is faster.
+Walk the buffer by each record's own Size field. Verified working on an
+i7-9700K: eight physical cores, all reporting class 0.
+
+The rule that falls out needs no special cases: count physical cores per
+efficiency class and request the count in the HIGHEST class as cpu_threads.
+All-performance chips return everything. All-efficiency chips -- the modern
+N-series Celerons are built entirely from them -- also return everything,
+correctly, because they are homogeneous. Only mixed chips return a subset.
+
+Chosen against a hard affinity mask, which would guarantee placement where a
+thread count only hints at it. Reasons: the barrier argument for excluding
+efficiency cores assumes CTranslate2 partitions work statically, and its
+threading is compiled C++ that cannot be inspected from the venv. With
+dynamic scheduling a slow core simply takes fewer chunks and excluding eight
+real cores becomes a straight loss. A thread count is correct under either
+model. Overturned by a hybrid machine measuring pinned against unpinned --
+neither machine here is hybrid, so this cannot be settled locally.
+
+Windows migrates threads between core types continuously while they run, so
+a thread count is a hint and never a guarantee. That is a known limit of the
+choice above, not an oversight.
+
+
+AUDIO CORPUS AND TRANSCRIPT LOG (cannot be paired)
+
+The FLAC corpus and transcript_log.txt cannot be joined, and no later effort
+recovers it. FLAC filenames carry a microsecond timestamp; transcript lines
+carry nothing at all. The counts do not reconcile in either direction: the
+console writes a blank line after every transcript, FLAC files are written
+for captures too short to ever be transcribed, and the log predates FLAC
+capture being switched on.
+
+Consequence for any tuning work: there is no ground truth. The usable
+substitute is a pseudo-reference -- run the highest-quality configuration
+over a sample, treat its output as truth, and measure every other
+configuration as divergence from it.
+
+
+VRAM MEASUREMENT (Windows, consumer NVIDIA)
+
+Per-process VRAM cannot be read on Windows consumer cards. nvidia-smi
+--query-compute-apps returns used_memory as [N/A] for every process under
+the WDDM driver model, and no permission level changes it. Do not spend time
+on it again.
+
+What works: nvidia-smi --query-gpu=memory.used sampled before a load and at
+peak, taking the delta. Whole-GPU, so anything else changing on the desktop
+during the sample pollutes it.
+
+The trap underneath: Windows lets CUDA allocations spill into system RAM
+rather than failing when VRAM runs out. A model that does not fit still
+runs, slowly and silently. Measured on this machine, an RTX 3070 Ti reports
+8192 MiB total with roughly 6000 MiB already held by the desktop -- so any
+timing run has to record free VRAM at its start, or a spilled run gets
+recorded as a slow configuration.
+
+
+COMPUTE TYPES (CTranslate2 4.8.1)
+
+Supported sets differ by device and by GPU generation. Re-derive with
+ctranslate2.get_supported_compute_types(device) rather than trusting a list.
+On this machine, CPU offered int8, int8_float32, int16 and float32; an RTX
+3070 Ti additionally offered float16, bfloat16, int8_float16 and
+int8_bfloat16.
+
+bfloat16 requires Ampere. Pre-Ampere cards -- a 2070 and anything else in
+the Turing generation -- do not have it. So a compute type measured as
+fastest here cannot ship as a constant: the shipped code has to probe what
+the device supports and walk an ordered preference list.
+
+
 DISPLAY DPI (Windows, Tk)
 
 A process that has not declared DPI awareness reads the system DPI as 96,

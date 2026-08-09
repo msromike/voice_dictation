@@ -26,12 +26,22 @@ NEVER OMIT       GOAL (a paragraph), EVIDENCE, SCRATCHPAD.
 
 
 ==============================================================================
-SCRATCHPAD -- discovery not yet run. First of four to drain; DESIGN names
-the order and what empties each
+SCRATCHPAD -- discovery not yet run. First of DESIGN's four buckets to drain.
+DESIGN names the order those four buckets close in, NOT the order of the
+items below
 ==============================================================================
 Nothing here is a decision and nothing downstream may cite it. A settled item
 lands wherever it belongs, often in several sections at once, and is deleted
 here in the same edit.
+
+The parity inventory that used to sit here is DONE and lives in
+qt-parity-inventory.txt. It ran first because the Qt-surface item below reads
+against it by name, and DELIVERABLES defines pass-1 parity against it. The
+remaining items are independent and run in any order.
+
+A finding that is useful later rather than now goes to backlog.txt under the
+port's name, one entry each. It is not a DELIVERABLE and it does not stay
+here -- a plan that accumulates someday-items stops being readable.
 
   - What else does the port break downstream? Only input-device and core-arch
     surfaced, both by accident. Three reading lenses, run separately -- a lens
@@ -45,6 +55,9 @@ here in the same edit.
         cause -- the volume mixer was refused over four pythonw entries
     Then a grep for moved symbols, which is TRUE-UP's and not a lens.
     Qt-shaped is the lens already run, and it cannot find these.
+    Two questions once filed in JUDGMENT belong to these passes and were
+    deleted there: how far input-device-plan's scope reopens (pass 1, cost
+    lens), and which backlog items ride the port (passes 4-6).
     Passes, in order. Each is its own chunk; the item drains when the last
     one lands:
       1  input-device-plan.txt, all three lenses -- hit hardest, already
@@ -57,14 +70,6 @@ here in the same edit.
       6  backlog.txt, revival
     Output is findings for this plan plus a TRUE-UP breadcrumb, never an edit
     to the doc being read.
-  - What can a user actually do today? DELIVERABLES defines parity as every
-    menu item, dialog, binding and behaviour a user can reach, and no such
-    list exists. The census derived Tk mechanisms -- what the code uses, not
-    what a user can do. Different sets. Derive from the source, never from
-    memory of using the app: every menu entry and its command, every bound
-    key sequence, every tray action, every dialog and its buttons, and every
-    behaviour reachable without touching a menu. Parity is checked against
-    this at build time, and the Qt-surface sweep below reads against it.
   - What breaks when the port's dependencies go? Derive the set from
     requirements.txt and from the imports actually present in the tree, then
     mark each keep, drop or replace. Never hand-list it -- sounddevice,
@@ -78,7 +83,7 @@ here in the same edit.
     carries the per-decision version -- ask what Qt exposes first -- and
     nothing checks the document as a whole. Method: enumerate Qt's installed
     module surface and the example categories in the pyside-setup clone, then
-    read each against the parity inventory, never against today's feature
+    read each against qt-parity-inventory.txt, never against today's feature
     set. Reading against today's features can only confirm what was already
     built -- that is what dismissed 45 example categories the first time.
 
@@ -104,9 +109,10 @@ or not at all" is the filter; nothing else gates entry.
 
 PASS 1 -- THE FRAMEWORK
 Treated as atomic on the claim that one event loop owns the main thread, which
-DESIGN still lists as unverified. Parity means every menu item, dialog,
-binding and behaviour a user can reach still works. Not the
-implementation -- reproducing a Tk accident is not parity.
+DESIGN still lists as unverified. Parity is checked against
+qt-parity-inventory.txt, which holds every menu item, binding, tray action,
+dialog and menu-free behaviour a user can reach -- push-to-talk included.
+Not the implementation: reproducing a Tk accident is not parity.
   - The app runs under QApplication. Every window rebuilt.
   - The tray icon is Qt. pystray goes, and its background thread with it.
   - No widget sets its own appearance. One QSS file holds all of it, carrying
@@ -165,7 +171,16 @@ into a group; cross-cutting is for facts no single surface owns.)
 
 OUTPUT WINDOW
   - console.py zoom is hand-built: set_font_size, zoom_step, _zoom_wheel and
-    three key bindings
+    the key bindings in Console.__init__. Re-derive their number from the
+    bind() calls, never from a figure written here
+  - THREE things write to the text widget, not one. drain() off the queue on
+    the 100ms tick; _write_error, installed through install_screen and called
+    synchronously by error_log from whatever thread raised, bypassing the
+    queue entirely; and _animate_dots on its own 1000ms root.after loop, a
+    second timer nothing else records. DELIVERABLES' console bullet names
+    only the first. Replace the queue alone and the on-screen half of error
+    reporting stops appearing -- silently, because the disk write still
+    succeeds
   - worker output: module-level queue, 100ms Tk timer drains it.
     console.drain() is the tray's most complex function
   - the console text widget is permanently DISABLED; every write flips it to
@@ -197,6 +212,9 @@ MENU
   - menu mnemonics are underline= character indices, and accelerator= is
     separate from the binding that implements it, so a label can disagree with
     its key
+  - the live instance of that: Control-Key-equal zooms in and no menu shows
+    it, so Ctrl+= works and is undiscoverable. Ctrl+MouseWheel and the
+    right-click Copy menu are reachable with no menu entry at all
 
 TRAY AND APP
   - app._tick does two jobs on that same timer, not one -- console.drain()
@@ -206,9 +224,16 @@ TRAY AND APP
     minimize via <Unmap> plus state()=='iconic'
   - icon.py picks an .ico frame via GetSystemMetrics(SM_CXSMICON) plus PIL
   - pystray runs its own background thread
+  - "Show Output" carries pystray's default=True, and that is what makes a
+    click on the tray icon raise the window. Nothing else records that
+    behaviour; QSystemTrayIcon expresses it as an activation reason instead
 
 MODALS AND CRASH PATH
   - faults.py builds modality from Toplevel + transient + grab_set
+  - mic-fault recovery spans TWO launches. Close writes MIC_FAULT_FLAG_PATH
+    and force-quits; the next launch reads the flag, logs a note, opens
+    Settings and deliberately does not start the daemon. Rebuild the modal
+    from the dialog alone and the resume half is lost with no symptom
   - app.py assigns report_callback_exception -- Tk routes every exception
     raised inside a callback there. It reports through a native MessageBoxW,
     not a Tk modal, because Tk may be what broke
@@ -252,9 +277,17 @@ CROSS-CUTTING
   - the dead-widget test is tk.TclError plus winfo_exists, in console.copy and
     settings.open_settings
   - layout is pack() throughout. No grid, no place
-  - deferred imports hide from a leading-import grep: pyperclip and pyautogui
-    in daemon/keyboard.py, huggingface_hub in stt.py, ctranslate2 in
-    settings.py. Derive dependencies by reading
+  - deferred imports hide from a leading-import grep. Re-derive by searching
+    for import lines that are INDENTED, never by reading the tops of files.
+    That search returns: pyperclip and pyautogui in daemon/keyboard.py,
+    huggingface_hub in stt.py, ctranslate2 AND sounddevice in settings.py,
+    pynput in tray/ptt_capture.py, and tkinter itself twice -- ttk inside
+    settings.py's _build_window, and a whole second tkinter plus messagebox
+    in vdict_tray.py's already-running path.
+    sounddevice, pynput and tkinter are all things this port removes or
+    moves, so a dependency sweep that reads only file tops reports them gone
+    while they are still there. This line previously named three of these and
+    was itself written without running the search it prescribes.
   - three deliberate decisions the rebuild must carry, none of them in a code
     comment today. They become comments when the rebuilt code is written:
       "Loading model" is left unterminated on purpose -- the console appends
@@ -263,6 +296,12 @@ CROSS-CUTTING
         bare text is the point, it must stay copy-paste clean
       app._force_quit's showerror is a direct call, not category dispatch --
         it is the half guaranteed to be seen when the console may be gone
+  - the tray reaches into the daemon. tray/ptt_capture.py imports BUTTON_MAP
+    from vdict/daemon/keyboard.py, and the ptt.button strings its capture
+    writes -- "key:<name>", or a bare mouse name -- are parsed back by the
+    daemon's PTTListener. A Qt capture emitting a different string breaks
+    dictation with nothing in the console to explain it. PTT is not outside
+    this port's scope; it is the most user-reachable behaviour in the app
   - session.py, const.py and transcript.py contain no Tk mechanisms
 
 MEASURED  (one session, one machine, default input 'Microphone (PDP Audio
@@ -398,17 +437,9 @@ JUDGMENT, NO SPIKE NEEDED
     broke.
   - Does daemon_proc become QProcess. core-arch deletes the subprocess soon
     after, so the question is whether the window between them pays.
-  - How far input-device-plan's scope reopens. It was stripped to a minimum
-    because hot-swap detection was too hard to hand-roll; audioInputsChanged
-    hands it over.
   - FLAC. QMediaRecorder records a capture session to a file; audio_io.py
     encodes a numpy buffer after transcription. Keep soundfile, or restructure
     to record-during-capture.
-  - Which backlog items ride the port beyond the meter. Also Qt-shaped: tone
-    volume; minimize/X/exit differing; Settings and the output window
-    opening and closing together; both model dropdown entries;
-    relaunch raising the running instance; Settings layout grouped by
-    function.
   - Tones generated or read from WAV. Someone moved from generate_tone to WAV
     files and the reason is unrecorded. Read git before reverting.
 
@@ -418,6 +449,15 @@ SEAMS
 ==============================================================================
   - The entry-point switch is the one hard cut. Qt is built alongside the Tk
     tray, importing nothing, until that switch. Everything before it is inert.
+  - Consequence of that cut, for whoever writes the sheet: every step before
+    the switch produces code nothing runs, so the template's per-step launch
+    gesture has nothing to launch. ALREADY WEIGHED: build a throwaway
+    launcher that opens the Qt windows on their own, so each step has
+    something to look at, and delete it at CLEANUP. Beat: accepting one large
+    moment of truth at the switch, and flipping the switch early with a
+    degraded app in between. Abandonment safety was never what was at risk --
+    the Tk app keeps working untouched either way. Incremental verification
+    was.
   - Audio cuts away from the rest because it owns no windows, and needs no
     GUI application object to do it.
   - Appearance has no cut of its own; it lands on the stylesheet pass 1 ships.
@@ -435,6 +475,12 @@ Derive once DESIGN is empty of open items, spikes and judgment alike.
 BREADCRUMBS
   - input-device-plan.txt rests throughout on constraints this port removes.
   - core-arch-plan.txt: the log() blocker and LIVE-READ SETTINGS both change.
+  - the portable-folder work adds a constraint the port must not break:
+    nothing the app needs lives outside the tree. Qt's own conventions point
+    the other way, so this is not automatic. QSettings defaults to the
+    Windows registry, and QStandardPaths returns profile folders. That bounds
+    DESIGN's open "where does a Qt app persist window state" -- a file in the
+    tree, never QSettings' default backend. See CLAUDE.md's Code section.
 
 
 ==============================================================================
@@ -442,5 +488,5 @@ DRAINS
 ==============================================================================
   - backlog: Settings mic test button with level meter.
 
-The rest are candidates, not drains, until DESIGN's "which backlog items
-ride the port" closes.
+The rest are candidates, not drains, until SCRATCHPAD's backlog passes close.
+That question used to sit in DESIGN and now lives there.

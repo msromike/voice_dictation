@@ -1,0 +1,320 @@
+VOICE DICTATION - BUILD SHEET: PORTABLE FOLDER
+
+ON THE FLY
+  WHY THIS SHAPE
+  The model and the Python interpreter are the only two things the app needs
+  that live outside its own folder. Pull both inside and the installed folder
+  becomes the distributable -- copy it anywhere, hand it to anyone, nothing to
+  install. No plan owns this; the Qt port changes packages, not destinations.
+
+Done = the folder, copied elsewhere with userdata left behind, launches and
+transcribes while C:\bin\PortableTools\Python312 is renamed away.
+
+
+==============================================================================
+UNVERIFIED
+==============================================================================
+All three closed in the scratchpad with the repo untouched. Step 1 may begin.
+The one still open below needs the built system to observe, which is why it
+stays open rather than blocking.
+
+  [x] Are the model and the interpreter the only two strays -- NO, there is a
+      third. stt.py and settings.py both search site.getusersitepackages()
+      for CUDA libraries, which is a profile folder. Everything else in our
+      source builds paths from __file__. Of the libraries imported directly,
+      only huggingface_hub forms profile paths. Not swept: sounddevice
+      (installs as a single module and slipped the search), numpy, Pillow,
+      pystray, soundfile, pydantic, pywin32.
+  [x] Does the cache variable redirect a real DOWNLOAD -- YES. A fresh fetch
+      landed in the folder it was pointed at and the profile cache was
+      untouched. HF_HOME works too but adds a hub/ level, so 1a uses
+      HF_HUB_CACHE.
+  [x] Do ctranslate2 and the CUDA wheels import under the embeddable build --
+      YES. ctranslate2, faster_whisper, numpy and pydantic all import. A
+      relative ..\venv\Lib\site-packages line in python312._pth resolves, and
+      uncommenting "import site" in that same file turns the site module on.
+      The fallback full-Python copy is NOT needed; Step 2 keeps its shape.
+      BUT site.getsitepackages() returns the interpreter's own folders under
+      that build, so the CUDA search finds nothing and GPU degrades to CPU in
+      silence. That is what 2g exists to fix.
+
+  [ ] Has vdict_run.bat ever been RUN since it was rewritten. It now calls
+      venv\Scripts\pythonw.exe directly instead of going through
+      activate.bat, and that change has never been executed -- the desktop
+      shortcut bypasses the .bat entirely, so normal use never exercises it.
+      Settled by one double-click: the tray icon appears or it does not.
+      Do this before STEP 2, which repoints the same file again. Debugging
+      two unproven edits at once is how a five-minute problem becomes an
+      afternoon.
+  [ ] Does PATH alone LOAD the CUDA DLLs under the embeddable build. The
+      spike proved the libraries can be located, not that they load: the test
+      also called os.add_dll_directory(), which the shipped code does not,
+      and importing ctranslate2 does not touch CUDA until a model is built on
+      it. Needs a real GPU model load. Step 2's gesture is where it becomes
+      observable.
+      FALLBACK if it cannot carry them: a full copy of a normal Python
+      installation into the tree instead. Heavier, and Step 2 becomes the
+      same step with a different payload. A failed spike changes the
+      mechanism, never the plan.
+
+
+==============================================================================
+GOVERNING RULE
+==============================================================================
+Everything the app needs at runtime lives inside the folder and is found by a
+path relative to the folder itself. Nothing is read from a user profile, a
+system cache, or any absolute path outside the tree. Qt does not change this
+and neither does anything after it.
+
+
+==============================================================================
+STEP 1  MODEL INTO THE TREE
+==============================================================================
+  [ ] 1a  Set HF_HUB_CACHE to <root>/models in vdict_tray.py, above the App
+          import and beside the SetProcessDpiAwareness call. NOT HF_HOME --
+          measured: that one adds a hub/ level underneath, and session.py's
+          cache lookup reads HF_HUB_CACHE first regardless. One site:
+          daemon_proc's env starts from os.environ.copy(), so the subprocess
+          inherits it.
+  [ ] 1b  Add models/ to .gitignore.
+  [ ] 1c  COPY every cached Systran/faster-whisper-* snapshot from the profile
+          cache into models/. All of them, not only the configured one:
+          Settings offers every size, and a dropdown whose other choices need
+          an internet connection is worse than a larger folder. Size is not a
+          constraint here -- re-derive it rather than trusting a figure.
+          Copy, never move -- the profile copy is the fallback until the
+          gesture below passes, and CLEANUP deletes it, not this step.
+          No link handling needed anywhere downstream: measured on this
+          machine, every cached file is a real file, the blobs directory
+          holds nothing, and nothing is a symlink or a hardlink. stt.py's
+          comment claiming HuggingFace does it both ways is not what this
+          cache actually does.
+  [ ] 1d  stt.py load() and reload() both tell the user to pick a different
+          model or switch to CPU. That is wrong advice when nothing is on
+          disk to load. Split the message: name a missing model separately
+          from a device that cannot run it.
+  [ ] 1e  Pass local_files_only=True to WhisperModel. A shipped folder
+          carries its models; a download attempt on a recipient's machine is
+          always a packaging failure, and failing immediately says so. This
+          is what makes 1d's missing-model message reachable instead of
+          hypothetical.
+          Consider download_root as well -- it sets the model directory as an
+          explicit argument rather than through a process-wide environment
+          variable. Same destination as 1a, narrower blast radius. Pick one;
+          do not set both and leave a reader guessing which wins.
+  [ ] 1f  PRIVACY, and it blocks the handoff. FLAC_CORPUS_CAPTURE_ENABLED is
+          a constant set True in vdict_daemon.py, and source ships. A stick
+          handed to anyone starts recording their voice to disk on first use.
+          The code comment says it goes off "before any push" -- handing
+          someone a USB stick is not a push, so that gate never fires.
+          Fix: dev-flags.toml at the repo root, starting with one entry,
+          capture_corpus. AN ABSENT FILE MEANS EVERY FLAG IS OFF -- the
+          file's existence is the master switch and the capture branch never
+          runs without it.
+          It travels by neither route: gitignored, and not on copy_usb.bat's
+          include list. Name it once, here -- the daemon, .gitignore and the
+          copy list all have to agree, and three sites inventing three
+          spellings is how this silently stops working.
+          TOML rather than INI or JSON: pyproject.toml already makes TOML a
+          format in this tree and INI is not, tomllib is stdlib on 3.12, and
+          it yields real booleans instead of strings to coerce. tomllib is
+          also READ-ONLY, so the app cannot rewrite this file by
+          construction -- the opposite of config.json, which gets rewritten
+          on every Settings close.
+          NOT a config field. Dev tooling, not a user setting; in config.json
+          it would read as an option someone is meant to choose.
+          DEV FLAGS ONLY. transcript.ENABLED and console.transcript_only_mode
+          are unfinished FEATURES waiting on Settings UI, not dev tooling,
+          and they stay where they are. Mixing them in means this file never
+          empties and nobody can tell which entries are temporary. B24's
+          ambient retention flag is the second entry, when it comes.
+          MALFORMED FILE CRASHES, absent file does not. The asymmetry is
+          deliberate: absence is the normal shipped state, so it must be
+          silent, while broken syntax is a developer's typo on a developer's
+          machine and must be loud. tomllib raises; let it. Swallowing it and
+          running with flags off is the worst outcome available -- you would
+          believe capture was on and be building nothing.
+          Honest limit: dragging the WHOLE tree by hand carries the file,
+          exactly as it would carry a userdata folder. Nothing defends
+          against copying everything, and it is not worth designing for.
+          The SQLite corpus sheet reads this file; it does not redefine it.
+          pre-push.txt names FLAC_CORPUS_CAPTURE_ENABLED by symbol and goes
+          stale the moment this lands. Repoint it in the same step rather
+          than leaving it for DOC SYNC -- a pre-push gate naming a constant
+          that no longer exists is a gate that silently passes.
+
+EXIT
+  [ ] Mark every action box above [x]. Here, never at the next ENTRY -- a
+      gate that marks its own boxes cannot audit them.
+  [ ] ruff, pyright, check_docstrings -- at zero, reported separately from
+      the gesture below
+  [ ] Launch vdict_run.bat. The session block's Model line reports a size and
+      one dictation transcribes, with NO download line in the console. The
+      download line is the real tell: looking in the wrong place still passes
+      this gesture eventually, by fetching the whole model again.
+
+
+==============================================================================
+STEP 2  INTERPRETER INTO THE TREE
+==============================================================================
+ENTRY
+  [ ] Every box in STEP 1 is [x]. Stop and close it if not.
+
+  [ ] 2a  Put Python's embeddable build in python/ at the root.
+  [ ] 2b  Point it at the packages by relative path, so nothing in the tree
+          names a location. The mechanism is python312._pth beside the
+          interpreter: add a ..\venv\Lib\site-packages line and uncomment the
+          "import site" line already in it. Both verified working.
+          venv/ stays as the package folder; only its Scripts/python.exe
+          stops being used. venv/pyvenv.cfg's home field is absolute and has
+          no relative form -- that is what this routes around.
+  [ ] 2c  Repoint vdict_run.bat at the in-tree interpreter.
+  [ ] 2d  Repoint vdict_install.bat and startup_folder_install.bat, which
+          both build shortcuts from venv\Scripts\pythonw.exe.
+  [ ] 2e  vdict_install.bat downloads and extracts the embeddable build into
+          python/. Nothing else creates that folder, and it is gitignored --
+          without this a fresh clone installs cleanly and then launches a
+          repointed vdict_run.bat at an interpreter that is not there.
+          models/ needs no equivalent: the first model download creates it.
+  [ ] 2f  Add python/ to .gitignore.
+  [ ] 2g  Replace the CUDA search in stt.py and settings.py outright. Both
+          walk site.getsitepackages() + site.getusersitepackages(), which is
+          wrong twice: the profile entry reads outside the tree, and under
+          the embeddable build getsitepackages() returns the interpreter's
+          own folders and finds nothing at all -- GPU disappears silently.
+          Use nvidia.__path__ instead: ask the package where it is rather
+          than guessing where packages live. Verified to find cublas,
+          cuda_nvrtc and cudnn under BOTH the current venv and the
+          embeddable build, so it is safe to land before Step 2 finishes.
+          Own item, not folded into 1d: that one is a message string, this
+          changes DLL search and can take GPU away without a symptom.
+
+EXIT
+  [ ] ruff, pyright, check_docstrings -- at zero, reported separately from
+      the gesture below
+  [ ] Rename C:\bin\PortableTools\Python312 away, launch vdict_run.bat from
+      the repo, dictate once, rename it back. This step is what makes the
+      outside Python unnecessary, so this is where that becomes observable.
+      Without the rename the gesture passes whether or not anything changed.
+
+
+==============================================================================
+STEP 3  PROVE THE COPY
+==============================================================================
+ENTRY
+  [ ] Every box in STEP 2 is [x]. Stop and close it if not.
+
+  [ ] 3a  Copy the tree to a second location, taking vdict_run.bat, venv,
+          voice-dictation, images, templates, models and python. Leave
+          userdata behind. Required set only -- Step 4 adds README, LICENSE
+          and startup_folder_install.bat, which nothing needs in order to run.
+  [ ] 3b  Confirm the copy rebuilds userdata on its own -- config.json from
+          the model defaults, vocabulary.txt from templates. Read the seeded
+          config and confirm corpus capture came back FALSE, and that no
+          flac directory appears after a dictation. That is 1f proved rather
+          than assumed.
+
+EXIT
+  [ ] ruff, pyright, check_docstrings -- at zero, reported separately from
+      the gesture below
+  [ ] Rename C:\bin\PortableTools\Python312 away, launch the COPY, dictate
+      once, rename it back. Step 2 proved the repo needs nothing outside
+      itself; this proves a copy carries that with it.
+
+
+==============================================================================
+STEP 4  COPY_USB.BAT
+==============================================================================
+ENTRY
+  [ ] Every box in STEP 3 is [x]. Stop and close it if not.
+
+  [ ] 4a  Write copy_usb.bat at the root. It takes a destination PATH as an
+          argument and prompts for one only when none is given -- 4j calls it
+          with a path the user has already typed, and asking twice is the
+          tell that it was built prompt-only. H:\ for a stick, C:\vdict_copy
+          or a desktop folder for anywhere else. The name says USB; the
+          script does not care what the target is.
+  [ ] 4b  PRE-FLIGHT, before any destination check: models/ holds a model and
+          python/ holds an interpreter. Stop and name whichever is missing.
+          Installed-but-never-launched leaves models/ empty, and copying it
+          reports success while shipping the one thing this sheet exists to
+          put in the folder -- the recipient then hits the download path.
+  [ ] 4c  Name every folder it copies. An include list, never everything-
+          minus-exclusions: the failure mode of an exclude list is shipping
+          userdata\flac, which is recordings of Mike's voice. Add README.md,
+          LICENSE and startup_folder_install.bat -- the recipient wants all
+          three and they cost nothing.
+          Scope: the include list governs which top-level folders ship at
+          all. Excluding a subfolder of one that is already shipping is a
+          different thing and stays allowed -- see 4l.
+  [ ] 4d  Refuse a destination inside this tree, and refuse the tree root
+          itself. Either one copies the folder into itself.
+  [ ] 4e  Create the destination folder when it does not exist. An unmounted
+          drive stops the script before anything is copied.
+  [ ] 4f  Check free space on the destination's own volume against the size
+          of the set, before copying starts. Failing three gigabytes in is a
+          long wait for an answer available at the beginning.
+  [ ] 4g  robocopy, not xcopy -- venv nests deeper than xcopy handles. Exit
+          codes 8 and above are failure; 0 through 7 are normal success, and
+          reading any non-zero as failure is the easy way to get this wrong.
+  [ ] 4h  Record in README.md how to hand the folder to someone, pointing at
+          copy_usb.bat for the set. The script is the one authority, or the
+          list drifts in two places.
+  [ ] 4i  Removable-media guard on vdict_run.bat, vdict_install.bat and
+          startup_folder_install.bat. All three, one prompt: continue from
+          the stick, copy to a local path first, or exit. Continue always
+          stays available -- running from the stick is the capability being
+          proven, and it is slow, not broken. The prompt says so, or the
+          user reads a long model load as a hang.
+  [ ] 4j  Copy-to-local calls copy_usb.bat rather than growing a second copy
+          routine. That dependency is why this guard lands here and not in
+          Step 2, where those files are otherwise touched.
+  [ ] 4k  copy_usb.bat gets NO removable-media guard of its own. Deliberate,
+          not an oversight: running it from a stick is how someone gets the
+          folder off a stick.
+  [ ] 4l  Decide whether venv\Scripts belongs in the copy set. After Step 2
+          the interpreter comes from python/ and the packages from
+          venv\Lib\site-packages, leaving executables that carry this
+          machine's absolute path and nothing that runs them -- re-derive
+          the set with a search for this repo path under venv\Scripts. Check
+          for wheels that drop runtime DLLs there before excluding it.
+
+EXIT
+  [ ] ruff, pyright, check_docstrings -- at zero, reported separately from
+      the gesture below
+  [ ] Run copy_usb.bat twice: once to a stick, once to a folder on C:. Then
+      launch vdict_run.bat FROM THE STICK, answer the guard with continue,
+      and dictate once. Confirm no userdata folder rode along to either
+      destination.
+
+
+==============================================================================
+STEP 5  DOC SYNC
+==============================================================================
+ENTRY
+  [ ] Every box in STEP 4 is [x]. Stop and close it if not.
+
+  [ ] Grep every doc for names this sheet made stale. Re-derive counts from
+      source rather than incrementing them.
+  [ ] Repoint each hit at a surviving code symbol -- the module and the
+      functions in it, never at a doc that named them.
+
+
+==============================================================================
+STEP 6  CLEANUP
+==============================================================================
+ENTRY
+  [ ] Every box in the prior step is [x]. Stop and close it if not.
+
+  [ ] vulture -- read every finding and decide it. Not a step gate:
+      unreferenced is the normal transient state mid-refactor, and a finding
+      left red on purpose is a decision, not a failure.
+  [ ] Drain the defects.txt or backlog.txt entries this sheet closes.
+  [ ] Delete every harness and spike this sheet created, the second copy from
+      Step 3, and the profile-cache model snapshots that Step 1 copied from.
+  [ ] Make this sheet safe to delete: grep its own filename and any ID it
+      introduced, and repoint every hit. Grep, do not recall -- the count
+      has been zero and it has been seven.
+  [ ] State what git status should show.
+
+Mike deletes this sheet.
