@@ -22,6 +22,7 @@ import os
 import queue
 import traceback
 from datetime import datetime
+from typing import NamedTuple
 import numpy as np
 import sounddevice as sd
 import tomllib
@@ -54,31 +55,54 @@ def get_window_context():
     except Exception:
         return 0, 0, "Unknown", "Unknown"
 
-def _record_corpus_row(start_time, end_time, inject_time, file_timestamp, audio_path, audio_data,
-                       sample_rate, model, device, compute_type, text, outcome, version, mode,
-                       win_title, proc_name, block_id):
+class CaptureRow(NamedTuple):
+    """One capture, one row. Field order matches the INSERT below."""
+
+    start_time: datetime
+    end_time: datetime
+    inject_time: datetime | None
+    file_timestamp: str | None
+    audio_path: Path | None
+    duration_sec: float
+    sample_rate: int
+    model: str
+    compute_device: str
+    compute_type: str
+    transcript_text: str
+    outcome: str
+    app_version: str
+    mode: str
+    window_title: str
+    process_name: str
+    block_id: int
+    speaker: str = ""
+
+
+def _record_corpus_row(row):
+    """Write one CaptureRow. Does nothing when corpus capture is off, and never raises --
+    a database fault must not end a dictation session."""
     if not FLAC_CORPUS_CAPTURE_ENABLED:
         return
     try:
         from vdict.common.corpus_db import get_corpus_connection
-        duration = len(audio_data) / sample_rate
         conn = get_corpus_connection()
         try:
             conn.execute("""
                 INSERT INTO captures (
                     start_time, end_time, inject_time, file_timestamp, audio_path,
-                    duration_sec, sample_rate, model, compute_device,
-                    compute_type, transcript_text, outcome, app_version,
-                    speaker, mode, window_title, process_name, block_id
+                    duration_sec, sample_rate, model, compute_device, compute_type,
+                    transcript_text, outcome, app_version, mode, window_title,
+                    process_name, block_id, speaker
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                start_time.isoformat(), end_time.isoformat(),
-                inject_time.isoformat() if inject_time else "",
-                file_timestamp if file_timestamp else "",
-                str(audio_path) if audio_path else "",
-                duration, sample_rate, model, device,
-                compute_type, text, outcome, version,
-                "", mode, win_title, proc_name, block_id
+                row.start_time.isoformat(), row.end_time.isoformat(),
+                row.inject_time.isoformat() if row.inject_time else "",
+                row.file_timestamp or "",
+                str(row.audio_path) if row.audio_path else "",
+                row.duration_sec, row.sample_rate, row.model,
+                row.compute_device, row.compute_type, row.transcript_text,
+                row.outcome, row.app_version, row.mode, row.window_title,
+                row.process_name, row.block_id, row.speaker
             ))
             conn.commit()
         finally:
@@ -193,7 +217,113 @@ def play_tone(tone_type, enabled=True, volume=1.0):
     _tone_queue.put(scaled)
 
 
-def main():  # noqa: PLR0915
+class CaptureSession:
+    """One push-to-talk cycle's worth of state. Built once, run_once() per capture."""
+
+    def __init__(self, config, audio, stt, keyboard):
+        """Own what a capture needs. The caller builds AudioCapture and STTEngine;
+        the trigger listener and the block tracker belong to this object."""
+        self.config = config
+        self.audio = audio
+        self.stt = stt
+        self.keyboard = keyboard
+        self.blocks = BlockTracker()
+        self.ptt = PTTListener(button=config.ptt.button, on_enter=self.blocks.close)
+        self.prompt = load_vocabulary()
+
+    def stop(self):
+        """Stop the trigger listener."""
+        self.ptt.stop()
+
+    def _capture(self):
+        """Record until the trigger releases, or toggle mode times out at 120s.
+        Returns (samples, started, ended, timed_out)."""
+        feedback = self.config.audio.feedback
+        toggle = self.config.ptt.mode == "toggle"
+        if toggle:
+            self.ptt.wait_for_release()
+
+        # play_tone() doesn't block -- swapping these two calls wouldn't
+        # reduce tone bleed into the recording, it would capture the whole tone.
+        play_tone("start", enabled=feedback)
+        log("rec", "")
+        # Stamped before the stream opens, so start_time runs ahead of the first
+        # sample -- about 50ms, and about 600ms on the first capture after launch.
+        started = datetime.now()
+        self.audio.start_capture()
+
+        timed_out = False
+        if toggle and not self.ptt.wait_for_press(timeout_secs=120.0):
+            timed_out = True
+            play_tone("timeout", enabled=feedback)
+            log("note", "Timeout reached.")
+        else:
+            self.ptt.wait_for_release()
+
+        return self.audio.stop_capture(), started, datetime.now(), timed_out
+
+    def _write_flac(self, audio_data):
+        """Write the capture to the corpus directory. (None, None) when capture is off."""
+        if not FLAC_CORPUS_CAPTURE_ENABLED:
+            return None, None
+        return write_timestamped_flac(FLAC_CORPUS_DIR, audio_data, self.audio.sample_rate)
+
+    def _transcribe_and_inject(self, audio_data):
+        """Returns (text, outcome, inject_time). Injects only on success."""
+        # Short captures can make Whisper hallucinate plausible-but-false
+        # text instead of returning empty -- see spike_notes.txt.
+        if len(audio_data) < MIN_RECORDING_SAMPLES:
+            play_tone("too_short", enabled=self.config.audio.feedback)
+            log("note", "Not transcribed -- hold the button at least 0.4s.")
+            return "", "too-short", None
+
+        play_tone("stop", enabled=self.config.audio.feedback)
+        try:
+            text = self.stt.transcribe(audio_data, initial_prompt=self.prompt)
+        except Exception as e:
+            log("error", f"Transcription failed: {e}")
+            write_error_log("Transcription failed", traceback.format_exc())
+            return "", "error", None
+
+        if not text:
+            log("note", "No speech detected.")
+            return "", "no-speech", None
+
+        log("transcript", text)
+        self.keyboard.inject(text)
+        return text, "success", datetime.now()
+
+    def run_once(self):
+        """One capture, from trigger to row. Every outcome writes exactly one row."""
+        self.ptt.wait_for_press()
+
+        hwnd, pid, win_title, proc_name = get_window_context()
+        block_id = self.blocks.block_for(hwnd, pid)
+
+        # Fire the GPU primer to wake up CUDA cores while user is talking
+        self.stt.wake_gpu()
+
+        audio_data, started, ended, timed_out = self._capture()
+        audio_path, file_timestamp = self._write_flac(audio_data)
+
+        text, outcome, inject_time = "", "timeout", None
+        if not timed_out:
+            text, outcome, inject_time = self._transcribe_and_inject(audio_data)
+
+        _record_corpus_row(CaptureRow(
+            start_time=started, end_time=ended, inject_time=inject_time,
+            file_timestamp=file_timestamp, audio_path=audio_path,
+            duration_sec=len(audio_data) / self.audio.sample_rate,
+            sample_rate=self.audio.sample_rate,
+            model=self.config.stt.model, compute_device=self.config.stt.device,
+            compute_type=self.stt.compute_type, transcript_text=text,
+            outcome=outcome, app_version=__version__, mode="dictation",
+            window_title=win_title, process_name=proc_name, block_id=block_id))
+
+        log("done", "")
+
+
+def main():
     """Main daemon loop"""
     config = load_config()
 
@@ -220,8 +350,7 @@ def main():  # noqa: PLR0915
     keyboard = KeyboardInjector(
         preserve_clipboard=config.keyboard.preserve_clipboard)
 
-    blocks = BlockTracker()
-    ptt = PTTListener(button=config.ptt.button, on_enter=blocks.close)
+    session = CaptureSession(config, audio, stt, keyboard)
 
     global _output_stream
     _output_stream = sd.OutputStream(
@@ -233,122 +362,20 @@ def main():  # noqa: PLR0915
         extra_settings=sd.WasapiSettings(auto_convert=True))
     _output_stream.start()
 
-    # Get prompt for jargon biasing
-    prompt = load_vocabulary()
-
-    # Get PTT mode and audio feedback settings
-    ptt_mode = config.ptt.mode
-    audio_feedback = config.audio.feedback
-
     # Closes the session block. Dashes, not the startup header's equals signs --
     # this divides sections, it does not open the log. Blank line after.
     log("ready", f"Voice Dictation v{__version__} READY")
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log("block", f" {timestamp} ".center(60, "-"))
     log("block", "")
-    play_tone("ready", enabled=audio_feedback)
+    play_tone("ready", enabled=config.audio.feedback)
 
     try:
         while True:
-            # Wait for button to be pressed
-            ptt.wait_for_press()
-            
-            hwnd, pid, win_title, proc_name = get_window_context()
-            block_id = blocks.block_for(hwnd, pid)
-
-            # Fire the GPU primer to wake up CUDA cores while user is talking
-            stt.wake_gpu()
-
-            # If toggle mode, wait for release before starting
-            if ptt_mode == "toggle":
-                ptt.wait_for_release()
-
-            # play_tone() doesn't block -- swapping these two calls wouldn't
-            # reduce tone bleed into the recording, it would capture the whole tone.
-            play_tone("start", enabled=audio_feedback)
-            log("rec", "")
-            # Stamped before the stream opens, so start_time runs ahead of the first
-            # sample -- about 50ms, and about 600ms on the first capture after launch.
-            capture_start = datetime.now()
-            audio.start_capture()
-
-            if ptt_mode == "toggle":
-                # Wait for second click to stop (with timeout)
-                pressed = ptt.wait_for_press(timeout_secs=120.0)
-                if not pressed:
-                    play_tone("timeout", enabled=audio_feedback)
-                    log("note", "Timeout reached.")
-                    log("done", "")
-                    audio_data = audio.stop_capture()
-                    capture_end = datetime.now()
-                    audio_path, file_timestamp = None, None
-                    if FLAC_CORPUS_CAPTURE_ENABLED:
-                        audio_path, file_timestamp = write_timestamped_flac(
-                            FLAC_CORPUS_DIR, audio_data, audio.sample_rate)
-                    _record_corpus_row(
-                        capture_start, capture_end, None, file_timestamp, audio_path,
-                        audio_data, audio.sample_rate, config.stt.model,
-                        config.stt.device, stt.compute_type, "", "timeout",
-                        __version__, "dictation", win_title, proc_name, block_id)
-                    continue
-                ptt.wait_for_release()
-            else:
-                # Hold mode: stop immediately on release, no timeout
-                ptt.wait_for_release()
-
-            audio_data = audio.stop_capture()
-            capture_end = datetime.now()
-
-            audio_path = None
-            file_timestamp = None
-            if FLAC_CORPUS_CAPTURE_ENABLED:
-                audio_path, file_timestamp = write_timestamped_flac(
-                    FLAC_CORPUS_DIR, audio_data, audio.sample_rate)
-
-            # Short captures can make Whisper hallucinate plausible-but-false
-            # text instead of returning empty -- see spike_notes.txt.
-            if len(audio_data) < MIN_RECORDING_SAMPLES:
-                play_tone("too_short", enabled=audio_feedback)
-                log("note", "Not transcribed -- hold the button at least 0.4s.")
-                log("done", "")
-                _record_corpus_row(
-                    capture_start, capture_end, None, file_timestamp, audio_path, audio_data,
-                    audio.sample_rate, config.stt.model, config.stt.device, stt.compute_type,
-                    "", "too-short", __version__, "dictation", win_title, proc_name, block_id)
-                continue
-
-            play_tone("stop", enabled=audio_feedback)
-
-            # Transcribe with prompt for jargon biasing
-            outcome = "success"
-            text = ""
-            try:
-                text = stt.transcribe(audio_data, initial_prompt=prompt)
-            except Exception as e:
-                log("error", f"Transcription failed: {e}")
-                write_error_log("Transcription failed", traceback.format_exc())
-                outcome = "error"
-
-            inject_time = None
-            if outcome == "success":
-                if text:
-                    log("transcript", text)
-                    keyboard.inject(text)
-                    inject_time = datetime.now()
-                else:
-                    log("note", "No speech detected.")
-                    outcome = "no-speech"
-
-            _record_corpus_row(
-                capture_start, capture_end, inject_time, file_timestamp, audio_path, audio_data,
-                audio.sample_rate, config.stt.model, config.stt.device, stt.compute_type,
-                text, outcome, __version__, "dictation", win_title, proc_name, block_id)
-
-            log("done", "")
-
+            session.run_once()
     except KeyboardInterrupt:
         print("\n\n\033[90mStopped\033[0m")
-        ptt.stop()
+        session.stop()
 
 
 if __name__ == "__main__":

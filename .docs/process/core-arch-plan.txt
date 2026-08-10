@@ -184,10 +184,10 @@ CONFIG PERSISTENCE
 ==============================================================================
 LIVE-READ SETTINGS (no reconfigure entry point)
 ==============================================================================
-  - Today, main() reads config once at startup and hoists values into
-    local variables before the loop starts -- nobody re-reads config.json
+  - main() reads config once at startup and nobody re-reads config.json
     again, which is why every change needs Save & Restart today. This
-    section is what replaces that.
+    section is what replaces that. Hoists gone -- CaptureSession reads
+    config at point of use.
   - The orchestrator holds one live Config instance for the whole process
     lifetime. The Save handler mutates its fields in place -- it never
     replaces the object with a new instance. Every thread needing a live

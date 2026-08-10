@@ -177,7 +177,7 @@ ENTRY
             capture start and end time -- NOT the file-write time the FLAC
               filename already carries, which is later than both
             inject_time -- the moment text reached the cursor, empty on the
-              three outcomes that inject nothing. A timestamp, not a
+              four outcomes that inject nothing. A timestamp, not a
               duration: latency is arithmetic against end_time. No bench run
               reproduces it -- real machine load, drift across months, and
               whether wake_gpu earns its place. Not the realtime ratio in
@@ -214,7 +214,7 @@ ENTRY
               file that ships with nothing, and local-only is what makes this
               affordable when a cloud product could never take it.
               DECISION: Read the window at BUTTON PRESS. It is the only
-              moment all four outcomes share.
+              moment all five outcomes share.
               SAFEGUARD: GetForegroundWindow can return 0 (no focus,
               desktop, etc) or fail. The capture MUST wrap this in a
               try/except and gracefully log "Unknown" or empty text. It
@@ -284,15 +284,15 @@ ENTRY
   [ ] Every box in STEP 1 is [x]. The human record, read after the
       commit, never instead of it.
 
-  [ ] 2a  Four ways a capture ends, and three of them leave the loop early:
+  [x] 2a  Four ways a capture ends, and three of them leave the loop early:
           too short, transcription threw, no speech detected, success. A
           write placed beside the success case catches one in four.
-  [ ] 2b  One write point every path reaches. The three failures are the data
+  [x] 2b  One write point every path reaches. The three failures are the data
           that matters most for tuning -- "the model produced nothing here"
           is a finding, and a corpus containing only successes is biased in
           exactly the direction that hides problems.
-  [ ] 2c  A row with no transcript is still a row. Outcome carries the reason.
-  [ ] 2d  Serialize the brackets (Paragraph Grouping). Add `block_id INTEGER` column
+  [x] 2c  A row with no transcript is still a row. Outcome carries the reason.
+  [x] 2d  Serialize the brackets (Paragraph Grouping). Add `block_id INTEGER` column
           to the database. Maintain an in-memory dictionary of `active_blocks` 
           mapped by the window's HWND (Handle). When PTT is pressed, grab the 
           active HWND. If it has no block_id, generate an Integer Epoch timestamp. 
@@ -317,7 +317,7 @@ ENTRY
           windows open a block in the same second. It only has to be unique.
           WINDOWS RECYCLES HWNDS. Entries only leave active_blocks on Enter, so
           a closed window's handle can be reassigned and inherit its block.
-  [ ] 2f  WRONG NOW, both writing bad data on every capture. Fix before the
+  [x] 2f  WRONG NOW, both writing bad data on every capture. Fix before the
           other items here -- rows are the permanent half of this system and
           neither column can be reconstructed afterwards.
             compute_type is the string literal "float16", passed straight
@@ -332,17 +332,20 @@ ENTRY
               transcription and injection -- measured 1.2 to 2.1 seconds
               past the audio. 1b defines both as capture start and end.
               Fix: bracket stop_capture and start_capture.
-  [ ] 2g  A FIFTH exit path, not in 2a's four. Toggle mode's 120-second
+  [x] 2g  A FIFTH exit path, not in 2a's four. Toggle mode's 120-second
           timeout calls stop_capture() and continues -- no FLAC, no row,
           nothing. Decide whether it earns a row. A capture abandoned by
           walking away is a different fact from one the model failed on.
-  [ ] 2e  Two ruff findings on STEP 1's code were AUTHORIZED PAST at the STEP 1
+  [x] 2e  Two ruff findings on STEP 1's code were AUTHORIZED PAST at the STEP 1
           commit, not suppressed -- no noqa was added, so both fire again on
           every commit until they are fixed here.
-            _record_corpus_row  PLR0913 / PLR0917, 14 arguments against a
-              limit of 5. The row is one record, not fourteen loose values.
-            main  C901 complexity 13 against 10, PLR0912 14 branches
+            _record_corpus_row  PLR0913 / PLR0917, 17 arguments against a
+              limit of 5. The row is one record, not seventeen loose values.
+            main  C901 complexity 14 against 10, PLR0912 15 branches
               against 12.
+            main also carried # noqa: PLR0915 -- 89 statements against 50,
+              suppressed before this sheet and named nowhere in it. A
+              suppression hides the number, never the problem.
           They land here rather than at STEP 1 because 2a through 2d add
           another exit path and another column to both of those functions.
           Fixing them first means doing it twice.
@@ -350,12 +353,23 @@ ENTRY
           the items above already say -- the capture loop wants its body
           extracted and the row wants a type. If the fix does not also make
           the code read better, it is the wrong fix and the number stays.
+          WHAT IT MEASURED. CaptureRow gave the row a type, so the writer
+          takes one argument. CaptureSession took the cycle out of main,
+          which went from complexity 14 to 5 and from 89 statements to 28
+          against a limit of 50. The suppression was deleted rather than
+          kept: it stopped being needed, which is the only honest way for
+          one to go.
 
 EXIT
-  [ ] Force all four outcomes and confirm four rows. Too-short is a quick
+  [x] Force all five outcomes and confirm five rows. Too-short is a quick
       tap. No-speech is holding the button in silence. Error is reachable by
-      pointing the model at a name that does not exist. Count the rows
-      against the FLAC files written in the same session -- they must match.
+      pointing the model at a name that does not exist. Timeout needs toggle
+      mode -- back up config.json, set ptt.mode, press once and walk away,
+      restore config.json after the app is fully exited. Error needs a
+      temporary raise inside stt.transcribe -- a bad model name exits at
+      launch and never reaches a capture. Count the rows against the FLAC
+      files written in the same session. Rows >= FLACs; the writer refuses
+      an empty buffer.
   [ ] "commit per protocol" -- this step is a commit boundary. It replaces
       the hand-run lint line: the protocol runs ruff, pyright, vulture,
       check_docstrings, the complexity report and the imperative-comment

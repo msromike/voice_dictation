@@ -10,6 +10,57 @@ is executed). Those load automatically. This is what neither of them holds.
 
 
 ==============================================================================
+INFORMATION MANAGEMENT
+==============================================================================
+PREP
+  read .docs/templates/plan-template.txt and
+  .docs/templates/build-sheet-template.txt.
+
+ROLES -- what the templates and LIFECYCLE do not cover
+  defects.txt      wrong now.
+  backlog.txt      not built yet. drains to empty.
+                   REFINEMENTS / PRE-PUSH / NEW FEATURES / FUTURE.
+  roadmap.txt      what is NOW, what is next, why that order.
+  spike-notes.txt  measured findings. permanent.
+  plans            live until the work ships.
+  memory           the hook in MEMORY.md is what operates. the file is archive.
+  git              archive. not read cold.
+
+LIFECYCLE
+  design reasoning -> plan. the sheet gets the decision as an action.
+  measurement no later step would repeat -> spike-notes, never a plan.
+  wrong now, no design needed, not owned by the sheet in flight -> defects.txt.
+  defect drains at its owning sheet's end; now if unowned, losing data, or
+    blocking launch.
+  plan gone stale -> update it, never work around it.
+  mid-build detour or new feature -> update the plan, then inject into the
+    sheet in the sheet's format.
+  on-the-fly sheet gains scope -> write the plan, then carry on.
+  premise found false -> kill it in EVIDENCE, surface every DESIGN entry
+    that cited it.
+  sheet finished -> leave it. tidying it away is not mine to do.
+
+MAINTENANCE
+  sweep forward references when generating a sheet, scoped to that sheet's
+    symbols. the sheet's own DOC SYNC handles what the work makes stale.
+  doc conflict -> surface it, never reconcile alone.
+
+
+==============================================================================
+TESTING
+==============================================================================
+  everything the app writes is under userdata/. ls it before asking him.
+  result lands on disk -> I read it.
+  expected in a log and absent -> ask if it showed on screen. a yes is a
+    logging gap, not a test failure.
+  sensory only -- tones, tray icon, text at the cursor -> ask him.
+  every step numbered, each naming who acts.
+  launch is his, by whatever means.
+  config-forced test -> back up, restore after he confirms the app is down.
+    it rewrites config.json at exit.
+
+
+==============================================================================
 WHO MIKE IS
 ==============================================================================
 Holds the vision, the product judgment, and the architecture in outline. Does

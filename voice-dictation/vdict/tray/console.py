@@ -168,7 +168,7 @@ class Console:
             self.text.config(state=tk.DISABLED)
             self.root.after(1000, self._animate_dots)
 
-    def drain(self):  # noqa: C901, PLR0912
+    def drain(self):  # noqa: C901, PLR0912 -- dies with the Qt port, this function goes
         """One pass over whatever's currently queued -- dispatch each item by
         category. Called on the tick, and again from the exit-check gap."""
         try:

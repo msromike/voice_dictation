@@ -540,6 +540,13 @@ CPU and GPU users want different curated sets, not one list serving
 both. The dropdown's model options should follow whichever compute
 device is currently selected in the same dialog.
 
+THE AXIS IS IN QUESTION. Both lists sort by hardware budget. The user is
+choosing how good and how fast their English is; VRAM is a filter, not a
+choice. Turbo fell into the show-all hatch because it fits no budget tier,
+which is the taxonomy failing rather than the model. Reconsider the axis
+before rebuilding the dropdown -- a language picker may replace the model
+picker for most users.
+
 MODEL LISTS, LOCKED 2026-08-02 (Mike's empirical GPU testing, i7 9th
 gen + 3070 Ti, VRAM watched live via a monitoring widget; CPU picked by
 compute concept, not measured yet):

@@ -5,6 +5,17 @@ Read `.docs/process/handoff.txt` before the first substantive turn of a
 session. It defines how findings are presented, what Mike reviews and what he
 does not, and the failure modes with their tells. Once, not every prompt.
 
+## House Style
+Pick the shape, then write the line. Headers and layout are not content.
+  FACT      what is true, and how to confirm it.
+  RULE      trigger -> act, and the tempting wrong turn if there is one.
+  DECISION  what was chosen, and the evidence it rests on.
+  QUESTION  what is unknown, and the method that answers it.
+  INTENT    what should exist, and what changes when it does.
+  OPEN      no shape fits. write it plainly, mark it OPEN.
+A line I believe is contradicted gets marked CONFLICT, and nothing else.
+Artifact-specific style is in the templates.
+
 ## Commit Protocol
 Use the `commit-per-protocol` skill, not the global Commit Protocol.
 
@@ -98,12 +109,6 @@ proves nothing.
 After the write, re-read for what the edit broke. Report what that found,
 "nothing" included.
 
-## Verification
-Config-forced tests: BAK AND RESTORE. Copy config.json to config.json.bak
-before the edit, copy it back after. The app rewrites config.json on Settings
-close, on hide and at exit -- a test that opens Settings persists the test
-values, so restoring by hand loses real settings.
-
 ## Code
 - crash-fast: no null checks between internal modules
 - validate at boundaries only (config.json, audio device, model input)
@@ -139,7 +144,7 @@ one is touched once.
 No sheet owns the code, or it loses data or blocks launch -> drains now. Waiting
 on a boundary it does not have is how a defect becomes push-only by accident.
 A backlog entry is a few lines. Design goes in a build sheet when the item comes up.
-Writing a build sheet starts by copying .docs/templates/build-sheet.txt. Copy it,
+Writing a build sheet starts by copying .docs/templates/build-sheet-template.txt. Copy it,
 fill the slots, delete its HOUSE STYLE block at the end. Never write one from
 scratch or from another sheet -- that is how the gates went missing.
 Mike deletes the sheet himself, once it is no longer needed.

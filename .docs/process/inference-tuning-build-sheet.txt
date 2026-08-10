@@ -123,6 +123,11 @@ ENTRY
       commit, never instead of it.
 
   [ ] 3a  RTX 3070 Ti, large-v3 only.
+          NOT medium.en. Upstream states the .en advantage shrinks with size
+          and is already slight by medium, so it does not cross a size step.
+          Their claim, unmeasured here.
+          NOT turbo. It prunes the decoder; these clips are encoder-bound.
+          Ambient is where it would show.
   [ ] 3b  float32 (the reference, already run), float16, bfloat16,
           int8_float16, int8_bfloat16.
   [ ] 3c  This arm tunes Mike's own machine. It does not decide what ships to
@@ -199,6 +204,9 @@ ENTRY
   [ ] 5d  Write the preference lists and the measurements that produced them
           into spike-notes.txt. The lists ship in code; the reasoning does
           not live only in code comments.
+  [ ] 5e  Pass language="en" to transcribe(). Detection runs whenever it is
+          unset, and large-v3 is the one model with no .en variant, so it is
+          the only one still detecting.
 
 EXIT
   [ ] Launch vdict_run.bat. The session block names a compute type and a
