@@ -8,8 +8,26 @@ does not, and the failure modes with their tells. Once, not every prompt.
 ## Commit Protocol
 Use the `commit-per-protocol` skill, not the global Commit Protocol.
 
+## Discuss Protocol
+"discuss per protocol" -> the `discuss-per-protocol` skill. Mike's trigger when
+decisions are buried in a wall of text. It can never fire automatically --
+whether burial happened depends on what he can absorb that minute, which is not
+visible from here.
+
+## Explain Protocol
+"what's the next step" -> list the upcoming items, compact enough to judge risk.
+Not one item, not an explain. He replies "execute all" to wave the batch through,
+names a subset, or says "explain per protocol" on whatever looks dense.
+"explain per protocol" -> the `explain-per-protocol` skill.
+"execute all" -> build the batch, report ONCE at the end, per item naming what ran
+separately from what linted. Stop at the first surprise instead of pushing through.
+WHY IT IS PER ITEM AND NOT UNIFORM. Trivial and dangerous items paying the same
+tax is what ends a session early. Abandonment is the cost being optimised against,
+not turn count -- the same reason every build-sheet step ends with a launch test.
+
 ## SPOP
-"Explain step N" / "next step" = propose only. "Approve" = implement.
+"Explain step N" = propose only. "Approve" = implement. Never both in one turn.
+What "what's the next step" means is the Explain Protocol section above.
 Per item: review the code it touches against current disk state -> explain it, grounded in
 that review, not the doc alone -> end with a question naming the item -> approved -> implement
 -> STOP -> report done/problems -> offer the next item.
@@ -26,10 +44,27 @@ Explain in plain English, at recap length. Name the expansion axes, don't spend
 them -- "deeper on request: X, Y" says depth exists without paying for it.
 Expansion axes are explanation depth only. An open choice is a question, never a
 "deeper on request" note -- approval turns that note into my own call, made where you
-cannot see it. Two open choices -> ask one, carry the other.
+cannot see it.
+
+THREE ACTS GOVERN WHAT REACHES MIKE. Acts, not qualities -- the quality versions of
+these drifted for a whole session with every rule above loaded.
+  FILTER. Before presenting anything as settled, write both sides and name a
+  winner -- and show that pricing. Never act on it silently: his reaction to how
+  I priced it is where a problem I could not see gets caught.
+  GATE. Two or more open items in one turn -> all of them enter TodoWrite before
+  any is spoken, exactly one in_progress, and only that one appears in the reply.
+  A single open item is the closing block above. Something found mid-turn enters
+  the list, never the reply.
+  A live list survives tangents and is never cleared by one. Work a tangent
+  spawns enters the list rather than replacing it, and resuming names the
+  position and the count out loud -- he forgets what was settled too, and the
+  list is shared state, not my private discipline.
+  BLOCK. A decision turn is exactly: Problem. / What I'll do. / Approve? -- or,
+  when alternatives genuinely exist, those options with a REC. A recommendation
+  with no alternatives is a false choice.
+
 Explain closes with a fixed block, in order: what changes on disk, concrete enough to
-reject -- then either one open choice as options with a REC, or the words "nothing
-open". Never a third thing.
+reject -- then BLOCK, or the words "nothing open". Never a third thing.
 Report names what ran separately from what linted. Never one word for both.
 Report ends with the gesture to run, or "no launch test this step". Never implied.
 Item boundary = risk seam, not feature size. Cross-process state (tray/daemon) or a required
@@ -119,6 +154,13 @@ Durable facts go in a code comment at the point of temptation
 .docs/process/roadmap.txt holds the order of the work and why. Read it before
 proposing what comes next -- it changes far more often than this file, and a
 second copy of the order here is how it went stale in a day.
+
+## Output Window
+It is the OUTPUT WINDOW. The code says console and that word is a false model --
+not a terminal. One "category|text" line printed, a reader thread draining, an
+unbounded queue, a 100ms Tk timer painting. Nothing types into it, nothing blocks
+on it. Reasoning from the word cost a phantom hazard once.
+TEMPORARY: the Qt port renames the code. Delete this section then.
 
 ## Processes
 venv\Scripts\pythonw.exe is a redirector stub -- every logical process appears TWICE.

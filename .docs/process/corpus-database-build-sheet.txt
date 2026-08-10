@@ -60,6 +60,19 @@ daily volume swings from 120 to 956, and the date directories make dropping
 a month one directory removal instead of a query. The transcript text file
 self-maintains and needs no rotation feature at all -- see 1e.
 
+THE AUDIO IS DEV TOOLING. Capture is flag-gated and ships with nothing,
+so its cost lands on a developer's own disk, on a machine where recording
+everything is the point. Size does not decide what gets written here.
+Whether a user ever opts in is backlog's corpus opt-in item, and the disk
+cost speaks for itself when they do.
+
+THE CORPUS IS WORTH MORE WITH AGE, WHICH MAKES EARLY ROWS CHEAP. During
+development, getting the schema right beats every row already collected --
+drop the table and let init_db recreate it. This does not contradict the
+back-fill line above: what cannot be recovered is an utterance never
+recorded, and no schema change causes that. The trade reverses once the app
+is in real use.
+
 
 ==============================================================================
 STEP 0  PREWORK
@@ -163,6 +176,13 @@ ENTRY
           observations:
             capture start and end time -- NOT the file-write time the FLAC
               filename already carries, which is later than both
+            inject_time -- the moment text reached the cursor, empty on the
+              three outcomes that inject nothing. A timestamp, not a
+              duration: latency is arithmetic against end_time. No bench run
+              reproduces it -- real machine load, drift across months, and
+              whether wake_gpu earns its place. Not the realtime ratio in
+              inference-tuning-build-sheet.txt, a fixed clip on a quiet
+              machine.
             the FLAC's own timestamp, taken from the SAME value the filename
               was built from and never from a second datetime.now() call.
               write_timestamped_flac generates it internally today; have it
@@ -172,7 +192,8 @@ ENTRY
             audio file path, duration, sample rate
             model, compute device, compute type
             transcript text
-            outcome: success, too-short, no-speech, error
+            outcome: success, too-short, no-speech, error, timeout. The last
+              is toggle mode's 120-second abandon -- see 2g
             app version, so a row's era is readable after the code changes
             speaker -- empty until ambient mode fills it
             mode -- dictation or prompt. Prompt mode is coming and mixing

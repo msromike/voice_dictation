@@ -28,6 +28,7 @@ class STTEngine:
         self.model_name = model_name
         self.device = device
         self.model = None
+        self.compute_type = None
         self.busy_flag = busy_flag or threading.Event()
 
     def load(self):
@@ -41,11 +42,11 @@ class STTEngine:
                 log("download", f"Initiating download: {self.model_name}")
 
             # CPU requires float32. CUDA runs fastest on float16.
-            compute_type = "float16" if self.device == "cuda" else "float32"
+            self.compute_type = "float16" if self.device == "cuda" else "float32"
             self.model = WhisperModel(
                 self.model_name,
                 device=self.device,
-                compute_type=compute_type)
+                compute_type=self.compute_type)
         except Exception as e:
             import sys
             log("model-fault",
@@ -70,8 +71,10 @@ class STTEngine:
 
             compute_type = "float16" if device == "cuda" else "float32"
             self.model = WhisperModel(model_name, device=device, compute_type=compute_type)
+            # Assign only after WhisperModel succeeds -- all three describe one model.
             self.model_name = model_name
             self.device = device
+            self.compute_type = compute_type
         except Exception as e:
             log("model-fault",
                 f"Failed to load Whisper model '{model_name}': {e}. "

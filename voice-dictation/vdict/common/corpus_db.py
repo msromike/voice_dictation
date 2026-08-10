@@ -34,6 +34,7 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 start_time TEXT,
                 end_time TEXT,
+                inject_time TEXT,
                 file_timestamp TEXT,
                 audio_path TEXT,
                 duration_sec REAL,
@@ -47,7 +48,8 @@ def init_db():
                 speaker TEXT,
                 mode TEXT,
                 window_title TEXT,
-                process_name TEXT
+                process_name TEXT,
+                block_id INTEGER
             )
         """)
         conn.commit()

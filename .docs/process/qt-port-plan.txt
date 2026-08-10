@@ -120,6 +120,9 @@ Not the implementation: reproducing a Tk accident is not parity.
   - Worker output reaches the console through signals. output_queue, the
     100ms tick and console.drain() stop existing, and something else reports
     the daemon's exit -- the tick does that too today.
+  - console.py is renamed to the output window, code side included. README and
+    the View menu already say Output Window; "console" reads as a terminal and
+    has already produced a wrong inference about how it works.
   - pynput leaves the tray. Both Settings captures become an event filter on
     the dialog reading ordinary Qt events -- no global hooks, no
     root.after(0, ...) marshalling. UX unchanged: the armed button greys via

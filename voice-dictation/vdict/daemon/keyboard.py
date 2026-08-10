@@ -1,7 +1,15 @@
 """PTT trigger monitoring and text injection at the cursor."""
 
 import threading
+
+import win32api
+import win32con
+import win32gui
 from pynput import mouse, keyboard
+
+# pynput key events carry no modifier state, and its Controller.modifiers holds
+# only keys this app synthesised. Windows reports the physical state directly.
+MODIFIER_VKS = (win32con.VK_SHIFT, win32con.VK_CONTROL, win32con.VK_MENU)
 
 # config.json name -> pynput button. "side" is x2: browsers hook middle-click,
 # not that. Left is absent on purpose -- it would record on every click.
@@ -14,13 +22,19 @@ BUTTON_MAP = {
 }
 
 
+def _modifier_held():
+    """True while Shift, Ctrl or Alt is physically down."""
+    return any(win32api.GetAsyncKeyState(vk) & 0x8000 for vk in MODIFIER_VKS)
+
+
 class PTTListener:
     """Push-to-talk trigger listener (configurable mouse button or keyboard key)"""
 
-    def __init__(self, button="middle"):
-        """Start listening for the PTT trigger.
-        button is a mouse name from BUTTON_MAP, or "key:<name>" for a pynput Key."""
+    def __init__(self, button="middle", *, on_enter):
+        """Start listening for the PTT trigger. button is a BUTTON_MAP mouse name
+        or "key:<name>"; on_enter(hwnd) fires on every unmodified Enter."""
         self.pressed = False
+        self.on_enter = on_enter
 
         # Threading events for blocking waits
         self.press_event = threading.Event()
@@ -35,9 +49,7 @@ class PTTListener:
                 else:
                     raise ValueError(f"Unsupported PTT key: '{key_name}'")
             self.button = None
-            self.listener = keyboard.Listener(
-                on_press=self._on_key_press,
-                on_release=self._on_key_release)
+            self.mouse_listener = None
         else:
             self.button = BUTTON_MAP.get(button)
             if self.button is None:
@@ -45,9 +57,16 @@ class PTTListener:
                     f"Unsupported PTT button: '{button}'. "
                     f"Supported: {list(BUTTON_MAP)}")
             self.target_key = None
-            self.listener = mouse.Listener(on_click=self._on_click)
+            self.mouse_listener = mouse.Listener(on_click=self._on_click)
 
-        self.listener.start()
+        # Always on, whatever the PTT is -- Enter closes a dictation block.
+        self.key_listener = keyboard.Listener(
+            on_press=self._on_key_press,
+            on_release=self._on_key_release)
+
+        self.key_listener.start()
+        if self.mouse_listener is not None:
+            self.mouse_listener.start()
 
     def _on_click(self, x, y, button, pressed):
         """Internal callback for mouse events. Runs on the pynput background thread."""
@@ -62,6 +81,9 @@ class PTTListener:
 
     def _on_key_press(self, key):
         """Internal callback for keyboard press events (runs in background thread)"""
+        if key == keyboard.Key.enter and not _modifier_held():
+            self.on_enter(win32gui.GetForegroundWindow())
+
         if key == self.target_key and not self.pressed:
             self.pressed = True
             self.press_event.set()
@@ -92,8 +114,10 @@ class PTTListener:
             pass  # Loop allows KeyboardInterrupt to be raised
 
     def stop(self):
-        """Stop mouse listener (cleanup)"""
-        self.listener.stop()
+        """Stop both listeners (cleanup)"""
+        self.key_listener.stop()
+        if self.mouse_listener is not None:
+            self.mouse_listener.stop()
 
 
 class KeyboardInjector:

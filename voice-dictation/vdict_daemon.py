@@ -15,6 +15,7 @@ from vdict.daemon.keyboard import KeyboardInjector, PTTListener
 from vdict.common.config import load_config, load_vocabulary
 from vdict.common.output import log, write_error_log
 from vdict.common.audio_io import write_timestamped_flac
+from vdict.common.blocks import BlockTracker
 from pathlib import Path
 import wave
 import os
@@ -30,10 +31,12 @@ import win32api
 import win32con
 
 def get_window_context():
+    """Return (hwnd, pid, title, process_name) for the foreground window.
+    One GetForegroundWindow call -- the row and the block must agree on which window."""
     try:
         hwnd = win32gui.GetForegroundWindow()
         if hwnd == 0:
-            return "Unknown", "Unknown"
+            return 0, 0, "Unknown", "Unknown"
         title = win32gui.GetWindowText(hwnd)
         _, pid = win32process.GetWindowThreadProcessId(hwnd)
         
@@ -47,12 +50,13 @@ def get_window_context():
         except Exception:
             process_name = "Unknown"
             
-        return title or "Unknown", process_name
+        return hwnd, pid, title or "Unknown", process_name
     except Exception:
-        return "Unknown", "Unknown"
+        return 0, 0, "Unknown", "Unknown"
 
-def _record_corpus_row(start_time, end_time, file_timestamp, audio_path, audio_data, sample_rate,
-                       model, device, text, outcome, version, mode, win_title, proc_name):
+def _record_corpus_row(start_time, end_time, inject_time, file_timestamp, audio_path, audio_data,
+                       sample_rate, model, device, compute_type, text, outcome, version, mode,
+                       win_title, proc_name, block_id):
     if not FLAC_CORPUS_CAPTURE_ENABLED:
         return
     try:
@@ -62,18 +66,19 @@ def _record_corpus_row(start_time, end_time, file_timestamp, audio_path, audio_d
         try:
             conn.execute("""
                 INSERT INTO captures (
-                    start_time, end_time, file_timestamp, audio_path,
+                    start_time, end_time, inject_time, file_timestamp, audio_path,
                     duration_sec, sample_rate, model, compute_device,
                     compute_type, transcript_text, outcome, app_version,
-                    speaker, mode, window_title, process_name
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    speaker, mode, window_title, process_name, block_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                start_time.isoformat(), end_time.isoformat(), 
+                start_time.isoformat(), end_time.isoformat(),
+                inject_time.isoformat() if inject_time else "",
                 file_timestamp if file_timestamp else "",
                 str(audio_path) if audio_path else "",
                 duration, sample_rate, model, device,
-                "float16", text, outcome, version, 
-                "", mode, win_title, proc_name
+                compute_type, text, outcome, version,
+                "", mode, win_title, proc_name, block_id
             ))
             conn.commit()
         finally:
@@ -215,7 +220,8 @@ def main():  # noqa: PLR0915
     keyboard = KeyboardInjector(
         preserve_clipboard=config.keyboard.preserve_clipboard)
 
-    ptt = PTTListener(button=config.ptt.button)
+    blocks = BlockTracker()
+    ptt = PTTListener(button=config.ptt.button, on_enter=blocks.close)
 
     global _output_stream
     _output_stream = sd.OutputStream(
@@ -247,8 +253,8 @@ def main():  # noqa: PLR0915
             # Wait for button to be pressed
             ptt.wait_for_press()
             
-            win_title, proc_name = get_window_context()
-            capture_start = datetime.now()
+            hwnd, pid, win_title, proc_name = get_window_context()
+            block_id = blocks.block_for(hwnd, pid)
 
             # Fire the GPU primer to wake up CUDA cores while user is talking
             stt.wake_gpu()
@@ -261,6 +267,9 @@ def main():  # noqa: PLR0915
             # reduce tone bleed into the recording, it would capture the whole tone.
             play_tone("start", enabled=audio_feedback)
             log("rec", "")
+            # Stamped before the stream opens, so start_time runs ahead of the first
+            # sample -- about 50ms, and about 600ms on the first capture after launch.
+            capture_start = datetime.now()
             audio.start_capture()
 
             if ptt_mode == "toggle":
@@ -270,7 +279,17 @@ def main():  # noqa: PLR0915
                     play_tone("timeout", enabled=audio_feedback)
                     log("note", "Timeout reached.")
                     log("done", "")
-                    audio.stop_capture()
+                    audio_data = audio.stop_capture()
+                    capture_end = datetime.now()
+                    audio_path, file_timestamp = None, None
+                    if FLAC_CORPUS_CAPTURE_ENABLED:
+                        audio_path, file_timestamp = write_timestamped_flac(
+                            FLAC_CORPUS_DIR, audio_data, audio.sample_rate)
+                    _record_corpus_row(
+                        capture_start, capture_end, None, file_timestamp, audio_path,
+                        audio_data, audio.sample_rate, config.stt.model,
+                        config.stt.device, stt.compute_type, "", "timeout",
+                        __version__, "dictation", win_title, proc_name, block_id)
                     continue
                 ptt.wait_for_release()
             else:
@@ -278,6 +297,7 @@ def main():  # noqa: PLR0915
                 ptt.wait_for_release()
 
             audio_data = audio.stop_capture()
+            capture_end = datetime.now()
 
             audio_path = None
             file_timestamp = None
@@ -292,9 +312,9 @@ def main():  # noqa: PLR0915
                 log("note", "Not transcribed -- hold the button at least 0.4s.")
                 log("done", "")
                 _record_corpus_row(
-                    capture_start, datetime.now(), file_timestamp, audio_path, audio_data, 
-                    audio.sample_rate, config.stt.model, config.stt.device, "", "too-short", 
-                    __version__, "dictation", win_title, proc_name)
+                    capture_start, capture_end, None, file_timestamp, audio_path, audio_data,
+                    audio.sample_rate, config.stt.model, config.stt.device, stt.compute_type,
+                    "", "too-short", __version__, "dictation", win_title, proc_name, block_id)
                 continue
 
             play_tone("stop", enabled=audio_feedback)
@@ -309,18 +329,20 @@ def main():  # noqa: PLR0915
                 write_error_log("Transcription failed", traceback.format_exc())
                 outcome = "error"
 
+            inject_time = None
             if outcome == "success":
                 if text:
                     log("transcript", text)
                     keyboard.inject(text)
+                    inject_time = datetime.now()
                 else:
                     log("note", "No speech detected.")
                     outcome = "no-speech"
 
             _record_corpus_row(
-                capture_start, datetime.now(), file_timestamp, audio_path, audio_data, 
-                audio.sample_rate, config.stt.model, config.stt.device, text, outcome, 
-                __version__, "dictation", win_title, proc_name)
+                capture_start, capture_end, inject_time, file_timestamp, audio_path, audio_data,
+                audio.sample_rate, config.stt.model, config.stt.device, stt.compute_type,
+                text, outcome, __version__, "dictation", win_title, proc_name, block_id)
 
             log("done", "")
 

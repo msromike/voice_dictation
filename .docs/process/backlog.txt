@@ -706,6 +706,36 @@ what is there without reading code.
 B24 ambient mode needs the identical switch on a much larger volume. Build
 one control, not two.
 
+
+==============================================================================
+B30. FLAC RETENTION -- A SIZE BUDGET THE USER PICKS -- NEW FEATURE
+==============================================================================
+Anyone who turns audio capture on prunes by hand every week or two, or lets
+the folder grow until they notice it. Nothing in the app manages it.
+
+THE CONTROL
+A Settings dropdown: roughly 1 GB, 5 GB, 10 GB, unlimited. A number the user
+already understands, not a retention window they have to convert into one.
+
+THE MECHANISM IS AGE, NOT SIZE
+corpus-database-build-sheet.txt settled deletion by age -- the date
+directories make dropping a month one directory removal instead of a query.
+Oldest directories go until the folder is under budget. Rows are never
+touched: they are small, permanent, and every query runs off them alone.
+
+DELETION IS THE PART THAT GOES WRONG
+Carried from that sheet, unchanged: nobody has measured how much audio
+voice-ID actually needs, and you can delete later but not undelete.
+
+Same Settings area as the corpus opt-in item, which is the switch this prunes
+behind. Ambient mode needs the identical control on a far larger volume --
+build one, not two.
+
+Build plan first -- encapsulate only what it calls for, as a reusable
+API. Cross-check other new-feature plans before sizing that extraction
+-- not extra process, avoids rebuilding the same shared piece
+narrower-then-wider one feature at a time.
+
 ------------------------------------------------------------------------------
 FUTURE / MAJOR EXPANSION
 ------------------------------------------------------------------------------
