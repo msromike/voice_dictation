@@ -1,6 +1,6 @@
 VOICE DICTATION - DEFECTS
 
-Behavior that is wrong NOW. Drains to empty.
+Behavior that is wrong NOW. Drains to empty. Entries are FACT.
 Not-yet-built work -> backlog.txt.
 Docs describing planned-but-unbuilt behavior are not defects. Docs describing
 something cancelled are.

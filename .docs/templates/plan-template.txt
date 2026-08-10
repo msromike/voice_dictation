@@ -27,49 +27,54 @@ NEVER OMIT       GOAL (a paragraph), EVIDENCE, SCRATCHPAD.
 
 
 ==============================================================================
-SCRATCHPAD -- the plan is done when it is accurate and this is empty
+SCRATCHPAD -- exempt. the plan is done when it is accurate and this is empty
 ==============================================================================
 <Unrefined ideas, in the order they arrived. Nothing here is a decision and
 nothing downstream cites it. A settled item lands wherever it belongs, often
-in several sections at once, and is deleted here in the same edit.>
+in several sections at once, and is deleted here in the same edit.
+
+An item no plan section can hold folds into the sheet instead: UNVERIFIED
+when only running the work answers it, a step action when it is agreed
+work. Draining this block is part of writing the sheet, so the plan and
+the sheet finish together.>
 
 
 ==============================================================================
-GOAL
+GOAL -- INTENT
 ==============================================================================
 <What this work is, one paragraph, plain. A directive, not a pitch -- whoever
 funds it does not need convincing and will not read a justification.>
 
 
 ==============================================================================
-DELIVERABLES
+DELIVERABLES -- INTENT
 ==============================================================================
 <What ships, checkable by someone else. The sheet's Done line comes from
 here. Nothing observable here means the sheet invents one.>
 
 
 ==============================================================================
-GOVERNING RULE
+GOVERNING RULE -- RULE
 ==============================================================================
 <The invariant every step must hold, three sentences. What would make
 shipping the deliverables worthless if violated. Omit when there isn't one.>
 
 
 ==============================================================================
-EVIDENCE
+EVIDENCE -- FACT and QUESTION
 ==============================================================================
 <What is known and where to re-check it. Assumptions as [ ] questions naming
 the method that answers them.>
 
 
 ==============================================================================
-DESIGN
+DESIGN -- DECISION
 ==============================================================================
-<Decisions. Each: what was chosen, what it beat, what would overturn it.>
+<Decisions. Each: what was chosen, and the evidence it rests on.>
 
 
 ==============================================================================
-SEAMS
+SEAMS -- DECISION
 ==============================================================================
 <Where to cut so every piece leaves a working app. Risk boundaries, not
 feature boundaries. The sheet turns these into steps, it does not invent
@@ -77,7 +82,7 @@ them.>
 
 
 ==============================================================================
-TRUE-UP -- consumed by the sheet's DOC SYNC, then empty
+TRUE-UP -- FACT, breadcrumbs are QUESTION. consumed by the sheet's DOC SYNC
 ==============================================================================
 MOVED SYMBOLS  <every name this work relocates, renames or deletes, derived
                from DESIGN, not hand-listed>
@@ -86,6 +91,6 @@ BREADCRUMBS    <forward-dependent plans this probably disturbs, one line
 
 
 ==============================================================================
-DRAINS
+DRAINS -- FACT
 ==============================================================================
 <backlog.txt and defects.txt entries this closes, by title. Omit when none.>

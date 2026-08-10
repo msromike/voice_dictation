@@ -147,3 +147,10 @@ the stream's own dtype="float32"). Confirmed real but likely too small to
 be the cause: the shipped tones' fade-out never reaches exactly 0 at the
 last sample (off-by-one in the fade math, ~0.05% of full scale residual) --
 worth fixing whenever the WAV assets get regenerated, not the prime suspect.
+
+
+TOOLKIT GAPS
+
+Hand-rolled because a library did not do it. One line each: what was
+hand-rolled, which library gap forced it, and why a package was not used.
+Read when a plan is converted to a build sheet.

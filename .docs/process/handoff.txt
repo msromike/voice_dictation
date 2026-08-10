@@ -21,7 +21,7 @@ ROLES -- what the templates and LIFECYCLE do not cover
   backlog.txt      not built yet. drains to empty.
                    REFINEMENTS / PRE-PUSH / NEW FEATURES / FUTURE.
   roadmap.txt      what is NOW, what is next, why that order.
-  spike-notes.txt  measured findings. permanent.
+  spike-notes.txt  measured findings, and TOOLKIT GAPS. permanent.
   plans            live until the work ships.
   memory           the hook in MEMORY.md is what operates. the file is archive.
   git              archive. not read cold.

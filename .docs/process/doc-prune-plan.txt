@@ -1,0 +1,183 @@
+VOICE DICTATION - PLAN: DOC PRUNE
+
+
+==============================================================================
+HOUSE STYLE -- delete this block when the plan is finished
+==============================================================================
+Audience is whoever writes the sheet. Record the fact and where to re-check
+it, never the argument for it. Saying it twice means you are arguing.
+
+Every bucket feeds a build-sheet slot. One that feeds nothing gets cut.
+GOAL is the exception: nothing reads it, it exists to be argued before
+anything gets built.
+
+No fact that needs maintaining -- derived lists only. Symbols this work
+moves, never which docs point here.
+No counts. Write how to re-derive it.
+No dates, IDs, tags or line numbers. Greppable symbols.
+
+One decision costs one doc edit or none. Flag ONE line in the plan it
+breaks, or breadcrumb it in TRUE-UP. Never both.
+
+OMIT WHEN EMPTY  GOVERNING RULE, DRAINS. SEAMS folds into DESIGN.
+NEVER OMIT       GOAL (a paragraph), EVIDENCE, SCRATCHPAD.
+
+
+==============================================================================
+SCRATCHPAD -- exempt. the plan is done when it is accurate and this is empty
+==============================================================================
+  - whether doc-vs-code redundancy is common or rare. the answer decides
+    whether it earns its own marker. PASS 0 measures it.
+  - does the truth gap earn a seventh pass. a well-formed, unique,
+    unhistorical FACT that is false passes all six. PASSES 3 and 4 measure
+    how much dissolves with rationale.
+  - IM ROLES needs a todo line, agreed and unwritten:
+    todo  session only. holding the record -> drain into the plan.
+
+
+==============================================================================
+GOAL -- INTENT
+==============================================================================
+The docs are the system. Mike does not read code, so a wrong line in a plan
+becomes a wrong decision in the code with nothing in between to catch it.
+They have drifted. This strips what steers wrong and leaves what steers.
+
+
+==============================================================================
+DELIVERABLES -- INTENT
+==============================================================================
+  - every line in the four trees is a House Style shape, or marked OPEN
+  - no fact lives in two places
+  - no doc restates what the code already says
+  - no reference points at a file with a deletion date
+  - INFORMATION MANAGEMENT and House Style revised against what was found
+  - create-build-sheet-per-protocol exists. it enumerates what each package
+    the plan names covers beyond the reason it was named, writes each DESIGN
+    entry's three-word category, and checks both against TOOLKIT GAPS. a hit
+    backfeeds to the plan's DESIGN, never into the sheet
+  - true-up-per-protocol exists
+  - commit-per-protocol reports OPEN and CONFLICT lines in the staged .docs
+    diff, and symbols this commit removed from code that .docs still names
+
+
+==============================================================================
+GOVERNING RULE -- RULE
+==============================================================================
+Delete before reshape. A line removed in an early pass costs nothing in
+every pass after it, and a line reshaped then deleted was work thrown away.
+
+
+==============================================================================
+EVIDENCE -- FACT and QUESTION
+==============================================================================
+FOUR TREES IN SCOPE
+  .docs/            plans, sheets, backlog, defects, roadmap, spike-notes
+  CLAUDE.md         repo root
+  .claude/skills/   four skills
+  memory            ~/.claude/projects/<repo>/memory, outside git
+
+OUT OF SCOPE, WITH REASON
+  code comments     CLAUDE.md's Comments rule governs them and the commit
+                    protocol already reports on them
+  README, CHANGELOG user-facing prose, different audience, does not steer me.
+                    README accuracy is backlog's B5
+
+OWNERSHIP, WHERE TWO FILES CLAIM THE SAME FACT
+  CLAUDE.md holds what is needed at every write.
+  handoff holds what is needed once, at orientation.
+
+ACCUMULATION SITES, DERIVED NOT LISTED
+  partially-shipped plans grow a doc-vs-code duplicate per landed decision.
+  grep .docs for plans whose DESIGN names a symbol that already exists.
+  memory grows unbounded -- I write to it without a gate.
+
+  [ ] does memory's imposed format collide with House Style. read a feedback
+      memory and check whether its mandated Why line survives PASS 5.
+
+HANDOFF
+  THE GATE SPLIT says Mike does not read plans. false -- he skims them in
+  three buckets: low-impact, wrong, do not understand.
+
+
+==============================================================================
+DESIGN -- DECISION
+==============================================================================
+RULE-BY-RULE, NOT FILE-BY-FILE
+  One criterion held at a time produces consistent judgment, and every
+  instance of one problem is visible together.
+  Abandonment boundary is the pass, not the file. The tree is coherent at
+  the end of each pass, never mid-pass.
+
+PASS ORDER
+  0  doc vs code      a line copying a code fact is deleted. one pointing at
+                      a symbol stays. read scope: grep the named symbol, read
+                      that function. never the tree. hand-rolled code visited
+                      on the way gets its three-word category written to
+                      TOOLKIT GAPS. emit only, never act.
+  1  doc vs doc       one fact, one location. runs after 0 so code-owned
+                      claims are already gone. memory's first move is
+                      deleting what the repo now records. method: read one
+                      file, then grep the tree for its claims.
+  2  dead references  pointers to files with a deletion date, line numbers,
+                      bare tags.
+  3  history          changelogs, attribution, dates that decorate. a version
+                      or hardware that bounds a measurement stays -- removing
+                      it turns a scoped fact into a false general one.
+  4  decisions        keep the checkable basis, cut the argument. Mike rules
+                      the boundary; evidence and rationale read identically.
+  5  shape            every remaining line picks a House Style shape or gets
+                      OPEN. form only. includes rewriting unstarted build
+                      sheet steps as end states.
+  6  memory hooks     read every hook without its file. rewrite until it
+                      stands alone, because the hook is what operates.
+
+PASSES 0-3 BRING CANDIDATES, MIKE SORTS
+  Largely mechanical. The output is a list of lines with their file, not
+  paragraphs. Passes 4 and 5 need his judgment per line.
+
+REVISE CHECKS ONE PREDICTION
+  Whether DECISION kept its evidence clause. It was named the most likely
+  shape to drift, before any of this ran.
+
+YARDSTICK AND GATES GO LAST
+  House Style lives in CLAUDE.md and the skills encode the protocols running
+  this work. Pruning either mid-pass changes the measure while measuring.
+
+DRIVE-BY REDUNDANCY GETS NO MARKER
+  Found outside this work, a redundant line is true today and steers nothing
+  wrong until the code moves. Marking costs an edit to a line nobody asked
+  for. The true-up sweep owns it.
+  Overturned if PASS 0 finds these are common rather than rare.
+
+CONFLICT IS APPLIED IN WHATEVER PASS SURFACES IT
+  A contradiction is noticed while reading, not while applying one rule.
+  Inside this work it is resolved, not marked. Nothing forbids acting here.
+
+
+==============================================================================
+SEAMS -- DECISION
+==============================================================================
+One step per pass. Each leaves the four trees internally consistent, so work
+can stop at any pass boundary and the next session starts from ticked boxes
+rather than from memory.
+
+Two more after PASS 6, because House Style stops moving there and both
+skills encode it.
+  the two new skills  new files. nothing invokes them until I do.
+  the commit detector edits a gate that fires at every step boundary after
+                      it. different failure mode, so its own step.
+
+
+==============================================================================
+TRUE-UP -- FACT, breadcrumbs are QUESTION. consumed by the sheet's DOC SYNC
+==============================================================================
+MOVED SYMBOLS  none. this work moves no code.
+BREADCRUMBS
+  - handoff.txt: its intro claims it does not repeat CLAUDE.md. PASS 1
+    settles whether that is true.
+
+
+==============================================================================
+DRAINS -- FACT
+==============================================================================
+None. No backlog or defects entry describes this work.

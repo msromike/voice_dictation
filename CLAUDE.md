@@ -132,6 +132,8 @@ it beat, why. Stops re-derivation, not questioning. Build sheets: ALREADY WEIGHE
 ## Docs
 backlog.txt = work to do.    Drains to empty. A reminder, not a design doc.
 defects.txt = wrong now.     Drains to empty.
+Package question raised and answered "not now" -> one line in spike-notes.txt
+TOOLKIT GAPS: what stays hand-rolled, which library gap forced it, why not now.
 An observation inside a live plan's scope goes into that plan, not backlog --
 backlog is for work with no owning plan. Capture it there when found; the
 plan's own true-up integrates it. Waiting for the true-up to rediscover it

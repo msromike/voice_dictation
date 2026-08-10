@@ -2,6 +2,7 @@ VOICE DICTATION - BACKLOG
 
 Work not yet done. Drains to empty.
 Wrong-now -> defects.txt.
+Each entry is an INTENT, with FACT, DECISION and QUESTION in support.
 
 Four groups, in order: REFINEMENTS, PRE-PUSH, NEW FEATURES, then FUTURE /
 MAJOR EXPANSION at the bottom -- items whose scale changes the shape of

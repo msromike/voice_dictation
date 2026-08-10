@@ -2,17 +2,17 @@ VOICE DICTATION - BUILD SHEET: <TITLE>
 
 <Pick ONE of the two blocks below. Delete the other.>
 
-FROM A PLAN
+FROM A PLAN -- INTENT
   <Plan filename, and the defect or backlog entry it drains if there is one.
   The plan is the authority if the sheet and the plan disagree.>
 
-ON THE FLY
+ON THE FLY -- INTENT
   WHY THIS SHAPE
   <The reasoning that has nowhere else to live, because no plan holds it.
   FOUR LINES, hard cap. Overflowing the cap is the signal: stop here, write
   a plan, come back. Do not compress a fifth line into the fourth.>
 
-Done = <one observable sentence. What is true when this sheet is finished,
+Done -- INTENT = <one observable sentence. What is true when this sheet is finished,
 stated so someone else could check it.>
 
 
@@ -62,7 +62,7 @@ Neither one alone is enough.
 
 
 ==============================================================================
-UNVERIFIED
+UNVERIFIED -- QUESTION
 ==============================================================================
   [ ] <An assumption this sheet rests on that has not been read or measured.
       If a throwaway script answers it in under a minute, run it now, write
@@ -71,7 +71,7 @@ UNVERIFIED
 
 
 ==============================================================================
-GOVERNING RULE
+GOVERNING RULE -- RULE
 ==============================================================================
 <The one rule every step below serves, in three sentences. Omit this block
 when there isn't one.>
@@ -80,10 +80,11 @@ when there isn't one.>
 ==============================================================================
 STEP 1  <NAME>
 ==============================================================================
-  [ ] 1a  <A thing to do, not an explanation of why.>
+  [ ] 1a  <INTENT written as an end state: what is true once this is done,
+          phrased as the action that gets there. Not an explanation of why.>
   [ ] 1b  <...>
 
-EXIT
+EXIT -- RULE
   [ ] Mark every action box above [x]. Here, never at the next ENTRY -- a
       gate that marks its own boxes cannot audit them.
   [ ] <The gesture to run, naming what to look for>, or "no launch test
@@ -102,7 +103,7 @@ EXIT
 ==============================================================================
 STEP 2  <NAME>
 ==============================================================================
-ENTRY
+ENTRY -- RULE
   [ ] The prior step's COMMIT exists. git log, not the boxes above it -- a
       box is a claim anyone can tick in any tool, a commit is a receipt that
       carries the gates that produced it and a message saying what landed.
@@ -114,7 +115,7 @@ ENTRY
 
   [ ] 2a  <...>
 
-EXIT
+EXIT -- RULE
   [ ] <gesture>, or "no launch test this step"
   [ ] "commit per protocol"
 
@@ -122,7 +123,7 @@ EXIT
 ==============================================================================
 STEP n-1  DOC SYNC
 ==============================================================================
-ENTRY
+ENTRY -- RULE
   [ ] The prior step's COMMIT exists -- STEP 2's ENTRY says what a missing
       one means and why the boxes are not the evidence.
   [ ] Every box in the prior step is [x].
@@ -136,7 +137,7 @@ ENTRY
 ==============================================================================
 STEP n  CLEANUP
 ==============================================================================
-ENTRY
+ENTRY -- RULE
   [ ] The prior step's COMMIT exists -- STEP 2's ENTRY says what a missing
       one means and why the boxes are not the evidence.
   [ ] Every box in the prior step is [x].
