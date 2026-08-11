@@ -11,19 +11,19 @@ flow -- the Save handler being a separate actor, per ARCHITECTURE below,
 was built into the split rather than retrofitted here.
 
 STTEngine.reload's vulture finding stays overridden at commit time until the
-orchestrator calls it. Nothing calls .reload( anywhere today -- measured
-2026-08-04. Its caller is already designed, in COMMON TO BOTH and BLOCK A
-below, so unlike portaudio_io.py's six there is no question of whether this
-one survives.
+orchestrator calls it. Nothing calls .reload( anywhere today -- re-derive by
+grepping for .reload( before trusting it. Its caller is already designed, in
+COMMON TO BOTH and BLOCK A below, so unlike portaudio_io.py's six there is no
+question of whether this one survives.
 
 BLOCKERS -- resolve before build sheet, not during:
   - log()'s new mechanism. What replaces print()+reparse for getting
     output from a worker thread onto the console widget. Not decided yet.
-    REQUIREMENT, measured 2026-08-05: one event has to carry both a human
-    sentence and a traceback, with each destination deciding whether to
-    render the traceback -- what logging's own exc_info plus per-handler
-    formatters give. Today log() and error_log() are separate functions
-    and every site wanting both must call both. error_log's screen flag
+    REQUIREMENT, measured: one event has to carry both a human sentence and
+    a traceback, with each destination deciding whether to render it -- what
+    logging's own exc_info plus per-handler formatters give. Today log() and
+    error_log() are separate functions and every site wanting both must call
+    both. error_log's screen flag
     splits its call sites two ways -- some pair an explicit log() sentence
     with screen=False, the rest rely on error_log's own screen dump.
     Re-derive the split by grepping error_log( for screen=. That flag is
@@ -235,11 +235,10 @@ COMMON TO BOTH
     start_capture() only reads it, checked once, before starting a new
     cycle. Not three independent flags -- there's only one decision being
     protected, three things that can hold it closed.
-  - STTEngine.reload(config) already exists, landed as prep work
-    2026-08-02 -- its busy_flag constructor param (defaults to its own
-    threading.Event() when nothing is shared in) is this exact flag. The
-    orchestrator doesn't invent it; it constructs one Event and passes the
-    same instance into both STTEngine and AudioCapture.
+  - STTEngine.reload(config) already exists -- its busy_flag constructor
+    param (defaults to its own threading.Event() when nothing is shared in)
+    is this exact flag. The orchestrator doesn't invent it; it constructs one
+    Event and passes the same instance into both STTEngine and AudioCapture.
 
 BLOCK A -- MODEL (STTEngine.reload)
   - Download, if needed, happens as part of this same call, with its own

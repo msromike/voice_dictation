@@ -70,11 +70,11 @@ THEN RUN EVERY BATCH FILE FOR REAL -- Mike runs, reports:
     actually gone from the Startup folder afterward -- not just that the
     script exited without an error.
 
-Found the hard way 2026-08-01: four files renamed, twelve stale text
-references across nine files, including a call to a batch file that no
-longer existed -- the grep above would have caught every one of those.
-None of tonight's bugs were the "runs fine, does the wrong thing" kind,
-but that category exists and only running the script for real catches it.
+Found the hard way: a batch of renames left stale text references scattered
+across the tree, including a call to a batch file that no longer existed. The
+grep above would have caught every one of them. None of those were the "runs
+fine, does the wrong thing" kind, but that category exists and only running the
+script for real catches it.
 
 
 ==============================================================================

@@ -2,13 +2,13 @@ VOICE DICTATION - PLAN: INPUT DEVICE HANDLING
 
 Reference for the input-device build sheet.
 
-SEQUENCING, DECIDED 2026-08-02: build this after core-arch-plan.txt's own
-build lands, not before. Wires AudioCapture.rebuild() once, against the
+SEQUENCING: build this after core-arch-plan.txt's own build lands, not
+before. Wires AudioCapture.rebuild() once, against the
 post-merge architecture, instead of once now and once again after.
 portaudio_io.py's vulture findings (reinit, resolve_by_name, open_probe,
 start_hold, stop_hold) stay overridden at commit time until this build
-actually calls them. Nothing imports the module at all today --
-measured 2026-08-04.
+actually calls them. Nothing imports the module at all today -- re-derive by
+grepping for portaudio_io before trusting it.
 
 time_info is a sixth vulture finding and is NOT waiting on a call site. It
 is a positional parameter in sounddevice's callback signature (indata,
@@ -109,8 +109,8 @@ real, not a simulation of it.
     just in the traced code path. Confirmed: a real exclusive hold caused
     a second open attempt to raise PortAudioError.
 
-DROPPED, 2026-08-01: the "default disappears, does Windows auto-promote a
-replacement" test. Moot -- this app no longer reads Windows' default device
+DROPPED: the "default disappears, does Windows auto-promote a replacement"
+test. Moot -- this app no longer reads Windows' default device
 at all (see DESIGN). What Windows privately decides is default is no longer
 something we act on, so it stopped being worth measuring. Real empirical
 finding that drove this, not a guess: WEBCAM auto-promoted itself to

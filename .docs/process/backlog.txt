@@ -307,8 +307,8 @@ DEMO CLIP -- OUTSTANDING
 
 SEO FINDING
   The README describes the app accurately but never uses the words people
-  actually search for. Counts as of 2026-07-26: offline 0, speech to text /
-  speech-to-text 0, speech recognition 0, voice typing 0, open source 0,
+  actually search for. Re-count before acting on this: offline 0, speech to
+  text / speech-to-text 0, speech recognition 0, voice typing 0, open source 0,
   privacy/private 0. dictation 5, Whisper 6, transcri* 6. It already says
   "Nothing leaves your machine" and "runs on your own PC," which mean
   offline and privacy without ever saying either word -- naming the thing
@@ -475,9 +475,9 @@ as "not finished" rather than a completed statement, even across genuine
 pauses -- produces long run-on transcripts with little or no punctuation
 for speakers with this pattern.
 
-Spiked 2026-08-02. Dead end first: rpunct hard-pins pandas==1.2.4 and
-torch==1.8.1 -- 2021 exact versions with no Python 3.12 wheels, source
-build fails against current Cython. Unmaintained, don't retry it.
+Spiked. Dead end first: rpunct hard-pins pandas==1.2.4 and torch==1.8.1 --
+2021 exact versions with no Python 3.12 wheels, source build fails against
+current Cython. Unmaintained, don't retry it.
 
 Working candidate: oliverguhr/fullstop-punctuation-multilang-large via
 the deepmultilingualpunctuation package (pip install, loose version
@@ -531,9 +531,9 @@ which is the taxonomy failing rather than the model. Reconsider the axis
 before rebuilding the dropdown -- a language picker may replace the model
 picker for most users.
 
-MODEL LISTS, LOCKED 2026-08-02 (Mike's empirical GPU testing, i7 9th
-gen + 3070 Ti, VRAM watched live via a monitoring widget; CPU picked by
-compute concept, not measured yet):
+MODEL LISTS (Mike's empirical GPU testing, i7 9th gen + 3070 Ti, VRAM watched
+live via a monitoring widget; CPU picked by compute concept, not measured
+yet):
 
 GPU -- small.en / medium.en / large-v3. VRAM-budget-vs-accuracy ladder:
 three real breakpoints (4GB+/6GB+/8GB+ card tiers), biggest-that-fits is
@@ -556,8 +556,8 @@ for marginal gain over the plain three; not worth the complexity here.
 Actual per-tier speed on real hardware is unverified -- confirm when
 this gets built, adjust the ladder if reality disagrees.
 
-ENGLISH-ONLY VARIANTS, LOCKED 2026-08-02: every size above uses its
-.en variant, not the multilingual one -- app isn't localized, Whisper's
+ENGLISH-ONLY VARIANTS: every size above uses its .en variant, not the
+multilingual one -- app isn't localized, Whisper's
 .en models are smaller, faster, AND slightly more accurate on English
 audio than their multilingual counterpart of the same size, no tradeoff
 either direction. large-v3 is the one forced exception: OpenAI only
@@ -627,8 +627,8 @@ vocabulary.txt already exists for this, but only works at decode time via
 initial_prompt -- adding a term means restarting the engine, which is
 cumbersome enough that it doesn't get used in the moment a term is missed.
 
-Spiked 2026-08-02. jellyfish (actively maintained, MIT, prebuilt wheels,
-Rust-backed) provides phonetic encoding -- metaphone(), soundex(),
+Spiked. jellyfish (actively maintained, MIT, prebuilt wheels, Rust-backed)
+provides phonetic encoding -- metaphone(), soundex(),
 nysiis(), match_rating_codex() -- pure algorithm, not a model. Confirmed
 "Trey" and "Tray" produce the same metaphone code, confirming the core
 mechanism works for the case that motivated this.
@@ -799,9 +799,8 @@ Exact chunk duration and silence threshold tuning, which diarization/
 embedding library, the naming-snippet UI itself, Settings integration
 for the mode toggle. No gate, no P-item.
 
-SUPPLEMENTARY SPIKE IDEA, REVISED 2026-08-03: play YouTube (or any
-audio source) out loud and let ambient mode's own mic capture it,
-instead of yt-dlp. Superseded, not just an alternative -- yt-dlp's ToS
+SUPPLEMENTARY SPIKE IDEA: play YouTube (or any audio source) out loud and let
+ambient mode's own mic capture it, instead of yt-dlp. Superseded, not just an alternative -- yt-dlp's ToS
 question disappears entirely (nothing touches YouTube's servers or
 download restrictions; this is just watching a video normally while a
 mic that's already listening happens to pick it up), and mic-captured

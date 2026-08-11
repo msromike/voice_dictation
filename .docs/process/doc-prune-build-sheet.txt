@@ -154,26 +154,26 @@ ENTRY -- RULE
 EXIT -- RULE
   [x] Mark every action box above [x].
   [x] No launch test this step.
-  [ ] "commit per protocol"
+  [x] "commit per protocol"
 
 
 ==============================================================================
 STEP 4  PASS 3 -- HISTORY
 ==============================================================================
 ENTRY -- RULE
-  [ ] The prior step's COMMIT exists.
-  [ ] Every box in the prior step is [x].
+  [x] The prior step's COMMIT exists.
+  [x] Every box in the prior step is [x].
 
-  [ ] 4a  Changelogs, attribution and decorative dates are gone. Git holds
+  [x] 4a  Changelogs, attribution and decorative dates are gone. Git holds
           them.
-  [ ] 4b  A version or hardware figure that bounds a measurement stays.
+  [x] 4b  A version or hardware figure that bounds a measurement stays.
           Removing it turns a scoped fact into a false general one.
-  [ ] 4c  Candidates handed over as a list of lines with their file. Last pass
+  [x] 4c  Candidates handed over as a list of lines with their file. Last pass
           that works this way -- PASSES 4 and 5 need Mike's judgment per line.
 
 EXIT -- RULE
-  [ ] Mark every action box above [x].
-  [ ] No launch test this step.
+  [x] Mark every action box above [x].
+  [x] No launch test this step.
   [ ] "commit per protocol"
 
 
