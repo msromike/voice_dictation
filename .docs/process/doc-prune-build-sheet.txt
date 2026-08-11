@@ -174,7 +174,7 @@ ENTRY -- RULE
 EXIT -- RULE
   [x] Mark every action box above [x].
   [x] No launch test this step.
-  [ ] "commit per protocol"
+  [x] "commit per protocol"
 
 
 ==============================================================================
@@ -249,15 +249,34 @@ EXIT -- RULE
 
 
 ==============================================================================
-STEP 8  PASS 7 -- MEMORY HOOKS
+STEP 8  PASS 7 -- MEMORY: HOOKS, HARVEST, EMPTY
 ==============================================================================
 ENTRY -- RULE
   [ ] The prior step's COMMIT exists.
   [ ] Every box in the prior step is [x].
 
+Done by hand, following drain-memory-per-protocol's spec rather than running
+it -- the skill does not exist until STEP 10. Doing it manually is what proves
+the spec before it is frozen into a file.
+
   [ ] 8a  Every MEMORY.md hook read without opening its file, and rewritten
-          until it stands alone. The hook is what operates; the file is
-          archive.
+          until it stands alone -- trigger and act, so the name and the line
+          are actionable with the body unopened. The hook is what operates;
+          the file is archive.
+  [ ] 8b  Each rewritten hook searched for in CLAUDE.md, handoff, the
+          templates and the plans. Report what was searched and what was
+          found, verbatim. No verdict -- Mike rules duplicate-or-not.
+  [ ] 8c  Each surviving rule gets a proposed destination and a failure axis.
+          Destinations: CLAUDE.md (fires at every write), handoff (needed once
+          at orientation), a governance doc (changes how a plan, sheet or
+          checklist is produced), a plan or backlog entry (belongs to one
+          piece of work), or nothing. Axes: docs drifted, something changed
+          underneath me, or the interaction itself.
+  [ ] 8d  Apply what Mike approved, then delete every file in the memory
+          folder including MEMORY.md. A run where everything is a duplicate
+          still empties it -- that is the expected outcome, not data loss.
+  [ ] 8e  Report the count. Zero from here; how fast it refills is the signal
+          and it needs a known zero to be readable.
 
 EXIT -- RULE
   [ ] Mark every action box above [x].
@@ -297,6 +316,15 @@ ENTRY -- RULE
           and defects.txt in full, list every entry this plan's scope now
           covers -- closes or absorbs. Recalling the list is what let entries
           sit in backlog under a plan that already owned them.
+  [ ] 9h  IM LIFECYCLE gains the memory drain: memory accretes while a sheet
+          is built and empties at its CLEANUP, beside the defects and backlog
+          drains that already run there. An empty folder means the documented
+          workflow matches actual behaviour; a filling one means one of them
+          moved.
+  [ ] 9i  build-sheet-template.txt's CLEANUP gains that drain as an action,
+          so every future sheet harvests and empties memory the way it already
+          drains backlog and defects. Invocable on command too -- sheets are
+          weeks apart, and a fast-filling folder is when you want it sooner.
 
 EXIT -- RULE
   [ ] Mark every action box above [x].
@@ -325,6 +353,11 @@ ENTRY -- RULE
   [ ] 10d  true-up-per-protocol exists. It consumes the plan's TRUE-UP --
            moved symbols and breadcrumbs -- and reports what each grep
            returned, "no hits" included.
+  [ ] 10e  drain-memory-per-protocol exists, written from what STEP 8 proved
+           by hand. Six acts: list and count, state each rule in one line,
+           search the surfaces and report verbatim, propose destination and
+           failure axis, present the table, then apply and empty. Step five
+           is the only gate -- it proposes, Mike rules every row.
 
 EXIT -- RULE
   [ ] Mark every action box above [x].
@@ -370,6 +403,10 @@ ENTRY -- RULE
       entry describes this work.
   [ ] No harnesses or spikes were created. Confirm by grep rather than
       recall.
+  [ ] Run drain-memory-per-protocol. This is its first live run, on whatever
+      accreted since STEP 8 emptied the folder -- steps 9 through 11 are real
+      work and will have generated corrections. A skill written and never
+      executed is what gather-ai-instructions is today, by its own admission.
   [ ] Make this sheet safe to delete: grep doc-prune-build-sheet.txt and
       doc-prune-plan.txt across the four trees and repoint every hit. Grep, do
       not recall -- the count has been zero and it has been seven.

@@ -35,7 +35,9 @@ GOAL -- INTENT
 ==============================================================================
 The docs are the system. Mike does not read code, so a wrong line in a plan
 becomes a wrong decision in the code with nothing in between to catch it.
-They have drifted. This strips what steers wrong and leaves what steers.
+They have drifted. This strips what steers wrong and leaves what steers, then
+builds what keeps them from drifting again -- the passes are half the work and
+the skills and gates that follow are the other half.
 
 
 ==============================================================================
@@ -51,6 +53,10 @@ DELIVERABLES -- INTENT
     entry's three-word category, and checks both against TOOLKIT GAPS. a hit
     backfeeds to the plan's DESIGN, never into the sheet
   - true-up-per-protocol exists
+  - drain-memory-per-protocol exists. it states each memory's rule in one
+    line, reports what it searched for that rule and what it found, proposes
+    a destination and a failure axis, and empties the folder once Mike has
+    ruled every row. it proposes; he decides duplicate-or-not
   - commit-per-protocol reports OPEN and CONFLICT lines in the staged .docs
     diff, and symbols this commit removed from code that .docs still names
 
