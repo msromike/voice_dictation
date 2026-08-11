@@ -368,6 +368,11 @@ ACCURACY CATCHALL (from the old B16, still draining individually)
 NEW FEATURES
 ------------------------------------------------------------------------------
 
+Every entry here builds its plan first -- encapsulate only what that entry
+calls for, as a reusable API, and cross-check the other new-feature plans
+before sizing the extraction. Not extra process: it avoids rebuilding one
+shared piece narrower-then-wider, one feature at a time.
+
 
 ==============================================================================
 B6. PTT CYCLE COMPLETION -- CLIPBOARD DELIVERY, GATED RE-TRIGGER, TONE SIGNAL -- NEW FEATURE
@@ -461,11 +466,6 @@ elevated window and into no-text-field -- same failure tone+note both
 times, text stays on clipboard. Dictate long, press PTT again before the
 transcript shows -- busy tone, earlier press not absorbed into next cycle.
 
-Build plan first -- encapsulate only what it calls for, as a reusable
-API. Cross-check other new-feature plans before sizing that extraction
--- not extra process, avoids rebuilding the same shared piece
-narrower-then-wider one feature at a time.
-
 
 ==============================================================================
 B13. PUNCTUATION-RESTORATION POST-PROCESS -- UPTALK PRODUCES RUN-ONS -- NEW FEATURE
@@ -511,11 +511,6 @@ transcript_log.txt to accumulate real volume across varied conditions
 (mood, fatigue, background noise) before deciding whether to build this
 at all -- logging is already flowing, nothing to set up when that time
 comes.
-
-Build plan first -- encapsulate only what it calls for, as a reusable
-API. Cross-check other new-feature plans before sizing that extraction
--- not extra process, avoids rebuilding the same shared piece
-narrower-then-wider one feature at a time.
 
 
 ==============================================================================
@@ -584,11 +579,6 @@ Both likely share one population function, called with a different
 filter depending on device-vs-show-all. Not designed in detail. No gate,
 no P-item.
 
-Build plan first -- encapsulate only what it calls for, as a reusable
-API. Cross-check other new-feature plans before sizing that extraction
--- not extra process, avoids rebuilding the same shared piece
-narrower-then-wider one feature at a time.
-
 
 ==============================================================================
 B19. SETTINGS -- MIC TEST BUTTON WITH LEVEL METER -- NEW FEATURE
@@ -616,16 +606,13 @@ If the device is busy (WASAPI exclusive mode held by another app, or by
 this app's own active dictation), the probe stream fails to open --
 fail quietly, no bar shown, not a crash.
 
-Sequence after input-device-plan.txt lands, not before -- that plan is
-already restructuring this same dropdown (removing System Default,
-adding a refresh hook), and building on top of a widget about to change
-risks rework. No P-item -- the probe stream is fully independent of the
-real capture pipeline, doesn't touch core-arch's shared flag.
-
-Build plan first -- encapsulate only what it calls for, as a reusable
-API. Cross-check other new-feature plans before sizing that extraction
--- not extra process, avoids rebuilding the same shared piece
-narrower-then-wider one feature at a time.
+Sequenced with the Qt audio sheet, which claims this as a deliverable and
+names Qt's own examples/multimedia/audiosource as the reference. That sheet
+lands before input-device work by its own rule, so the older gate here --
+"after input-device-plan, because that plan restructures this dropdown" --
+no longer holds: the port rebuilds Settings first and deletes the widget
+both were reasoning about. The probe stream stays independent of the real
+capture pipeline either way.
 
 
 ==============================================================================
@@ -667,11 +654,6 @@ actually occurs, or what a safe second signal should look like in
 practice. Wait for transcript_log.txt to accumulate before deciding
 whether to build this -- logging already flowing, nothing to set up when
 that time comes.
-
-Build plan first -- encapsulate only what it calls for, as a reusable
-API. Cross-check other new-feature plans before sizing that extraction
--- not extra process, avoids rebuilding the same shared piece
-narrower-then-wider one feature at a time.
 
 
 ==============================================================================
@@ -726,11 +708,6 @@ voice-ID actually needs, and you can delete later but not undelete.
 Same Settings area as the corpus opt-in item, which is the switch this prunes
 behind. Ambient mode needs the identical control on a far larger volume --
 build one, not two.
-
-Build plan first -- encapsulate only what it calls for, as a reusable
-API. Cross-check other new-feature plans before sizing that extraction
--- not extra process, avoids rebuilding the same shared piece
-narrower-then-wider one feature at a time.
 
 ------------------------------------------------------------------------------
 FUTURE / MAJOR EXPANSION
@@ -838,32 +815,22 @@ the same identifiable voice across multiple separate videos/sessions,
 not one clip -- just play a different video from the same channel each
 session instead of downloading a batch.
 
-DEV-ONLY CAPTURE FLAG, same pattern as FLAC_CORPUS_CAPTURE_ENABLED:
-a bare code constant, not Settings, gates whether ambient mode's
-processed chunks are retained instead of deleted. Needed to feed real
-multi-speaker corpora (including the spike above) through the actual
-ambient pipeline and keep the output for validation -- production
-default is always delete (retention has no shipped-feature use), this
-flag is dev-only. On for building/testing, off before any push
-(pre-push.txt P9).
+DEV-ONLY CAPTURE FLAG. A second entry in dev-flags.toml, which
+portable-folder-build-sheet.txt introduces -- an absent file means every
+flag is off. It gates whether ambient mode's processed chunks are retained
+instead of deleted, which is what feeds real multi-speaker corpora
+(including the spike above) through the actual ambient pipeline and keeps
+the output for validation. Production default is always delete; retention
+has no shipped-feature use.
+NOT a bare code constant and not a config field. A constant ships with the
+source, and "off before any push" never fires for a folder handed to someone
+on a USB stick -- the recipient gets recorded. dev-flags.toml is dev tooling
+only: gitignored, and never on the copy list.
 
 TWO-STEP SPIKE TEST: segmented clips as-is (per-sample consistency),
 then grouped into ~5-minute assemblies with realistic silence gaps
 (production-chunk accuracy). Don't merge the whole corpus into one file
 for either step.
-
-Build plan first -- encapsulate only what it calls for, as a reusable
-API. Cross-check other new-feature plans before sizing that extraction
--- not extra process, avoids rebuilding the same shared piece
-narrower-then-wider one feature at a time.
-
-The dev-only capture flag above copies a pattern that turned out to be
-broken. A bare code constant ships with the source, and "off before any
-push" never fires for a folder handed over on a USB stick -- the recipient
-gets recorded. Add an entry to dev-flags.toml, which
-portable-folder-build-sheet.txt introduces -- absent file means every flag
-off -- not a new constant and not a config field. That file is dev tooling
-only; it is gitignored and never on the copy list.
 
 
 ==============================================================================

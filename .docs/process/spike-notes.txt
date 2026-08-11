@@ -163,6 +163,20 @@ then clean. The WAV assets and the persistent OutputStream are workarounds for
 that cause, which is why neither survives the port.
 
 
+DICTATION CAPTURE RATE
+
+Roughly 570 clips a day on this machine, swinging between 120 and 956. That
+projects to about 208,000 captures a year: tens of megabytes of database rows,
+and roughly 34 GB of FLAC.
+
+Re-derive rather than trusting these figures -- count files under
+FLAC_CORPUS_DIR, or rows in captures, across a known span. The rate is one
+person's habit and moves with it.
+
+Rows are permanent at that size; audio is the only store worth rotating, and
+nobody has measured how much of it voice-ID actually needs.
+
+
 TOOLKIT GAPS
 
 Hand-rolled because a library did not do it. One line each: what was

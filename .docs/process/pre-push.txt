@@ -95,6 +95,9 @@ Launch vdict_run.bat, which runs from venv and not a global Python.
 ==============================================================================
 P8. CLEAN-CLONE INSTALL
 ==============================================================================
+Must be a CLONE, not the working tree. vdict_install.bat run in place reuses
+the existing venv and proves nothing about a fresh install.
+
 Clone to an empty folder. Run vdict_install.bat, then startup_folder_install.bat.
 
 Verify both shortcuts carry the icon. Launch from the Desktop shortcut
@@ -113,9 +116,6 @@ file is absent, not by memory:
 Neither is a Settings-exposed choice -- a shipped user never captures
 audio for this purpose, on purpose. On for dev/corpus work, off before
 any push. This file does not ship.
-
-Must be a CLONE, not the working tree. vdict_install.bat run in place
-reuses the existing venv and proves nothing about a fresh install.
 
 
 ==============================================================================
@@ -145,14 +145,11 @@ the tool that produced the folder they are reading.
 RAW COPIES, NEVER A SYNTHESIS. The value is that nobody's editorial hand is on
 them. A summary proves only that a summary can be written.
 
-THE SCRUB IS IN THE SKILL, not in whoever remembers to do it. Memories are
-copied on an ALLOWLIST BY TYPE: feedback and project ship, user does not.
-A user-type file ships only when named explicitly in the skill -- today
-user-dictates-via-voice-app and learns-through-origin-stories. Anything the
-skill cannot classify STOPS THE PUSH rather than shipping.
-The file that must never ship is user_cognitive-style.md. It is excluded by
-the allowlist rather than by a denylist, so a memory written six months from
-now that nobody thought about is excluded by default instead of by luck.
+THE SCRUB IS IN THE SKILL, not in whoever remembers to do it. Its step 3 is
+the authority on which memories ship -- an allowlist by type with named
+exceptions, and anything it cannot classify STOPS THE PUSH rather than
+shipping. Do not restate that list here. Two copies is how they drift, and
+the drift stays silent until something ships that should not have.
 
 The global CLAUDE.md spans every project on this machine. The skill flags
 anything in it naming another project or a client rather than assuming it is

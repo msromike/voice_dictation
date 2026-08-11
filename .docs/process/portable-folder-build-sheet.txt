@@ -209,10 +209,7 @@ EXIT
       the repo, dictate once, rename it back. This step is what makes the
       outside Python unnecessary, so this is where that becomes observable.
       Without the rename the gesture passes whether or not anything changed.
-  [ ] "commit per protocol" -- this step is a commit boundary. It replaces
-      the hand-run lint line: the protocol runs ruff, pyright, vulture,
-      check_docstrings, the complexity report and the imperative-comment
-      report, which is strictly more. Gates only run at commit.
+  [ ] "commit per protocol"
 
 
 ==============================================================================
@@ -238,10 +235,7 @@ EXIT
   [ ] Rename C:\bin\PortableTools\Python312 away, launch the COPY, dictate
       once, rename it back. Step 2 proved the repo needs nothing outside
       itself; this proves a copy carries that with it.
-  [ ] "commit per protocol" -- this step is a commit boundary. It replaces
-      the hand-run lint line: the protocol runs ruff, pyright, vulture,
-      check_docstrings, the complexity report and the imperative-comment
-      report, which is strictly more. Gates only run at commit.
+  [ ] "commit per protocol"
 
 
 ==============================================================================
@@ -315,10 +309,7 @@ EXIT
       launch vdict_run.bat FROM THE STICK, answer the guard with continue,
       and dictate once. Confirm no userdata folder rode along to either
       destination.
-  [ ] "commit per protocol" -- this step is a commit boundary. It replaces
-      the hand-run lint line: the protocol runs ruff, pyright, vulture,
-      check_docstrings, the complexity report and the imperative-comment
-      report, which is strictly more. Gates only run at commit.
+  [ ] "commit per protocol"
 
 
 ==============================================================================

@@ -65,11 +65,10 @@ CORRECTION and are the authority where they contradict the text.
  names embeddings specifically as a thing kept out of captures, which is the
  same split this section describes, reached independently.
 
- LOCAL CORRECTION -- SCALE, MEASURED. Roughly 208,000 rows a year at the
- observed capture rate. Two years is under half a million vectors, which is
- small enough that scanning every one of them beats indexing: the class of
- problem vector databases exist to solve does not arise here. Re-derive the
- rate rather than trusting this line.
+ LOCAL CORRECTION -- SCALE, MEASURED. At the capture rate in spike-notes.txt
+ under DICTATION CAPTURE RATE, two years is well under half a million vectors.
+ That is small enough that scanning every one of them beats indexing: the
+ class of problem vector databases exist to solve does not arise here.
 
  LOCAL CORRECTION -- THE EXTENSION LOADS, HALF-PROVEN. sqlite-vec needs
  sqlite3.enable_load_extension, which not every Python build enables. Verified

@@ -50,15 +50,13 @@ purpose. Anything that exists only at the moment of capture is written down,
 whether or not there is a use for it today.
 
 RETENTION SPLITS THREE WAYS, because the three stores cost different things.
-Rows are permanent: roughly 208,000 a year at the measured rate, which is
-tens of megabytes, and every query runs off them alone. Audio is the
-expensive one at roughly 34 GB a year and is the only thing worth rotating --
-NOT BUILT HERE, deliberately. Deletion features are the ones that go wrong,
-nobody has measured how much audio voice-ID actually needs, and you can
-delete later but not undelete. When it is built it goes by age, not count:
-daily volume swings from 120 to 956, and the date directories make dropping
-a month one directory removal instead of a query. The transcript text file
-self-maintains and needs no rotation feature at all -- see 1e.
+Rows are permanent and every query runs off them alone. Audio is the expensive
+one and the only thing worth rotating -- NOT BUILT HERE, deliberately.
+Deletion features are the ones that go wrong, and you can delete later but not
+undelete. When it is built it goes by age, not count: the date directories
+make dropping a month one directory removal instead of a query. The transcript
+text file self-maintains and needs no rotation feature at all -- see 1e.
+Volumes are in spike-notes.txt under DICTATION CAPTURE RATE.
 
 THE AUDIO IS DEV TOOLING. Capture is flag-gated and ships with nothing,
 so its cost lands on a developer's own disk, on a machine where recording
@@ -224,20 +222,19 @@ ENTRY
   [x] 1d  RENAME userdata/flac to userdata/voice_recordings_PRIVATE, and give
           it date subfolders: voice_recordings_PRIVATE/YYYY/MM/DD/, three
           levels. Both halves here, in one pass over the same files.
-          The rename first, because "flac" is a codec and this is 34 GB a
-          year of someone's voice -- the folder that most needs to say what
-          it holds was the one named after a file format. Same reasoning as
-          1a's filename.
+          The rename first, because "flac" is a codec and this folder holds
+          a year of someone's voice at a time -- the one that most needs to
+          say what it contains was the one named after a file format. Same
+          reasoning as 1a's filename.
           One code site defines it, FLAC_CORPUS_DIR in vdict_daemon.py --
           derived by search, not recalled. write_timestamped_flac takes the
           directory as an argument and only chooses the extension, so it
           needs no change for the rename. Rename the constant with the
           directory.
-          Measured rate is roughly 570 clips a day, which is about 208,000
-          files and 34 GB a year -- Explorer and any recursive glob give up
-          long before that. Three levels keeps one folder per year at the
-          top and makes age-based rotation, when it is built, a single
-          directory removal rather than a query.
+          At the capture rate in spike-notes.txt, Explorer and any recursive
+          glob give up long before a year's files accumulate. Three levels
+          keeps one folder per year at the top and makes age-based rotation,
+          when it is built, a single directory removal rather than a query.
           Move the existing flat files into the new layout in the same step.
           Nothing stores a path to them -- the database does not exist yet --
           so this is the last moment either change costs nothing. After rows
@@ -270,10 +267,7 @@ EXIT
       gate that marks its own boxes cannot audit them.
   [x] Launch vdict_run.bat, dictate once, and read the row back. The audio
       path in it opens the clip that produced the text.
-  [x] "commit per protocol" -- this step is a commit boundary. It replaces
-      the hand-run lint line: the protocol runs ruff, pyright, vulture,
-      check_docstrings, the complexity report and the imperative-comment
-      report, which is strictly more. Gates only run at commit.
+  [x] "commit per protocol"
 
 
 ==============================================================================
@@ -284,9 +278,9 @@ ENTRY
   [ ] Every box in STEP 1 is [x]. The human record, read after the
       commit, never instead of it.
 
-  [x] 2a  Four ways a capture ends, and three of them leave the loop early:
-          too short, transcription threw, no speech detected, success. A
-          write placed beside the success case catches one in four.
+  [x] 2a  Five ways a capture ends, and four of them leave the loop early --
+          1b lists them. A write placed beside the success case catches one
+          in five.
   [x] 2b  One write point every path reaches. The three failures are the data
           that matters most for tuning -- "the model produced nothing here"
           is a finding, and a corpus containing only successes is biased in
@@ -332,10 +326,11 @@ ENTRY
               transcription and injection -- measured 1.2 to 2.1 seconds
               past the audio. 1b defines both as capture start and end.
               Fix: bracket stop_capture and start_capture.
-  [x] 2g  A FIFTH exit path, not in 2a's four. Toggle mode's 120-second
-          timeout calls stop_capture() and continues -- no FLAC, no row,
-          nothing. Decide whether it earns a row. A capture abandoned by
-          walking away is a different fact from one the model failed on.
+  [x] 2g  Toggle mode's 120-second timeout is the exit path that was missed
+          when this step was written: it calls stop_capture() and continues
+          -- no FLAC, no row, nothing. Decide whether it earns a row. A
+          capture abandoned by walking away is a different fact from one the
+          model failed on.
   [x] 2e  Two ruff findings on STEP 1's code were AUTHORIZED PAST at the STEP 1
           commit, not suppressed -- no noqa was added, so both fire again on
           every commit until they are fixed here.
@@ -369,10 +364,7 @@ EXIT
       launch and never reaches a capture. Count the rows against the FLAC
       files written in the same session. Rows >= FLACs; the writer refuses
       an empty buffer.
-  [ ] "commit per protocol" -- this step is a commit boundary. It replaces
-      the hand-run lint line: the protocol runs ruff, pyright, vulture,
-      check_docstrings, the complexity report and the imperative-comment
-      report, which is strictly more. Gates only run at commit.
+  [ ] "commit per protocol"
 
 
 ==============================================================================

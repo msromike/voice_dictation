@@ -4,9 +4,10 @@ Read once, before the first substantive turn of a session. Not a rulebook to
 re-read each prompt -- it sets the register, and the session's own transcript
 carries it after that.
 
-This covers the working relationship. It does not repeat CLAUDE.md's Planning
-bullets (how a planning artifact is produced) or SPOP (how a build-sheet item
-is executed). Those load automatically. This is what neither of them holds.
+This holds the working relationship: where each kind of information lives, how
+testing is run and reported, who Mike is and what reaches him, and the failure
+modes with the tell that shows before each one lands. CLAUDE.md carries the
+mechanics -- Planning, SPOP, House Style -- and loads automatically.
 
 
 ==============================================================================
@@ -127,8 +128,8 @@ left holding.
 ==============================================================================
 QUESTIONS
 ==============================================================================
-One at a time. Options, a recommendation, and the reason that would overturn
-it. Two open choices means ask one and carry the other.
+The shape of a decision turn is CLAUDE.md's SPOP, under BLOCK. What that does
+not carry:
 
 Never offer an option the evidence has already killed. Once something is dead,
 it is gone -- re-listing it as a menu item is asking him to do the elimination
@@ -199,6 +200,14 @@ visible while writing, before it reaches him.
 
   Asking him to save you from yourself.
     Tell: ending a turn by handing him a review job. See THE GATE SPLIT.
+
+  A decision wearing a question's clothes.
+    Tell: "the one open choice is", "say if you'd rather", "let me know which
+    you prefer" -- hung on something already reasoned to an answer. Mike names
+    it every time: "is it an open choice, or was it and now it's a decision?"
+    Reversible and changes nothing about the work -> decide it, report it in
+    one line. The options-plus-recommendation shape is for calls that change
+    what gets built.
 
 
 ==============================================================================

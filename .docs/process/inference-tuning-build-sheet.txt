@@ -108,10 +108,7 @@ EXIT
   [ ] Report a ranked table: config, median seconds per clip, realtime ratio,
       divergence from reference. Name which configs clear a realtime ratio of
       1.0 and which do not.
-  [ ] "commit per protocol" -- this step is a commit boundary. It replaces
-      the hand-run lint line: the protocol runs ruff, pyright, vulture,
-      check_docstrings, the complexity report and the imperative-comment
-      report, which is strictly more. Gates only run at commit.
+  [ ] "commit per protocol"
 
 
 ==============================================================================
@@ -148,10 +145,7 @@ ENTRY
 EXIT
   [ ] Ranked table as STEP 2. Note any config whose divergence is large
       enough to see in real dictation, not merely non-zero.
-  [ ] "commit per protocol" -- this step is a commit boundary. It replaces
-      the hand-run lint line: the protocol runs ruff, pyright, vulture,
-      check_docstrings, the complexity report and the imperative-comment
-      report, which is strictly more. Gates only run at commit.
+  [ ] "commit per protocol"
 
 
 ==============================================================================
@@ -178,10 +172,7 @@ EXIT
   [ ] "Deferred, float16 shipped unmeasured for pre-Ampere" recorded in
       spike-notes.txt, so nobody later reads the preference list and assumes
       every entry in it was measured.
-  [ ] "commit per protocol" -- this step is a commit boundary. It replaces
-      the hand-run lint line: the protocol runs ruff, pyright, vulture,
-      check_docstrings, the complexity report and the imperative-comment
-      report, which is strictly more. Gates only run at commit.
+  [ ] "commit per protocol"
 
 
 ==============================================================================
@@ -212,10 +203,7 @@ EXIT
   [ ] Launch vdict_run.bat. The session block names a compute type and a
       thread count. Dictate once on GPU, switch to CPU in Settings, Save &
       Restart, dictate again. Both report their own selection.
-  [ ] "commit per protocol" -- this step is a commit boundary. It replaces
-      the hand-run lint line: the protocol runs ruff, pyright, vulture,
-      check_docstrings, the complexity report and the imperative-comment
-      report, which is strictly more. Gates only run at commit.
+  [ ] "commit per protocol"
 
 
 ==============================================================================
