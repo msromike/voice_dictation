@@ -67,8 +67,9 @@ the output window stops dictation. The confirm dialog exists to guard a
 behavior users do not expect; conventional actions do not need one.
 
 ALREADY TRIED AND REJECTED
-X -> tray while minimize -> tray. That was the pre-release behavior. Two
-controls, one outcome. Do not go back to it.
+X -> tray while minimize -> tray. That was the pre-release behavior: two
+controls, one outcome. Returning to it needs a reason the two controls should
+do the same thing.
 
 THE ARRANGEMENT
   Minimize -> taskbar, native behavior. Not configurable.
@@ -163,8 +164,8 @@ produce labeled examples for that, but would not run the training itself).
 Prototype as a standalone sidecar script first, not in-app. Cheapest way
 to prove the risky part (does this actually improve punctuation quality)
 without touching the app's menu, process management, or model-
-loading code at all. Integrate into the app later only if it earns it --
-could just as easily stay a documented external tool in the README.
+loading code at all. Integrating it into the app is a separate decision from
+building it -- it could stay a documented external tool in the README.
 
 THIS TOGGLE IS ALSO THE DISCLOSURE CONTROL, which the item was not written
 for. transcript_log.txt records every transcript on any machine that runs
@@ -350,6 +351,8 @@ EXPLICITLY REJECTED
   Badges, keyword footers, emoji headings, awesome-list submissions before
   the repo has any history -- read as AI slop, cost more than the traffic
   is worth. Badges are SEO-worthless besides.
+  Awesome-list submissions reopen once the repo has real history. The other
+  three do not reopen on any condition anyone has named.
 
 ACCURACY CATCHALL (from the old B16, still draining individually)
   - Multilingual dictation: Whisper/large-v3 is multilingual and the code
@@ -506,11 +509,11 @@ enough signal to judge true incidence or ROI, and the low count may not
 be a sampling artifact -- HOLD mode's continuous physical contact
 naturally bookends fragments (release and re-press between thoughts),
 which may already prevent the long continuous recordings this problem
-needs to occur. Toggle mode doesn't have that discipline. Wait for
-transcript_log.txt to accumulate real volume across varied conditions
-(mood, fatigue, background noise) before deciding whether to build this
-at all -- logging is already flowing, nothing to set up when that time
-comes.
+needs to occur. Toggle mode doesn't have that discipline.
+MEASURE IT RATHER THAN WAITING. The captures table carries transcript text,
+duration and outcome per capture -- run pysbd over it and compute
+words-per-detected-sentence across the rows. That is the incidence figure
+this entry was waiting for, and it is queryable now.
 
 
 ==============================================================================
@@ -550,9 +553,12 @@ more accurate -- that's for the user to find out themselves. Rejected:
 large-v3-turbo -- its speedup only prunes the decoder (32 layers to 4);
 the encoder, which is what CPU actually struggles with, stays full
 large-size, so it costs about what large-v3 costs on CPU regardless of
-RAM headroom. distil-small.en rejected too -- correct on paper (smaller
-encoder, genuinely faster), but adds a distillation tradeoff to explain
+RAM headroom. Reopens if the workload becomes decoder-bound, which is what
+ambient mode's long continuous chunks would do.
+distil-small.en rejected too -- correct on paper (smaller encoder,
+genuinely faster), but adds a distillation tradeoff to explain
 for marginal gain over the plain three; not worth the complexity here.
+Reopens if a CPU user reports small.en too slow to dictate against.
 Actual per-tier speed on real hardware is unverified -- confirm when
 this gets built, adjust the ladder if reality disagrees.
 
@@ -651,9 +657,9 @@ separate fix.
 
 Same corpus problem as B13: no real data yet on how often this ambiguity
 actually occurs, or what a safe second signal should look like in
-practice. Wait for transcript_log.txt to accumulate before deciding
-whether to build this -- logging already flowing, nothing to set up when
-that time comes.
+practice. MEASURE IT RATHER THAN WAITING. Query the captures table for
+transcripts containing name-like tokens and check how often the wrong
+spelling appears. That is the incidence figure this entry was waiting for.
 
 
 ==============================================================================
@@ -800,8 +806,8 @@ embedding library, the naming-snippet UI itself, Settings integration
 for the mode toggle. No gate, no P-item.
 
 SUPPLEMENTARY SPIKE IDEA: play YouTube (or any audio source) out loud and let
-ambient mode's own mic capture it, instead of yt-dlp. Superseded, not just an alternative -- yt-dlp's ToS
-question disappears entirely (nothing touches YouTube's servers or
+ambient mode's own mic capture it, instead of yt-dlp. Superseded, not just an
+alternative -- yt-dlp's ToS question disappears entirely (nothing touches YouTube's servers or
 download restrictions; this is just watching a video normally while a
 mic that's already listening happens to pick it up), and mic-captured
 audio is arguably the better test anyway -- real room acoustics and

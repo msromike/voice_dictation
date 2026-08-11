@@ -403,7 +403,8 @@ SETTLED
     that a 1ms fade makes unnecessary.
   - pynput stays in the daemon. PTT must fire while the app is unfocused with
     the cursor anywhere, which no widget event can do. Not the button naming --
-    Qt names XButton1/XButton2. Beat: hand-rolled SetWindowsHookEx.
+    Qt names XButton1/XButton2. Beat: hand-rolled SetWindowsHookEx. Reopens if
+    Qt gains a way to receive input while unfocused with the cursor anywhere.
   - pynput leaves Settings. Both captures become ordinary Qt events, read by an
     event filter on the dialog. Global hooks were only ever needed because
     ptt_capture disables the button, and a disabled widget receives no events.
@@ -421,7 +422,10 @@ SETTLED
   - geometry.py and dpi.py are deleted. Qt 6 has high DPI on by default and
     cannot disable it; restoreGeometry takes an opaque blob, so the regex
     parse and _clamp_to_desktop both go.
-  - Appearance comes from one QSS file. Beat: per-widget setStyleSheet.
+  - Appearance comes from one QSS file. Beat: per-widget setStyleSheet, which
+    Qt makes equally available -- that is why this is a GOVERNING RULE and not
+    a preference. Reopens if a widget genuinely cannot be styled from the
+    sheet, which would be a Qt limitation rather than a design choice.
 
 BLOCKED ON EVIDENCE
   - Does hotkey.py survive at all, and if so does it keep its own thread.
@@ -462,7 +466,8 @@ SEAMS
     moment of truth at the switch, and flipping the switch early with a
     degraded app in between. Abandonment safety was never what was at risk --
     the Tk app keeps working untouched either way. Incremental verification
-    was.
+    was. Reopens if the throwaway launcher costs more to build than the
+    step-by-step verification it buys.
   - Audio cuts away from the rest because it owns no windows, and needs no
     GUI application object to do it.
   - Appearance has no cut of its own; it lands on the stylesheet pass 1 ships.

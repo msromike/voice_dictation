@@ -1,4 +1,5 @@
 # Why the Process
+commits are for ai not you, yjrey asre cheap to produce so doing them frequtnly in a gated manner and using RAG stykle commit messages are your frined, this heklps when you ask ai I dont rember that decision when did it happem, ai will literally go to git unpropmted  and come back with "when we refactored this module we decided that we would drop this method" then it will offere to change it be careful here, but thats another topic
 
 If you look in `.docs/` you will find a pile of rules I make the AI follow.
 Build sheets. Gates. A commit protocol. A rule that says the AI has to stop

@@ -239,9 +239,11 @@ latency benefit worth chasing (Whisper's own transcription time swamps
 whatever shared-vs-exclusive difference exists), and a real cost: exclusive
 mode would lock out every other app using the same mic while PTT is held,
 directly breaking the coexist-with-Discord/Zoom/OBS use case this app
-exists for. Shared mode only, always. The reason exclusive mode matters
-here at all is the reverse case -- SOME OTHER app grabbing it exclusively,
-which this app has to fail gracefully against, not request itself.
+exists for. Shared mode only, always. Reopens only if coexisting with other
+mic users stops being a requirement, which would be a different product.
+The reason exclusive mode matters here at all is the reverse case -- SOME
+OTHER app grabbing it exclusively, which this app has to fail gracefully
+against, not request itself.
 
 ERROR CONDITIONS -- self-contained. The build-v2 spec these once pointed at
 predated this design and has since been retired, so there is nothing left to

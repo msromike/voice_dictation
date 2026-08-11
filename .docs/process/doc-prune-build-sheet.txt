@@ -21,9 +21,15 @@ UNVERIFIED -- QUESTION
       REDUNDANCY GETS NO MARKER decision stands.
 
   [ ] Does the truth gap earn a seventh pass. A well-formed, unique,
-      unhistorical FACT that is simply false survives all six passes. PASSES 3
-      and 4 measure how much of it dissolves once rationale is cut. Answer
-      before STEP 9.
+      unhistorical FACT that is simply false survives all six passes.
+      MEASURED, PASSES 3 and 4: almost none of it dissolves. Cutting rationale
+      removes argument, and the false-fact risk lives in the basis that is
+      KEPT. Turbo's "prunes the decoder, encoder stays full-size" is basis,
+      load-bearing for a rejection, and unmeasured. CLAUDE.md's Planning now
+      stops new ones -- an unmeasured claim gets presented with what a spike
+      would cost -- but nothing marks the ones already in the tree. The
+      question is now narrower: does a pass apply UNVERIFIED to existing
+      unmeasured claims. Answer after PASS 5, before STEP 9.
 
   [x] Does memory's imposed format collide with House Style -- NO. The
       mandated **Why:** line is a DECISION's evidence clause, which CLAUDE.md's
@@ -181,18 +187,18 @@ EXIT -- RULE
 STEP 5  PASS 4 -- DECISIONS
 ==============================================================================
 ENTRY -- RULE
-  [ ] The prior step's COMMIT exists.
-  [ ] Every box in the prior step is [x].
+  [x] The prior step's COMMIT exists.
+  [x] Every box in the prior step is [x].
 
-  [ ] 5a  Every decision keeps its checkable basis and loses its argument.
-  [ ] 5b  Mike rules the evidence/rationale boundary per line. The two read
+  [x] 5a  Every decision keeps its checkable basis and loses its argument.
+  [x] 5b  Mike rules the evidence/rationale boundary per line. The two read
           identically from here.
-  [ ] 5c  UNVERIFIED's truth-gap question answered: how much of it dissolved
+  [x] 5c  UNVERIFIED's truth-gap question answered: how much of it dissolved
           once rationale was cut.
 
 EXIT -- RULE
-  [ ] Mark every action box above [x].
-  [ ] No launch test this step.
+  [x] Mark every action box above [x].
+  [x] No launch test this step.
   [ ] "commit per protocol"
 
 

@@ -73,6 +73,8 @@ these drifted for a whole session with every rule above loaded.
   spawns enters the list rather than replacing it, and resuming names the
   position and the count out loud -- he forgets what was settled too, and the
   list is shared state, not my private discipline.
+  An item that gets no answer stays open and gets re-raised. Silence is not a
+  ruling; recording it as one puts words in his mouth that get cited later.
   BLOCK. A decision turn is exactly: Problem. / What I'll do. / Approve? -- or,
   when alternatives genuinely exist, those options with a REC. A recommendation
   with no alternatives is a false choice.
@@ -91,6 +93,10 @@ Measure before asking. A design question about unmeasured code gets asked twice.
 Any claim of the form "every X" is derived from the source, never hand-listed --
 extract the set, then assert.
 Every recommendation: could someone execute this from this text alone?
+A decision that closes a path is read against backlog and roadmap first. Work
+named there is a constraint on it, not a hypothetical.
+An unmeasured claim gets presented with what a spike would cost. Mike chooses
+settle or defer -- silent deferral is what turns cleanup into a sweep.
 End of every planning chunk: what is still open is either settled or written
 where it is found without me.
 
@@ -126,7 +132,10 @@ of finishing the work. It runs at commit instead, on finished code.
 Do not remove the ignore.
 
 ## Claims
-No lock words -- settled, locked, decided, rejected, cannot happen, do not relitigate.
+Settled, locked, decided, rejected, cannot happen, do not relitigate -- these are
+lock words when they stand alone. Carrying the condition that would overturn them
+is what makes the same word a record instead of a bar on asking. A condition
+nobody would notice reaching is not a condition.
 Anything unverified says UNVERIFIED.
 Applies to what I say, not only to what I write in files.
 Record decisions with the reason that would overturn them: what was chosen, what
