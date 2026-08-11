@@ -108,8 +108,8 @@ P9. DEV-ONLY CAPTURE FLAGS OFF
 Dev flags default off in the shipped code, verify by confirming the flag
 file is absent, not by memory:
 
-  dev-flags.toml: capture_corpus (PTT-mode utterance capture for the
-    voice-ID corpus, P7).
+  dev-flags.toml: capture_corpus -- PTT-mode utterance capture for the
+    voice-ID corpus.
   dev-flags.toml (once built): ambient-mode's equivalent, for
     building/validating the diarization pipeline against real corpora.
 

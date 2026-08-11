@@ -134,26 +134,26 @@ ENTRY -- RULE
 EXIT -- RULE
   [x] Mark every action box above [x].
   [x] No launch test this step.
-  [ ] "commit per protocol"
+  [x] "commit per protocol"
 
 
 ==============================================================================
 STEP 3  PASS 2 -- DEAD REFERENCES
 ==============================================================================
 ENTRY -- RULE
-  [ ] The prior step's COMMIT exists -- STEP 2's ENTRY says what a missing one
+  [x] The prior step's COMMIT exists -- STEP 2's ENTRY says what a missing one
       means and why the boxes are not the evidence.
-  [ ] Every box in the prior step is [x].
+  [x] Every box in the prior step is [x].
 
-  [ ] 3a  No reference points at a file with a deletion date.
-  [ ] 3b  No line numbers anywhere. Each is replaced by a greppable symbol or
+  [x] 3a  No reference points at a file with a deletion date.
+  [x] 3b  No line numbers anywhere. Each is replaced by a greppable symbol or
           deleted.
-  [ ] 3c  No bare tags. The title is the identifier.
-  [ ] 3d  Candidates handed over as a list of lines with their file.
+  [x] 3c  No bare tags. The title is the identifier.
+  [x] 3d  Candidates handed over as a list of lines with their file.
 
 EXIT -- RULE
-  [ ] Mark every action box above [x].
-  [ ] No launch test this step.
+  [x] Mark every action box above [x].
+  [x] No launch test this step.
   [ ] "commit per protocol"
 
 

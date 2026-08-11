@@ -229,8 +229,8 @@ the daemon's own reinit-on-restart is what actually makes that true, not
 this check. Applies to
 voluntary Settings-driven switching too, not just fault recovery. If the
 picked device opens fine but doesn't actually work (bad routing, wrong
-channel, whatever) that's the user's to notice and fix -- Tier D2 ("no
-speech detected") already absorbs the symptom without us needing to detect
+channel, whatever) that's the user's to notice and fix -- the "no speech
+detected" outcome already absorbs the symptom without us needing to detect
 the cause. backlog.txt B19 (level meter) is an optional future mitigation
 for this, not required for the recovery flow to ship.
 

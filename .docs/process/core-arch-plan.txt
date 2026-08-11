@@ -164,8 +164,8 @@ CONFIG PERSISTENCE
     os.replace()) -- already required by B1, applies to all of them here,
     not just Save. Every one of those writes is explicit encoding="utf-8",
     matching every other file operation in the app -- config.json's
-    reads/writes are the one place that wasn't (D15), relying on
-    Windows' platform-default locale encoding instead.
+    reads/writes are the one place that wasn't, relying on Windows'
+    platform-default locale encoding instead.
   - load_settings()'s existing per-field healing (missing file seeds
     fresh, invalid JSON resets wholesale, one bad field heals via
     pydantic without touching the rest) replaces load_config()'s

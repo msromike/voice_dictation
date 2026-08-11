@@ -112,6 +112,9 @@ reported physical screen dimensions (measured 168 vs 167.876). Reading DPI
 from Tk instead of ctypes would shift every scaled dimension by a pixel or
 two, and would make vdict/tray/dpi.py depend on a live Tk root.
 
+This whole finding expires with the Qt port, which deletes dpi.py -- Qt 6 has
+high DPI on by default and cannot disable it.
+
 
 AUDIO PLAYBACK (sounddevice/WASAPI)
 
