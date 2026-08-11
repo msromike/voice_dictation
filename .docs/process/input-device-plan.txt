@@ -8,7 +8,7 @@ post-merge architecture, instead of once now and once again after.
 portaudio_io.py's vulture findings (reinit, resolve_by_name, open_probe,
 start_hold, stop_hold) stay overridden at commit time until this build
 actually calls them. Nothing imports the module at all today --
-measured 2026-08-04, it is the only unreferenced module in the package.
+measured 2026-08-04.
 
 time_info is a sixth vulture finding and is NOT waiting on a call site. It
 is a positional parameter in sounddevice's callback signature (indata,
@@ -281,9 +281,8 @@ categories:
     block vs a new one) not picked -- build-sheet decision.
   Which restart happened (full vs PortAudio-only) -> worth surfacing.
     session.py's log_session_block already logs session details on
-    every restart right now (confirmed in current code) -- unrelated to
-    B1, which hasn't started -- this would ride along with that existing
-    mechanism, not need a new one.
+    every restart -- unrelated to B1, which hasn't started -- so this
+    would ride along with that existing mechanism, not need a new one.
   MID-RECORDING truncation -- log a quiet note. stream.active goes False
     on its own when the device disappears mid-recording, distinguishable
     from a normal stop (active is still True right before the code's own

@@ -68,7 +68,7 @@ THEN
          across repeated loads. Answer lands in core-arch-plan.txt BLOCKERS.
        - Device swap during an active recording: rebuild() racing
          start_capture(). Same home.
-       - Live shared Config object, replacing seven stale load_settings
+       - Live shared Config object, replacing the stale load_settings
          reads. Real code, so its own build sheet.
      Both spikes are toolkit-independent -- Qt neither helps nor hurts them.
   2  Qt port. PySide6, not PyQt6: LGPL imposes nothing on an MIT project.

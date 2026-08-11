@@ -20,15 +20,14 @@ REFINEMENTS
 ==============================================================================
 B3. TONE VOLUME CONTROL -- REFINEMENT
 ==============================================================================
-Sequenced after core-arch's build (not its plan -- LIVE-READ SETTINGS
-already names play_tone() as this exact pattern; the mechanism just has
-to exist).
+Sequenced after the Qt audio sheet, NOT after core-arch. qt-port-plan.txt
+deletes the three WAV assets, _load_tone, _tone_queue and the persistent
+OutputStream; tones become numpy generated into a QAudioSink. A slider built
+against today's path is built against code with a deletion date.
 
 THE PROBLEM
-Tone volume is hardcoded. vdict.py:
-    generate_tone(TONE_START, freq=783.99, duration_ms=80, volume=0.22275)
-    generate_tone(TONE_STOP,  freq=523.25, duration_ms=90, volume=0.18225)
-Ear-tuned constants from one machine, imposed on every user.
+Tone volume is two module constants, TONE_VOLUME_HIGH and TONE_VOLUME_LOW in
+vdict_daemon.py. Ear-tuned on one machine, imposed on every user.
 
 WHY NOT JUST USE THE WINDOWS VOLUME MIXER
 The daemon is pythonw.exe, the tray is ALSO pythonw.exe, and the venv
@@ -36,33 +35,25 @@ redirector stub means each appears TWICE. The mixer shows up to four
 identical "pythonw" entries with no way to tell them apart.
 
 THE WORK
-  - The Config model gains two volumes, 0-100, defaults matching the
-    current 0.22275 and 0.18225 so existing behaviour is unchanged.
-  - Settings dialog gains two sliders, start tone and stop tone. Zero is off,
-    which is how someone silences one and keeps the other.
-  - play_tone scales by them.
-  - The timeout double-tone is 523.25Hz at 0.18225 -- same frequency and
-    volume as the stop tone, and it fires only after a 120s toggle timeout.
-    It follows the stop slider. No third control.
-  - The two defaults are not equal because equal amplitude at 784Hz reads
-    louder than at 523Hz. Do not normalise them.
+  - The Config model gains two volumes, 0-100, defaults matching the two
+    constants so existing behaviour is unchanged.
+  - Settings gains two sliders, start tone and stop tone. Zero is off, which
+    is how someone silences one and keeps the other.
+  - The value multiplies into the generated tone, read at the point of use
+    through core-arch's shared live Config object. A standalone per-call
+    config.json re-read is NOT a substitute: save_settings() writes
+    non-atomically (truncate then write), so a read landing mid-write raises.
+  - The two defaults are not equal because the high tone reads louder than the
+    low at equal amplitude. Do not normalise them. Pitch itself belongs to
+    qt-port-plan.txt's AUDIO deliverable, not to this item.
+  - The 1ms cosine tail is not this item's to decide or to drop -- see
+    spike-notes.txt TONE CLICK.
+  - too_short and timeout both play the low double at the low volume, same as
+    stop. They follow the stop slider. No third control.
 
-  Tones are pre-generated WAVs at import; play_tone() already scales the
-  in-memory tone data by a volume argument right at the moment it's queued
-  for playback -- no regeneration involved, nothing currently passes it a
-  real value. The work is reading the two config fields at each
-  play_tone() call site through core-arch's shared live Config object.
-  A standalone per-call config.json re-read is NOT a substitute:
-  save_settings() writes non-atomically (truncate then write), so a read
-  landing mid-write raises.
-
-  Move it to vdict/tones.py -- generation, play_tone, the file constants.
-  ~80 of vdict.py's 222 lines, and importing vdict.py currently writes three
-  WAVs to temp. Carry this comment with it:
-      # winsound refuses SND_MEMORY with SND_ASYNC. Async playback needs a file.
-  Without it someone rewrites the temp files into memory, and the only
-  in-memory path is synchronous -- an 80ms block on the dictation loop.
-  The three WAVs are never cleaned up.
+  QUESTION: ready plays the low double at the low volume too, but it fires
+  once at launch rather than inside a dictation cycle. Does it follow the
+  stop slider, or is silencing the startup chime its own control?
 
 
 ==============================================================================
@@ -144,12 +135,9 @@ both waiting on before their own ROI can be judged. Not gated on either
 shipping; the toggle has value independent of what, if anything, ends up
 built on top of the data.
 
-Mechanism built 2026-07-31 as part of the unified output-logging
-redesign -- transcript.write(text), a dedicated logger with one RotatingFileHandler
-(maxBytes=100MB, backupCount=5, encoding="utf-8"), LOG_DIR /
-"transcript_log.txt". Gated on vdict/tray/transcript.py's ENABLED (a module
-constant, not a Settings checkbox) -- what's left here is only the
-View-menu toggle itself, still not built.
+The mechanism exists -- transcript.write() and its handler in
+vdict/tray/transcript.py, gated on that module's ENABLED constant rather
+than on a Settings checkbox. What is left is the View-menu toggle.
 
 V1.2 TUNING WORKFLOW, only if B13's shipped defaults prove insufficient:
 a separate, explicit tuning session -- PTT disabled, Whisper unloaded, the

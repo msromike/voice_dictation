@@ -147,6 +147,10 @@ work, or portaudio_io.py gets wired and a deletion becomes a rework.
     Deleted, not ported: vdict/sounds' three wav files, _load_tone, the wave
     import, _resolve_output_device, the persistent OutputStream, _tone_queue,
     _current_tone, _current_tone_pos and _output_callback.
+  - Pitch is C5 and G5 at A443, a perfect fifth -- 526.82Hz and 789.34Hz. The
+    shipped WAVs measure A440; generating the tones is what turns pitch into a
+    number rather than an asset. A preference, not a constraint: the interval
+    carries the meaning, so do not "correct" it back to A440.
   - Device changes arrive as signals rather than being polled for.
   - Settings has a mic test with a live level meter. Reference
     implementation is Qt's own examples/multimedia/audiosource.
@@ -193,7 +197,7 @@ OUTPUT WINDOW
   - console.drain decides a toast by reading root.state() != 'normal'
 
 SETTINGS
-  - settings.py has four tk.OptionMenus -- mic, PTT mode, model size, compute
+  - settings.py's tk.OptionMenus are mic, PTT mode, model size and compute
     device. None has an on-open hook. The compute-device one reaches into
     ["menu"] to disable a single entry
   - settings.py opens with withdraw, -topmost on, update_idletasks, screen
@@ -443,8 +447,6 @@ JUDGMENT, NO SPIKE NEEDED
   - FLAC. QMediaRecorder records a capture session to a file; audio_io.py
     encodes a numpy buffer after transcription. Keep soundfile, or restructure
     to record-during-capture.
-  - Tones generated or read from WAV. Someone moved from generate_tone to WAV
-    files and the reason is unrecorded. Read git before reverting.
 
 
 ==============================================================================

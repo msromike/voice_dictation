@@ -149,6 +149,20 @@ last sample (off-by-one in the fade math, ~0.05% of full scale residual) --
 worth fixing whenever the WAV assets get regenerated, not the prime suspect.
 
 
+TONE CLICK -- TWO INDEPENDENT CAUSES
+
+sd.play()'s per-call stream open, above. And the waveform ending on a non-zero
+sample, which the driver reproduces as a step.
+
+The second is audible only on a high-resolution chain with well-damped
+drivers; ordinary speakers mask it. A no-click result on cheap equipment is
+not evidence.
+
+A cosine fade over the final 1ms removes it, and a QAudioSink built per tone is
+then clean. The WAV assets and the persistent OutputStream are workarounds for
+that cause, which is why neither survives the port.
+
+
 TOOLKIT GAPS
 
 Hand-rolled because a library did not do it. One line each: what was

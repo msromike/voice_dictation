@@ -355,10 +355,9 @@ ENTRY
           the code read better, it is the wrong fix and the number stays.
           WHAT IT MEASURED. CaptureRow gave the row a type, so the writer
           takes one argument. CaptureSession took the cycle out of main,
-          which went from complexity 14 to 5 and from 89 statements to 28
-          against a limit of 50. The suppression was deleted rather than
-          kept: it stopped being needed, which is the only honest way for
-          one to go.
+          which cleared both findings. The suppression was deleted rather
+          than kept: it stopped being needed, which is the only honest way
+          for one to go.
 
 EXIT
   [x] Force all five outcomes and confirm five rows. Too-short is a quick

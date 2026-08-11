@@ -23,12 +23,12 @@ BLOCKERS -- resolve before build sheet, not during:
     sentence and a traceback, with each destination deciding whether to
     render the traceback -- what logging's own exc_info plus per-handler
     formatters give. Today log() and error_log() are separate functions
-    and every site wanting both must call both. Re-measured after
-    error_log gained its screen flag: of its five call sites, two pair an
-    explicit log() sentence with screen=False, and three rely on
-    error_log's own screen dump. That flag is itself a per-call-site
-    convention -- the kind this requirement says does not hold -- so the
-    capability still belongs in the mechanism.
+    and every site wanting both must call both. error_log's screen flag
+    splits its call sites two ways -- some pair an explicit log() sentence
+    with screen=False, the rest rely on error_log's own screen dump.
+    Re-derive the split by grepping error_log( for screen=. That flag is
+    itself a per-call-site convention -- the kind this requirement says
+    does not hold -- so the capability still belongs in the mechanism.
   - Whisper/GPU-cleanup spike -- whether swapping WhisperModel objects in
     place actually releases GPU/CUDA memory cleanly across repeated
     loads. Same treatment PortAudio got: source plus real hardware
@@ -81,13 +81,11 @@ ARCHITECTURE
     launches it); the merged process has to enforce it on purpose.
     Mechanism is FIRST RUN's own build-sheet work, not decided here.
   - Settings (vdict/tray/settings.py) is a pure view -- returns the raw
-    snapshot of what the user picked, no diffing inside it. BUILT: the
-    dialog reads its widgets and calls on_save(config), nothing else.
+    snapshot of what the user picked, no diffing inside it. BUILT.
   - The Save handler is a separate actor from Settings, same dialog, same
     thread, different code. Settings' job ends at returning the snapshot;
     the handler around it is orchestrator code -- it writes to disk and
-    dispatches to consumers. BUILT as app's _on_settings_save, which does
-    save_settings, settings.close and restart. save_and_restart is gone.
+    dispatches to consumers. BUILT as app's _on_settings_save.
   - No central diff step. Each consumer decides for itself, at the point it
     would act, whether its own slice changed -- cheap stuff (beep volume)
     just reapplies, expensive stuff (model reload) checks first.
@@ -138,10 +136,8 @@ CONFIG PERSISTENCE
     type -- passed by reference, never serialized just to move between
     Settings, the Save handler, and consumers.
   - Written at checkpoints -- Settings Save, window hidden, tracked window
-    destroyed, and at exit. Three of those four are app's _save_state(),
-    which calls geometry.save_all() to flush every window the registry
-    tracks and then save_settings(). Save is its own path, app's
-    _on_settings_save.
+    destroyed, and at exit. Three of those four are app's _save_state().
+    Save is its own path, app's _on_settings_save.
   - Checkpoint flush, not a per-settle write. geometry.manage() caches on
     <Configure>, and disk is touched only at a checkpoint, so dragging a
     window costs nothing until one of those four fires. That is what the
@@ -152,14 +148,14 @@ CONFIG PERSISTENCE
   - STANDING VULTURE OVERRIDE: ui.settings_pos and ui.console_geometry are
     reported unused at every commit, and that is expected. geometry.py's
     registry reaches both by name rather than by attribute, so vulture
-    cannot see the usage; config.py carries a comment at the fields saying
-    the same thing. No whitelist entry: a bare name there exempts the
+    cannot see the usage. No whitelist entry: a bare name there exempts the
     identifier everywhere and forever, and this finding ends on its own
     when the Qt port deletes geometry.py. What that beat: making the
     registry attribute-addressable so the scan goes quiet, which trades a
     working design for a clean tool run.
-  - One shared, live Config object instead of seven independent stale
-    reads -- three in app.py, four in settings.py. Settings overwriting a
+  - One shared, live Config object instead of the independent stale reads
+    scattered through app.py and settings.py -- re-derive the count by
+    grepping both for load_settings(). Settings overwriting a
     change made elsewhere while open is NOT among the things this fixes --
     that landed separately, as the re-read in the dialog's two writers,
     both since gone. What is left here is collapsing the seven reads into
@@ -293,20 +289,16 @@ LOGGING MIGRATION
     into whatever replaces it. Logging does not survive by default just
     because the code around it does -- check it at every site being
     touched, don't assume it follows along.
-  - Survives unchanged: the CATEGORIES table (color/marker/box/toast),
-    error_log()'s disk-write-first pattern (vdict/tray/log.py),
-    transcript.write()'s dedicated
-    logger. None of these need to change in their own definitions, only
-    in how they get called.
-  - The disk-write half (write_error_log, formerly tray-only
-    _write_error_log) already moved to vdict/common/output.py as that
-    prep work, 2026-08-02 -- vdict_daemon.py already calls it directly
-    today. This refactor doesn't need to invent that cross-process bridge,
-    it already exists.
-  - At real risk: vdict_daemon.py holds roughly a dozen log() call sites
-    (loading, ready, block, rec/note/done, transcript, plus
-    _resolve_output_device()'s two error calls) that all need a home in
-    whatever the new thread-body version of this file looks like.
+  - Survives unchanged: the CATEGORIES table, error_log()'s
+    disk-write-first pattern (vdict/tray/log.py), transcript.write()'s
+    dedicated logger. None of these need to change in their own
+    definitions, only in how they get called.
+  - The disk-write half, write_error_log in vdict/common/output.py, is
+    already called directly by vdict_daemon.py. This refactor doesn't need
+    to invent that cross-process bridge, it already exists.
+  - At real risk: vdict_daemon.py's log() call sites all need a home in
+    whatever the new thread-body version of this file looks like. Re-derive
+    them by grepping the file rather than trusting a figure here.
   - session.log_session_block() currently reports the subprocess's PID
     and fires on every start/restart -- under this design a restart is
     rare (unrecoverable fault only), so this block's trigger point and

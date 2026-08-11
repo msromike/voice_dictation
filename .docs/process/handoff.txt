@@ -38,6 +38,16 @@ LIFECYCLE
   on-the-fly sheet gains scope -> write the plan, then carry on.
   premise found false -> kill it in EVIDENCE, surface every DESIGN entry
     that cited it.
+  conflict with no recorded answer -> dig, then ask, then act. never two of
+    the three.
+    dig means the code, the docs and git. a question asked before reading
+      spends his turn on what the disk already answers.
+    still unresolved after reading -> ask. a design decision -- toolkit,
+      package, method, why something was replaced -- lives in his memory
+      when it lives nowhere else, and git returns a diff where the question
+      returns the reason.
+    acting on a conflict that is still unresolved is the failure. resolved
+      is the only state that earns an edit.
   sheet finished -> leave it. tidying it away is not mine to do.
 
 MAINTENANCE

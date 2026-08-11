@@ -46,9 +46,12 @@ Never propose+implement same turn. Never explain an item from the build sheet's 
 first confirming it against the code as it exists right now.
 The re-review IS a review. Code disagreeing with the sheet is a finding -- surface it before
 the explanation, never reconcile it into one silently.
-Per item, grep .docs/ for the symbols that item moves. A doc disagreeing with the sheet is
-a finding too, same as code. Catches a contradiction at the step that causes it, not at the
-cleanup step nine items later.
+Per item, EXTRACT every identifier appearing in the item's text -- filenames, functions,
+classes, config keys -- and grep .docs/ for each one. Extract, never select: which ones
+matter is not mine to decide. Any file with a hit gets READ WHOLE, not just the matching
+line -- the decision that matters is often prose naming no identifier at all, which no grep
+can reach. A doc disagreeing with the sheet is a finding too, same as code. Catches a
+contradiction at the step that causes it, not at the cleanup step nine items later.
 The report says what that grep returned, "no hits" included. A check that is silent when
 clean cannot be told apart from one that never ran.
 Explain in plain English, at recap length. Name the expansion axes, don't spend
