@@ -1,65 +1,84 @@
 # Voice Dictation
 Windows desktop PTT daemon.
 
-Read `.docs/process/handoff.txt` before the first substantive turn of a
-session. It defines how findings are presented, what Mike reviews and what he
-does not, and the failure modes with their tells. Once, not every prompt.
+## Facts
 
-## House Style
-Pick the shape, then write the line. Headers and layout are not content.
-  FACT      what is true, and how to confirm it.
-  RULE      trigger -> act, and the tempting wrong turn if there is one.
-  DECISION  what was chosen, and the evidence it rests on.
-  QUESTION  what is unknown, and the method that answers it.
-  INTENT    what should exist, and what changes when it does.
-  OPEN      no shape fits. write it plainly, mark it OPEN.
-A line I believe is contradicted gets marked CONFLICT, and nothing else.
+
+## Directives
+"commit per protocol"   -> commit-per-protocol skill
+"discuss per protocol"  -> discuss-per-protocol skill
+"explain per protocol"  -> explain-per-protocol skill
+"explain step N"        -> propose only. Do not implement in the same turn.
+"approve"               -> implement what was proposed
+"execute all"           -> build the batch, one report at the end. Stop at the
+                           first surprise.
+
+
+## Rules
+SPOP: one chunk at a time. Propose, wait for approval, implement, stop.
+EDIT AUTHORIZATION: nothing written to disk without approval -- code, docs,
+config. Approval is a prior turn. A proposal turn ends with a question or a
+waiting statement, and calls no edit tool.
+Tools passing is not the result. Report what it did.
+
+DONE: you watched it do the thing. Otherwise the first line is NOT DONE and
+why.
+
+Before explaining or reporting on a chunk, read the code and the docs it
+touches as they are right now. Never explain from a document's text alone.
+If that means opening files before you can answer, open them. That read is
+what catches a doc describing code that has since moved.
+
+Every chunk of work -- from a build sheet, the todo list, or raised in
+conversation -- runs in this order:
+  Read the current state on disk of whatever it touches.
+  Explain it, grounded in that read, not the doc alone.
+  End with a question naming the chunk.
+  On approval, implement.
+  Stop.
+  Report done or problems.
+  Offer the next chunk.
+
+Code disagreeing with the doc is a finding.
+Surface it before the explanation, never reconcile it into one silently.
+
+Extract every identifier in the chunk's text -- filenames, functions, classes,
+config keys -- and grep .docs/ for each one.
+Extract, never select. Which ones matter is not mine to decide.
+Any file with a hit gets read whole, not just the matching line. The decision
+that matters is often prose naming no identifier at all.
+A doc disagreeing with another doc is a finding too, same as code.
+Say what that grep returned, "no hits" included.
+A check that is silent when clean cannot be told apart from one that never ran.
+
+House Style: every line is one of these. Missing the half after the + means it
+is not that shape. Headers and layout are not lines.
+  FACT      what is true + how to confirm it
+  RULE      trigger -> act + the tempting wrong turn
+  DECISION  what was chosen + the evidence it rests on
+  QUESTION  what is unknown + the method that answers it
+  INTENT    what should exist + what changes when it does
+  OPEN      none of the above. Report the OPEN count whenever shaping a doc.
+A line contradicted by another gets marked CONFLICT, and nothing else.
 Artifact-specific style is in the templates.
 
-## Commit Protocol
-Use the `commit-per-protocol` skill, not the global Commit Protocol.
 
-## Discuss Protocol
-"discuss per protocol" -> the `discuss-per-protocol` skill. Mike's trigger when
-decisions are buried in a wall of text. It can never fire automatically --
-whether burial happened depends on what he can absorb that minute, which is not
-visible from here.
+## Corrections
+Explain in plain English, at recap length.
+Name the expansion axes, do not spend them.
+"Deeper on request: X, Y" says depth exists without paying for it.
+Expansion axes are explanation depth only.
+An open choice is a question, never a "deeper on request" note.
+Approval turns that note into my own call, made where you cannot see it.
 
-## Explain Protocol
-"what's the next step" -> list the upcoming items, compact enough to judge risk.
-Not one item, not an explain. He replies "execute all" to wave the batch through,
-names a subset, or says "explain per protocol" on whatever looks dense.
-"explain per protocol" -> the `explain-per-protocol` skill.
-"execute all" -> build the batch, report ONCE at the end, per item naming what ran
-separately from what linted. Stop at the first surprise instead of pushing through.
-WHY IT IS PER ITEM AND NOT UNIFORM. Trivial and dangerous items paying the same
-tax is what ends a session early. Abandonment is the cost being optimised against,
-not turn count -- the same reason every build-sheet step ends with a launch test.
+
+==============================================================================
+UNSORTED BELOW THIS LINE
+==============================================================================
+
+
 
 ## SPOP
-"Explain step N" = propose only. "Approve" = implement. Never both in one turn.
-What "what's the next step" means is the Explain Protocol section above.
-Per item: review the code it touches against current disk state -> explain it, grounded in
-that review, not the doc alone -> end with a question naming the item -> approved -> implement
--> STOP -> report done/problems -> offer the next item.
-Never propose+implement same turn. Never explain an item from the build sheet's text without
-first confirming it against the code as it exists right now.
-The re-review IS a review. Code disagreeing with the sheet is a finding -- surface it before
-the explanation, never reconcile it into one silently.
-Per item, EXTRACT every identifier appearing in the item's text -- filenames, functions,
-classes, config keys -- and grep .docs/ for each one. Extract, never select: which ones
-matter is not mine to decide. Any file with a hit gets READ WHOLE, not just the matching
-line -- the decision that matters is often prose naming no identifier at all, which no grep
-can reach. A doc disagreeing with the sheet is a finding too, same as code. Catches a
-contradiction at the step that causes it, not at the cleanup step nine items later.
-The report says what that grep returned, "no hits" included. A check that is silent when
-clean cannot be told apart from one that never ran.
-Explain in plain English, at recap length. Name the expansion axes, don't spend
-them -- "deeper on request: X, Y" says depth exists without paying for it.
-Expansion axes are explanation depth only. An open choice is a question, never a
-"deeper on request" note -- approval turns that note into my own call, made where you
-cannot see it.
-
 THREE ACTS GOVERN WHAT REACHES MIKE. Acts, not qualities -- the quality versions of
 these drifted for a whole session with every rule above loaded.
   FILTER. Before presenting anything as settled, write both sides and name a
@@ -68,23 +87,12 @@ these drifted for a whole session with every rule above loaded.
   GATE. Two or more open items in one turn -> all of them enter TodoWrite before
   any is spoken, exactly one in_progress, and only that one appears in the reply.
   A single open item is the closing block above. Something found mid-turn enters
-  the list, never the reply.
-  A live list survives tangents and is never cleared by one. Work a tangent
-  spawns enters the list rather than replacing it, and resuming names the
-  position and the count out loud -- he forgets what was settled too, and the
-  list is shared state, not my private discipline.
-  An item that gets no answer stays open and gets re-raised. Silence is not a
-  ruling; recording it as one puts words in his mouth that get cited later.
-  BLOCK. A decision turn is exactly: Problem. / What I'll do. / Approve? -- or,
-  when alternatives genuinely exist, those options with a REC. A recommendation
-  with no alternatives is a false choice.
+  the list, never the reply.  A live list survives tangents and is never cleared by one. Work a tangent spawns enters the list rather than replacing it, and resuming names the position and the count out loud -- he forgets what was settled too, and the list is shared state, not my private discipline. An item that gets no answer stays open and gets re-raised. Silence is not a ruling; recording it as one puts words in his mouth that get cited later. BLOCK. A decision turn is exactly: Problem. / What I'll do. / Approve? -- or, when alternatives genuinely exist, those options with a REC. A recommendation with no alternatives is a false choice.
 
-Explain closes with a fixed block, in order: what changes on disk, concrete enough to
-reject -- then BLOCK, or the words "nothing open". Never a third thing.
+Explain closes with a fixed block, in order: what changes on disk, concrete enough to reject -- then BLOCK, or the words "nothing open". Never a third thing.
 Report names what ran separately from what linted. Never one word for both.
 Report ends with the gesture to run, or "no launch test this step". Never implied.
-Item boundary = risk seam, not feature size. Cross-process state (tray/daemon) or a required
-ordering (reinit before resolve) -> own item, never bundled, even if one line would cover it.
+Item boundary = risk seam, not feature size. Cross-process state (tray/daemon) or a required ordering (reinit before resolve) -> own item, never bundled, even if one line would cover it.
 
 ## Planning
 Discoverability beats turn count. Extra turns surface what a streamlined
