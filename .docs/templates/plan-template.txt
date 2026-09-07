@@ -70,7 +70,7 @@ the method that answers them.>
 ==============================================================================
 DESIGN -- DECISION
 ==============================================================================
-<Decisions. Each: what was chosen, and the evidence it rests on.>
+<Decisions. Each: what was chosen, what it beat, and what would overturn it.>
 
 
 ==============================================================================

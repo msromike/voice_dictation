@@ -22,6 +22,49 @@ plan.
 
 
 ==============================================================================
+DOC RECOVERY -- NOW, AHEAD OF EVERYTHING BELOW
+==============================================================================
+Eight steps, in order. Written after the doc prune ran four passes without
+reaching its own goal. Nothing in ORDER below starts until step 8 closes.
+
+1. Finish the current plan, surgically. STEP 8 memory harvest and empty first
+   -- the fill-rate baseline only counts if it's set before anything else.
+   Then REVISE 9a, 9b, 9d, 9f, 9g. STEP 10 is back on -- all five skills get
+   built. Skip 11. Keep 12's repoint for when the sheet dies.
+
+2. Backlog goes on a diet -- the idea survives, nothing else.
+
+   Each entry becomes what it is and why you'd want it. That's all.
+   Mechanisms, work steps, code references, design -- deleted. IM already says
+   nothing gets built without a plan and a build sheet written when the item
+   comes up, so an entry carrying design is doing a job that doesn't belong to
+   it, years early, against a codebase Qt is about to move.
+
+   Completed spikes are the exception and they get extracted, not deleted.
+   They go to spike-notes.txt with what was measured and what it settled, and
+   the backlog entry keeps a one-line pointer. That's what stops the failure
+   where we start a plan to test something and find out mid-way that it was
+   tested and git had the answer. Real material sitting in backlog right now:
+   B13's rpunct dead-end and the 88ms restoration measurement, B21's jellyfish
+   metaphone collisions, B22's GPU testing on the 3070 Ti, B28's corpus
+   median, B6's clipboard-format findings.
+
+3. Shape everything else. Two plans into plan-template, three sheets get
+   header shape tags, roadmap/pre-push/spike-notes against IM ROLES.
+   Per-document header diff as the acceptance test, report after each.
+
+4. Walk backlog against Qt. Twenty ideas, a few lines each.
+
+5. Walk backward: pre-push, input-device-plan, core-arch-plan.
+
+6. Qt itself.
+
+7. Build the Qt build sheet.
+
+8. Decide the machinery.
+
+
+==============================================================================
 ORDER
 ==============================================================================
 NOW   corpus-database-build-sheet.txt, STEP 2. STEP 0 and STEP 1 are built,

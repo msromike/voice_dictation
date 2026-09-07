@@ -5,11 +5,11 @@ FROM A PLAN -- INTENT
   describes this work. The plan is the authority if the sheet and the plan
   disagree.
 
-Done -- INTENT = every line in the four trees is a House Style shape or is
-marked OPEN, no fact lives in two places, no doc restates what the code says,
-no reference points at a file with a deletion date, INFORMATION MANAGEMENT and
-House Style have been revised against what the passes found, and the three
-skills exist.
+Done -- INTENT = every plan carries plan-template.txt's sections and every
+sheet carries build-sheet-template.txt's, checked by diffing headers against
+the template; no fact lives in two places; no doc restates what the code says;
+no reference points at a file that is gone; INFORMATION MANAGEMENT and House
+Style revised against what was found.
 
 
 ==============================================================================
@@ -29,7 +29,7 @@ UNVERIFIED -- QUESTION
       stops new ones -- an unmeasured claim gets presented with what a spike
       would cost -- but nothing marks the ones already in the tree. The
       question is now narrower: does a pass apply UNVERIFIED to existing
-      unmeasured claims. Answer after PASS 5, before STEP 9.
+      unmeasured claims. Answer before STEP 9.
 
   [x] Does memory's imposed format collide with House Style -- NO. The
       mandated **Why:** line is a DECISION's evidence clause, which CLAUDE.md's
@@ -40,14 +40,15 @@ UNVERIFIED -- QUESTION
 ==============================================================================
 GOVERNING RULE -- RULE
 ==============================================================================
-Delete before reshape. A line removed in an early pass costs nothing in every
-pass after it, and a line reshaped and then deleted was work thrown away. No
-pass may reshape a line a later pass would have deleted.
+A line either finds a slot in its template or it is deleted. Nothing is
+reshaped in place. "Delete before reshape" described a per-line rewrite this
+work does not do, and the ordering it forced is what put the deliverable last
+and made it look small.
 
-That is the ONLY reason to defer. A fix already found and already known gets
-made in the pass that finds it -- carrying it forward creates a second thing
-to maintain, which is the problem this sheet exists to remove. Rule-by-rule
-governs how the tree is SCANNED, never how a found fix is scheduled.
+Defer a fix only when a later step would delete the line it touches. A fix
+already found and already known gets made where it is found -- carrying it
+forward creates a second thing to maintain, which is the problem this sheet
+exists to remove.
 
 
 ==============================================================================
@@ -61,7 +62,7 @@ Inside a document the criterion reads against that document's own conclusions.
 An open item in JUDGMENT, ASSUMED, BLOCKED, SCRATCHPAD or UNVERIFIED that
 DELIVERABLES or a SETTLED block already answers is a hit, not an open item.
 
-PASSES 5, 6 and 7 are single-document by construction. The rule adds nothing
+STEPS 6, 7 and 8 are single-document by construction. The rule adds nothing
 there and is not restated in them.
 
 
@@ -199,21 +200,40 @@ ENTRY -- RULE
 EXIT -- RULE
   [x] Mark every action box above [x].
   [x] No launch test this step.
-  [ ] "commit per protocol"
+  [x] "commit per protocol"
 
 
 ==============================================================================
-STEP 6  PASS 5 -- SHAPE
+STEP 6  RESTRUCTURE core-arch-plan.txt
 ==============================================================================
+MOVED, NOT DONE. This became recovery step 3 in roadmap.txt -- it is larger
+than a step and needs its own plan. The boxes below stay blank on purpose:
+nothing here was executed by this sheet.
+
 ENTRY -- RULE
   [ ] The prior step's COMMIT exists.
   [ ] Every box in the prior step is [x].
 
-  [ ] 6a  Every remaining line carries a House Style shape or is marked OPEN.
-          Form only -- content was settled in the passes above.
-  [ ] 6b  Unstarted build sheet steps are rewritten as end states.
-  [ ] 6c  A line believed contradicted is marked CONFLICT and nothing else.
-          Inside this work a contradiction is resolved, not marked.
+The deliverable, not a pass. qt-port-plan.txt is the reference for what
+compliant looks like -- template sections, prose underneath, no per-line
+shape tags. Every pass criterion fires as a line finds its slot; none of them
+runs as a sweep.
+
+  [ ] 6a  The file carries plan-template.txt's sections, in the template's
+          order: SCRATCHPAD, GOAL, DELIVERABLES, GOVERNING RULE, EVIDENCE,
+          DESIGN, SEAMS, TRUE-UP, DRAINS. Omit only what the template says
+          may be omitted.
+  [ ] 6b  Every existing line lands in the slot its content belongs to, or is
+          deleted. Content moves; it is not rewritten. A line with no slot is
+          a line the template says does not belong in a plan.
+  [ ] 6c  Each moved line checked against its slot's own rule -- a code fact
+          verified before it lands in EVIDENCE, a fact already placed not
+          placed twice, a dead reference dropped, a date dropped, a rejection
+          without an overturn condition either given one or cut.
+  [ ] 6d  Report what BLOCKERS, OPEN ISSUES and SUPERSEDES became. Those three
+          have no template slot and are the ones most likely to be forced.
+  [ ] 6e  Diff the finished section headers against plan-template.txt. That
+          diff is the acceptance test and Mike runs it.
 
 EXIT -- RULE
   [ ] Mark every action box above [x].
@@ -222,31 +242,30 @@ EXIT -- RULE
 
 
 ==============================================================================
-STEP 7  PASS 6 -- ARTIFACT SHAPE
+STEP 7  RESTRUCTURE input-device-plan.txt, CONFORM THE SHEETS
 ==============================================================================
+MOVED, NOT DONE. This became recovery step 3 in roadmap.txt alongside STEP 6.
+The boxes below stay blank on purpose: nothing here was executed by this
+sheet.
+
 ENTRY -- RULE
   [ ] The prior step's COMMIT exists.
-  [ ] Every box in the prior step is [x].
+  [ ] Every box in the prior step is [x]. STEP 6 goes first because it is the
+      larger of the two and whatever it teaches about forcing content into
+      slots applies here.
 
-Truth first, shape second. Every earlier pass removes content; reshaping a
-container around content that is leaving is work thrown away.
-
-Shape is for scanning. A consistent artifact is one Mike can skim fast enough
-to catch an error in, which is the only reliable check on prose no tool can
-verify. Second reason: a misshapen document is what gets pattern-matched when
-the next one is written, which is how the build sheets lost their gates before
-the copy-the-template rule existed.
-
-  [ ] 7a  Every plan diffed against plan-template.txt: sections present, in
-          order, each holding the kind of content its slot names.
-  [ ] 7b  Every build sheet diffed against build-sheet-template.txt, gates
-          included.
-  [ ] 7c  Every memory file diffed against the frontmatter format: name,
-          description, metadata.type, and the **Why:** line where the type
-          requires one.
-  [ ] 7d  A missing section is added empty with its slot text, never
-          back-filled with invented content. An extra section is reported,
-          not deleted -- it may be the finding.
+  [ ] 7a  input-device-plan.txt restructured the same way -- 6a through 6e,
+          same rules, same acceptance test.
+  [ ] 7b  Report what CONFIRMED FROM SOURCE and TESTED ON REAL HARDWARE
+          became. Both are measurement blocks, and IM LIFECYCLE says a
+          measurement no later step would repeat belongs in spike-notes.txt,
+          not in a plan.
+  [ ] 7c  The three build sheets get the template's shape tags on their
+          section headers -- UNVERIFIED -- QUESTION, GOVERNING RULE -- RULE,
+          ENTRY and EXIT -- RULE. Structural only; step phrasing is left
+          alone and revised by whoever runs the sheet.
+  [ ] 7d  Diff every plan and every sheet's section headers against its
+          template. Zero divergence, or a named reason per divergence.
 
 EXIT -- RULE
   [ ] Mark every action box above [x].
@@ -258,8 +277,10 @@ EXIT -- RULE
 STEP 8  PASS 7 -- MEMORY: HOOKS, HARVEST, EMPTY
 ==============================================================================
 ENTRY -- RULE
-  [ ] The prior step's COMMIT exists.
-  [ ] Every box in the prior step is [x].
+  [ ] STEP 5's COMMIT exists. STEPS 6 and 7 moved out with their boxes blank
+      -- see their banners. This gate names the last step this sheet actually
+      executed rather than sliding past two empty ones.
+  [ ] Every box in STEP 5 is [x].
 
 Done by hand, following drain-memory-per-protocol's spec rather than running
 it -- the skill does not exist until STEP 10. Doing it manually is what proves
@@ -299,10 +320,19 @@ ENTRY -- RULE
   [ ] Every box in the prior step is [x].
   [ ] Every UNVERIFIED question above is [x].
 
-  [ ] 9a  House Style revised against what the passes found. It was pruned
-          last on purpose: it is the measure, and editing it mid-pass changes
-          the measure while measuring.
-  [ ] 9b  INFORMATION MANAGEMENT revised the same way.
+  [ ] 9a  House Style and the rest of CLAUDE.md revised against what the
+          passes found, and CUT by two tests.
+          ONE: would a check Mike runs catch this more cheaply than a rule I
+          follow? If yes, the rule is the expensive version -- cut it, keep
+          the check.
+          TWO: has it fired since it was written? A rule from one incident
+          that never caught a second is a hypothesis wearing a rule's clothes.
+          Pruned last on purpose: it is the measure, and editing it mid-pass
+          changes the measure while measuring.
+  [ ] 9b  handoff.txt revised the same way, WHOLE -- not just INFORMATION
+          MANAGEMENT. REGISTER, QUESTIONS, FORWARD-REFERENCE DOCUMENTS,
+          FAILURE MODES and WHAT ACTUALLY WORKS have never been held against
+          either test.
   [ ] 9c  IM ROLES gains the todo list:
               todo  session only. holding the record -> drain into the plan.
   [ ] 9d  handoff's THE GATE SPLIT rewritten. It currently says Mike does not

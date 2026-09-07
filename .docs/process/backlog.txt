@@ -18,6 +18,21 @@ REFINEMENTS
 
 
 ==============================================================================
+B1. SETTINGS TIERING / DECOUPLE SETTINGS FROM MODEL RELOAD
+==============================================================================
+Changing any setting pays a full GPU model reload -- including moving the
+Settings window, which writes ui.settings_pos on the same save path. Break
+that coupling so only the settings that genuinely need a reload pay for it.
+
+core-arch-plan.txt carries the diagnosis and cites this entry for the tier
+inventory -- which settings need a reload and which do not. That inventory is
+what lives here. input-device-plan.txt depends on it too. roadmap queues the
+work as its own build sheet under core-arch prework.
+The full 730-line design was cut from this file; git log on backlog.txt
+recovers it when that sheet is written.
+
+
+==============================================================================
 B3. TONE VOLUME CONTROL -- REFINEMENT
 ==============================================================================
 Sequenced after the Qt audio sheet, NOT after core-arch. qt-port-plan.txt

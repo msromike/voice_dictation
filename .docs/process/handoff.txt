@@ -14,12 +14,14 @@ mechanics -- Planning, SPOP, House Style -- and loads automatically.
 INFORMATION MANAGEMENT
 ==============================================================================
 PREP
+  read .docs/process/roadmap.txt, every line.
   read .docs/templates/plan-template.txt and
   .docs/templates/build-sheet-template.txt.
 
 ROLES -- what the templates and LIFECYCLE do not cover
   defects.txt      wrong now.
-  backlog.txt      not built yet. drains to empty.
+  backlog.txt      not built yet. drains to empty. a few lines per entry --
+                   design waits for the build sheet.
                    REFINEMENTS / PRE-PUSH / NEW FEATURES / FUTURE.
   roadmap.txt      what is NOW, what is next, why that order.
   spike-notes.txt  measured findings, and TOOLKIT GAPS. permanent.
@@ -27,12 +29,23 @@ ROLES -- what the templates and LIFECYCLE do not cover
   memory           the hook in MEMORY.md is what operates. the file is archive.
   git              archive. not read cold.
 
+  B=backlog, D=defects, P=pre-push. a new series never reuses a taken letter.
+
+  Done = app runs + backlog empty + defects empty.
+
 LIFECYCLE
   design reasoning -> plan. the sheet gets the decision as an action.
   measurement no later step would repeat -> spike-notes, never a plan.
+  we weigh a library and say not yet -> one line in spike-notes TOOLKIT GAPS:
+    what stays hand-rolled, which library would have replaced it, and why not.
   wrong now, no design needed, not owned by the sheet in flight -> defects.txt.
   defect drains at its owning sheet's end; now if unowned, losing data, or
-    blocking launch.
+    blocking launch. pre-push's empty-defects gate is the outer bound, not
+    the cadence. sites that relocate mid-sheet drain after they land.
+  something noticed while a plan owns the topic -> into that plan, not backlog.
+    backlog is for work no plan owns. write it when found, not at true-up.
+  a decision that closes a path -> read backlog and roadmap first. work named
+    there is a constraint on it, not a hypothetical.
   plan gone stale -> update it, never work around it.
   mid-build detour or new feature -> update the plan, then inject into the
     sheet in the sheet's format.
@@ -72,7 +85,7 @@ TESTING
 
 
 ==============================================================================
-WHO MIKE IS
+WHO THE USER IS
 ==============================================================================
 Holds the vision, the product judgment, and the architecture in outline. Does
 not write Python. Every explanation lands in plain English or it does not
@@ -86,50 +99,29 @@ phonetically, do not treat them as literal word choices or as typos.
 ==============================================================================
 THE GATE SPLIT -- the single most important thing here
 ==============================================================================
-Mike's gate is on concepts entering: does this idea make sense going in.
+The user's gate is on concepts entering: does this idea make sense going in.
 
 Mine is on the set staying coherent afterwards: contradictions between
 sections, the same fact recorded twice in different words, items still marked
 open that a decision already closed. That work happens unprompted and does not
-cost him a turn.
+cost them a turn.
 
-He does not read the plan documents. They are past the size any human holds in
-their head, and they cross-reference each other. Never ask him to verify a
-document, review a diff, or confirm that an edit reads correctly. If a turn
-ends with "your call on the doc" or "verify this before I commit," that is the
-failure, not diligence.
+The user does not read the plan documents. They are past the size any human
+holds in their head, and they cross-reference each other.
 
 The corollary is unforgiving: nothing else checks the documents. There is no
 second pair of eyes.
 
 
 ==============================================================================
-REGISTER
+UNSORTED BELOW THIS LINE
 ==============================================================================
-Consequence before mechanism. What happens to his app, not what Tk does and
-what Qt has. "This forty-line mechanism becomes one method call" is the unit.
-The toolkit comparison is working, not answer.
-
-Never write "no Qt equivalent" without saying which kind it is. It means two
-opposite things -- Qt cannot do this and something is lost, or Qt does not
-need this and the code deletes itself. The default reading is loss, so the
-good news arrives sounding like bad news.
-
-Good news is stated as good news. A sweep that finds twelve things Qt deletes
-and two real problems is a good result; presenting it as fourteen findings
-manufactures dread and buries the two that matter.
-
-A finding that breaks a plan premise goes first. Not mid-document, not in a
-closing paragraph, not wrapped in softening language like "flagging, not
-reconciling." Mid-document is worse than last -- last is at least what he is
-left holding.
 
 
 ==============================================================================
 QUESTIONS
 ==============================================================================
-The shape of a decision turn is CLAUDE.md's SPOP, under BLOCK. What that does
-not carry:
+The shape of a decision turn is in CLAUDE.md's Rules. What that does not carry:
 
 Never offer an option the evidence has already killed. Once something is dead,
 it is gone -- re-listing it as a menu item is asking him to do the elimination

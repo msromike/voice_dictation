@@ -33,17 +33,23 @@ SCRATCHPAD -- exempt. the plan is done when it is accurate and this is empty
 ==============================================================================
 GOAL -- INTENT
 ==============================================================================
-The docs are the system. Mike does not read code, so a wrong line in a plan
-becomes a wrong decision in the code with nothing in between to catch it.
-They have drifted. This strips what steers wrong and leaves what steers, then
-builds what keeps them from drifting again -- the passes are half the work and
-the skills and gates that follow are the other half.
+Every plan and build sheet should look like its template and hold what
+INFORMATION MANAGEMENT says it holds. core-arch-plan.txt and
+input-device-plan.txt carry none of the template's sections. qt-port-plan.txt
+does, and is the reference for what compliant looks like. This makes the other
+two match.
+
+Why it matters: Mike does not read code, so a wrong line in a plan becomes a
+wrong decision in the code with nothing in between to catch it. A plan that
+does not match its template is one he cannot check.
 
 
 ==============================================================================
 DELIVERABLES -- INTENT
 ==============================================================================
-  - every line in the four trees is a House Style shape, or marked OPEN
+  - every plan carries plan-template.txt's sections, every sheet carries
+    build-sheet-template.txt's sections and gates. Checked by diffing section
+    headers against the template -- anyone can run it
   - no fact lives in two places
   - no doc restates what the code already says
   - no reference points at a file with a deletion date
@@ -64,8 +70,10 @@ DELIVERABLES -- INTENT
 ==============================================================================
 GOVERNING RULE -- RULE
 ==============================================================================
-Delete before reshape. A line removed in an early pass costs nothing in
-every pass after it, and a line reshaped then deleted was work thrown away.
+A line either finds a slot in the template or it is deleted. Nothing is
+reshaped in place. "Delete before reshape" described a per-line rewrite, and
+that is not the work -- moving a line into a slot and dropping one that has no
+slot cost the same either way, so the ordering it forced bought nothing.
 
 
 ==============================================================================
@@ -99,6 +107,12 @@ HANDOFF
   THE GATE SPLIT says Mike does not read plans. false -- he skims them in
   three buckets: low-impact, wrong, do not understand.
 
+WHAT COMPLIANT LOOKS LIKE, BY EXAMPLE
+  qt-port-plan.txt. It carries every template section and NONE of its lines
+  are individually shape-tagged -- it is prose under shaped headers. Written
+  after the template existed, which is why it conforms. Compliance is
+  structural. Reading it as a per-line audit is what mis-sized this work.
+
 
 ==============================================================================
 DESIGN -- DECISION
@@ -115,6 +129,15 @@ TWO RADII PER PASS
   compared against another. Inside a document the criterion reads open
   items against that same document's conclusions. Passes 5 to 7 are
   single-document already.
+
+SHAPE GENERATES THE PASSES
+  Moving a line into a template slot forces the check that slot implies. A
+  code fact goes to EVIDENCE and gets verified. A fact already placed cannot
+  go twice. A dead reference surfaces while sorting. A date fails the template
+  outright. A rejection with no overturn condition fails DESIGN's slot.
+  Passes 0-4 below ran standalone across the whole tree and found six real
+  defects. From here the same criteria fire on the lines being moved, scoped
+  to the document being restructured -- never a sweep.
 
 PASS ORDER
   0  doc vs code      a line copying a code fact is deleted. one pointing at

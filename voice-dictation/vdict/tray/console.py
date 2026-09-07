@@ -1,6 +1,9 @@
 """The output window: the text widget and everything that reads or writes it.
 Wired -- app builds it and registers the fault handlers its dispatch calls."""
 
+# Not a terminal -- nothing types into it and nothing blocks on it. One line
+# printed, a reader thread draining, an unbounded queue, a 100ms Tk timer.
+
 import queue
 import tkinter as tk
 import traceback

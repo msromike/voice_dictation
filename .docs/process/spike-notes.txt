@@ -180,6 +180,18 @@ Rows are permanent at that size; audio is the only store worth rotating, and
 nobody has measured how much of it voice-ID actually needs.
 
 
+VOCABULARY IS THE CHEAPEST SETTING TO MAKE LIVE
+
+initial_prompt is a per-call argument to STTEngine.transcribe(), and the
+vocabulary string is read from vocabulary.txt rather than config.json. It is
+not baked into the loaded model. Vocabulary is therefore the cheapest setting
+to make live, not the most expensive -- it only looks expensive because it is
+hoisted into a local before the daemon's loop starts.
+
+Read while B1 was written. Re-check against STTEngine.transcribe's signature
+rather than trusting this line.
+
+
 TOOLKIT GAPS
 
 Hand-rolled because a library did not do it. One line each: what was
