@@ -71,11 +71,9 @@ push-to-talk must fire while unfocused and no widget event can do that.
 2. Spikes still open. Each answer goes to spike-notes.txt and closes the
    BLOCKED item in qt-port-plan.txt that names it. Hotkey, GPU release,
    embeddable CUDA and the audio path are measured and settled.
-   - Mic hotplug. Does audioInputsChanged fire on unplug and replug, and
-     does the device id survive replug and reboot. Decides whether config
-     carries the id beside the name.
-   - Device swap mid-recording. What happens when the mic changes while
-     the button is held.
+   - Mic hotplug, reboot half only. The signal fires and the id survives
+     replug, measured. One id comparison after the next restart decides
+     whether config carries the id beside the name.
 
 3. Inference tuning, from its existing sheet. The app ships float32 on CPU
    and has never measured which compute type wins per device class. GPU arm

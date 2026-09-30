@@ -123,7 +123,12 @@ work, or portaudio_io.py gets wired and a deletion becomes a rework.
     shipped WAVs measure A440; generating the tones is what turns pitch into a
     number rather than an asset. A preference, not a constraint: the interval
     carries the meaning, so do not "correct" it back to A440.
-  - Device changes arrive as signals rather than being polled for.
+  - Device changes arrive as signals rather than being polled for. A mic
+    unplugged mid-capture stops the source with IOError and Qt never
+    resumes it: that capture ends with an error outcome, and the source is
+    rebuilt when audioInputsChanged shows the configured device back.
+    stateChanged is unconnectable from PySide6 6.11.1; poll state() and
+    error(). MEASURED in spike-notes.txt.
   - Settings has a mic test with a live level meter. Reference
     implementation is Qt's own examples/multimedia/audiosource.
 
@@ -333,11 +338,8 @@ make a Qt symbol checkable instead of recalled.)
     QObject
 
 ASSUMED
-  [ ] Does audioInputsChanged fire on plug and unplug. The signal exists in
-      the stubs, and existence is not behaviour. The other two questions the
-      rig carried are answered and sit in MEASURED.
-  [ ] Is QAudioDevice.id() stable, and across what -- session, reboot, driver
-      update. Called stable on no evidence.
+  [ ] Is QAudioDevice.id() stable across reboot. Replug is MEASURED in
+      spike-notes.txt; one id comparison after the next restart closes this.
 
 
 ==============================================================================
@@ -427,11 +429,12 @@ SETTLED
     format to QMediaRecorder.
 
 BLOCKED ON EVIDENCE
-  - Does config persist a device id alongside the name. Blocked on whether
-    QAudioDevice.id() is stable. Either way the name is what config.json and
-    the dropdown show. If the id survives replug and reboot, config carries
-    both, match id first and name second. If it does not, name only, exact
-    match, no system default -- the rule input-device-plan.txt carries.
+  - Does config persist a device id alongside the name. The signal fires
+    and the id survives replug, MEASURED. Blocked only on the reboot check.
+    Either way the name is what config.json and the dropdown show. If the
+    id survives reboot, config carries both, match id first and name
+    second. If not, name only, exact match, no system default -- the rule
+    input-device-plan.txt carries.
 
 
 ==============================================================================

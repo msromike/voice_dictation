@@ -241,6 +241,31 @@ only the encoder's last buffer is lost, and faster-whisper reads the path
 directly. One capture path serves PTT and ambient.
 
 
+QMEDIADEVICES SEES HOTPLUG; THE ENDPOINT ID SURVIVES REPLUG
+
+audioInputsChanged fired on every plug and unplug across four cycles of a
+USB microphone, the device left audioInputs() on unplug and returned on
+replug, and QAudioDevice.id() was byte-identical every time. Plug fires
+twice with the same list. Survival across reboot not yet measured: compare
+the id after the next restart. The test device is "Microphone (USB Audio
+Device)"; the PDP device stays enumerated whether or not anything is
+attached to it, so it cannot test hotplug.
+
+
+UNPLUG MID-STREAM: QAUDIOSOURCE STOPS WITH IOERROR AND DOES NOT RESUME
+
+A QAudioSource reading Int16 at 16kHz from a USB microphone, unplugged
+mid-stream: within the same second the state went StoppedState, error()
+went IOError, delivery stopped, and audioInputsChanged fired with the
+device gone. Replugged six seconds later: audioInputsChanged fired with
+the device back, the source stayed StoppedState/IOError and delivered
+nothing. Recovery is the app's job: treat IOError as the end of that
+capture with an error outcome, and on audioInputsChanged with the
+configured device present, build a new QAudioSource. QAudioSource's
+stateChanged signal cannot be connected from Python in PySide6 6.11.1
+("QAudio::State cannot be converted"); poll state() and error() instead.
+
+
 TOOLKIT GAPS
 
 Hand-rolled because a library did not do it. One line each: what was
