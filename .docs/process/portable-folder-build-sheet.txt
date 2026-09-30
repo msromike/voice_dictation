@@ -328,7 +328,7 @@ ENTRY
   [ ] vulture -- read every finding and decide it. Not a step gate:
       unreferenced is the normal transient state mid-refactor, and a finding
       left red on purpose is a decision, not a failure.
-  [ ] Drain the defects.txt or backlog.txt entries this sheet closes.
+  [ ] Drain the backlog.txt entries this sheet closes.
   [ ] Delete every harness and spike this sheet created, the second copy from
       Step 3, and the profile-cache model snapshots that Step 1 copied from.
   [ ] Make this sheet safe to delete: grep its own filename and any ID it

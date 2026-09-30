@@ -228,7 +228,7 @@ ENTRY
   [ ] vulture -- read every finding and decide it. Not a step gate:
       unreferenced is the normal transient state mid-refactor, and a finding
       left red on purpose is a decision, not a failure.
-  [ ] Drain the defects.txt or backlog.txt entries this sheet closes.
+  [ ] Drain the backlog.txt entries this sheet closes.
   [ ] Delete the harness, the frozen clip list and every result file. The
       conclusions live in spike-notes.txt; the raw runs do not.
   [ ] Make this sheet safe to delete: grep its own filename and any ID it

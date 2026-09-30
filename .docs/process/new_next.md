@@ -62,11 +62,6 @@ a mismatch is the first line of the report, before any work.
    POLISH, its ambient items in ambient-plan.txt, B5 in pre-push.txt P1,
    its measurements in spike-notes.txt. Three unowned entries remain in
    backlog.txt.
-   Outright, nothing to drain: _schema.txt, doc-prune-plan.txt,
-   doc-prune-build-sheet.txt, defects.txt, handoff.txt (its five live
-   rules are in CLAUDE.md), pre-push.txt P10 (names files and a skill
-   that no longer exist). The ENTRY gates and the three retired skills
-   are already gone.
    Still to walk: core-arch-plan.txt and input-device-plan.txt (into the
    Qt plan), roadmap.txt (into this file). Every walked paragraph gets survival (does it still make sense
    with Tk, sounddevice and the second process gone) and cost (does Qt
