@@ -32,7 +32,6 @@ you're doing and why; ask only when both sides cost something.
 
 ## Docs
 Markdown. No line numbers, no emojis.
-Show new prose in chat before writing it.
 Drain, never summarize: a retired doc's paragraphs each get a destination
 or an explicit delete, in a table shown first.
 Agents read .docs/agent-rules.md before any task.
