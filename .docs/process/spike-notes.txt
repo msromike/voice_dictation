@@ -353,6 +353,47 @@ THREAD AND GUI SPIKES -- measured, Windows 11 10.0.26300, PySide6 6.11.1, displa
 10 Minimize then hide. hide() called directly inside changeEvent is IGNORED: 1 s later the window is visible, iconic, a taskbar entry. hide() deferred via QTimer.singleShot(0): hidden, IsWindowVisible False, windowState still WindowMinimized. Design: minimize-to-tray defers hide() one event-loop turn, and restore must clear the minimized state, not just show().
 
 
+SLEEP AND WAKE: audioInputsChanged FIRES ON RESUME, LIST ALREADY WHOLE
+
+Windows logged sleep at 10:56:39 and resume at 10:56:51. QMediaDevices
+fired audioInputsChanged at 10:56:50, :51 and :52; all three USB mics were
+present with identical endpoint ids on every fire, never absent. Design:
+the daemon's 5 x 1 s startup retry for post-wake re-enumeration goes; the
+list is complete by the time the first post-resume signal arrives.
+
+
+CONFIGURED MIC ABSENT AT START: QT RECORDS FROM THE DEFAULT, NO ERROR
+
+With "Microphone (USB Audio Device)" unplugged and named as the device,
+QAudioSource on the resulting null QAudioDevice started (IdleState,
+NoError) and delivered 1.98 s of audio, rms 0.0013, from the Windows
+default input, the PDP mic. Same result as the synthetic null-device test,
+now on the real case. Design: before every start, the device must be
+found in audioInputs() by id or name; a miss is a mic fault, never a
+start. Nothing in Qt will say so.
+
+
+LIVE DISPLAY-SCALE CHANGE: QT RE-LAYS OUT, TEXT STAYS CRISP
+
+A QMainWindow with a label and a button open while Windows Scale went
+175% -> 150% -> 175%. Qt fired geometryChanged and physicalDpiChanged on
+each step; devicePixelRatio 1.75 -> 1.5 -> 1.75; the window kept its
+logical size (327x100, then 327x99, one pixel of rounding) so it shrank
+and grew physically with the scale; font metrics unchanged in logical
+units; text crisp by eye at both scales. No SetProcessDpiAwareness, no
+code of ours. Mixed-scale monitors (laptop docked) still untested here.
+
+
+TWO VISUAL CHECKS, BY EYE
+
+QMessageBox.about with the app's About text renders the two blank lines
+between paragraphs. A read-only QPlainTextEdit styled with
+selection-background-color keeps its selection highlighted after focus
+moves to another window; a click inside the text clears it, as a click
+places the cursor. Tk's inactiveselectbackground workaround has no Qt
+counterpart to port.
+
+
 TOOLKIT GAPS
 
 Hand-rolled because a library did not do it. One line each: what was
