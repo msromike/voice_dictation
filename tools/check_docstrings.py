@@ -70,7 +70,7 @@ def main():
     # A single-file run is hook feedback; stay silent when it is clean.
     if not argv:
         print(f"\n{violations} violation(s), cap {MAX_LINES} lines "
-              f"(CLAUDE.md ## Comments)")
+              f"(CLAUDE.md ## Code)")
     return 1 if violations else 0
 
 

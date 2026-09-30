@@ -15,6 +15,8 @@ Paths relative to __file__.
 Install deps. No workarounds.
 Commits use commit-per-protocol, never the global commit skill.
 A lint gate on finished code: report the number, never restructure to pass.
+Docstrings and comment blocks: two lines max. tools/check_docstrings.py
+enforces it at commit.
 Second special case in one function for the same reason -- ask whether
 Windows already owns the problem.
 
