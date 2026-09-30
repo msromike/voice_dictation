@@ -1,0 +1,17 @@
+{
+    "venvPath": ".",
+    "venv": "venv",
+    "extraPaths": [
+        "voice-dictation"
+    ],
+    "include": [
+        "voice-dictation",
+        "tools"
+    ],
+    "exclude": [
+        "venv",
+        "**/__pycache__",
+        "tools/vulture_whitelist.py"
+    ],
+    "typeCheckingMode": "basic"
+}

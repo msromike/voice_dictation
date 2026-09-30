@@ -11,10 +11,10 @@ __pycache__/
 .vscode/
 .idea/
 .agents/
-.claude/
+.claude/settings.local.json
+.claude/settings.json.bak
 .gemini/
 *.code-workspace
-pyrightconfig.json
 .reference/
 
 # Project Specific
