@@ -58,7 +58,7 @@ all day at home and at work without Mike in the room.
    backlog.txt.
    Outright, nothing to drain: _schema.txt, doc-prune-plan.txt,
    doc-prune-build-sheet.txt, defects.txt, the ENTRY gates in the
-   build-sheet template, and the discuss, explain and deconstruct skills.
+   build-sheet template. (The three retired skills are already gone.)
    Still to walk: core-arch-plan.txt and input-device-plan.txt (into the
    Qt plan), roadmap.txt (into this file), handoff.txt (TESTING into
    CLAUDE.md), pre-push.txt P10 (names files and a skill that no longer
