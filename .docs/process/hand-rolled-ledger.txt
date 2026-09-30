@@ -1,0 +1,471 @@
+VOICE DICTATION - HAND-ROLLED LEDGER
+
+Every function and class in voice-dictation/ (183 symbols, list derived by
+ast, not typed), each with one verdict: DELETE because Qt does it, DELETE
+because it is glue between two processes or dead, REPLACE with a package,
+or KEEP with the reason. Every Qt claim was grepped in the PySide6 6.11.1
+stubs by the sweep, then re-derived cold by a verifier that also read each
+symbol's body: 57 confirmed, 0 wrong, 5 incomplete (corrections appended
+to those rows as VERIFIER lines). MEASURED means a script ran; SPIKE means
+one should before the claim is trusted; UNVERIFIED means neither.
+
+Consumed by the Qt build sheet as its deletion and replacement list, then
+deleted. Mike rules on KEEP rows; DELETE and REPLACE rows are evidence.
+
+COUNTS
+  60  DELETE -> Qt
+  19  DELETE: glue (two-process plumbing the port removes)
+   3  DELETE: dead
+   2  REPLACE -> package
+  91  KEEP: APP
+   8  KEEP: GAP (library gaps; each gets a TOOLKIT GAPS line in spike-notes)
+
+Stub abbreviations: W=QtWidgets.pyi G=QtGui.pyi C=QtCore.pyi M=QtMultimedia.pyi
+under venv/Lib/site-packages/PySide6/.
+
+
+==============================================================================
+DISAGREEMENTS BETWEEN SWEEPS -- open, each closes by spike or by the sheet
+==============================================================================
+1. SystemExit on the worker. daemon table says sys.exit(1) in
+   _exit_no_microphone and STTEngine.load kills the whole one-process app;
+   entry table says SystemExit on a QThread ends only that thread. Neither
+   measured. SPIKE: raise SystemExit inside QThread.run and see what dies.
+   Either way the fault channel becomes a signal, so the answer decides the
+   worker's exception handler, not the design.
+2. Blocking waits vs event-driven capture. daemon table deletes
+   wait_for_press/wait_for_release for Signals and has QAudioSource deliver
+   readyRead on the event loop; entry table keeps the two blocking waits as
+   fine on a QThread. A QThread blocked in a wait runs no event loop, so a
+   QAudioSource owned by it never delivers. Both cannot hold. The sheet
+   picks: the capture worker is event-driven (a state machine on signals),
+   or QAudioSource lives on the GUI thread and the worker only transcribes.
+3. QClipboard thread affinity. daemon table asserts GUI-thread-only; entry
+   table marks it UNVERIFIED. SPIKE: setText from a worker thread.
+4. restoreGeometry with an off-screen blob. tray_b and common mark it
+   UNVERIFIED with a SPIKE; tray_a routes geometry through it with no
+   caveat. SPIKE: feed a blob with off-screen coordinates, see where the
+   window lands.
+
+
+==============================================================================
+TRAY A -- app.py, console.py, settings.py, menu.py, faults.py
+==============================================================================
+
+
+voice-dictation/vdict/tray/app.py:26-277 | App | KEEP: APP | no Qt class is an app orchestrator; W:4831 QMainWindow is only the window | becomes the one QObject holding the config model (settled); Tk root, pystray thread and the subprocess wiring all leave it
+voice-dictation/vdict/tray/app.py:29-74 | App.__init__ | KEEP: APP | W:9541 setWindowTitle, W:9534 setWindowIcon, W:9270 closeEvent, W:9258 changeEvent | wiring stays; icon-first ordering goes because QSystemTrayIcon is on the GUI thread; report_callback_exception becomes sys.excepthook; the cb dict for menu.build goes
+voice-dictation/vdict/tray/app.py:76-95 | App._report_callback_exception | KEEP: APP | MEASURED: PySide6 6.11.1 calls sys.excepthook for a slot raise and the loop keeps running; .reference/pyside-setup/sources/pyside6/libpyside/signalmanager.cpp:200 PyErr_Print | install as sys.excepthook; MessageBoxW stays native (settled). COST: loop survives the raise, so force-quit is a choice not a necessity. SPIKE: a raise on the QAudioSource worker thread: does it reach this hook or die silently
+voice-dictation/vdict/tray/app.py:97-102 | App._tick | DELETE: glue | C:8713 QTimer exists but signals replace the queue (settled); daemon_proc.poll goes | nothing left to poll
+voice-dictation/vdict/tray/app.py:104-108 | App._log_session_block | KEEP: APP | session block is product text | pid argument is the subprocess pid; one process means os.getpid() or drop the field
+voice-dictation/vdict/tray/app.py:110-113 | App.show_window | DELETE -> Qt QWidget.show + raise_ | W:9543, W:9413 | icon/item args go; QSystemTrayIcon.activated W:7923 carries ActivationReason (Trigger = click) which replaces pystray's default=True
+voice-dictation/vdict/tray/app.py:115-118 | App.open_settings | DELETE: glue | G:714 QAction.triggered connects straight to the dialog opener | pystray signature adapter only
+voice-dictation/vdict/tray/app.py:120-125 | App._on_settings_save | KEEP: APP | W:1420 QDialog.accept for the close | daemon_proc.restart becomes the config-changed signal (settled); save_settings stays
+voice-dictation/vdict/tray/app.py:127-133 | App._register_hotkey | KEEP: APP | RegisterHotKey settled | records name/failed for the session block; unchanged
+voice-dictation/vdict/tray/app.py:135-137 | App._on_hotkey | DELETE: glue | C:301 nativeEventFilter runs on the GUI thread | after(0) marshalling had one job, the hotkey thread, and that thread goes
+voice-dictation/vdict/tray/app.py:139-144 | App._raise_window | KEEP: GAP -- Qt lacks a verified foreground grant | W:9225 activateWindow exists; its Windows caveat UNVERIFIED | SPIKE: from the native event filter call show()+activateWindow() and check GetForegroundWindow()==int(winId()) (W:9582); if the taskbar flashes instead, keep SetForegroundWindow(int(winId()))
+voice-dictation/vdict/tray/app.py:146-152 | App._save_state | DELETE -> Qt QWidget.saveGeometry + QSettings.setValue | W:9438, C:7570, C:7494 IniFormat | geometry moves to the INI (settled); console_font_size needs one owner picked: INI or config.json; read back via QFont.pointSize G:2023
+voice-dictation/vdict/tray/app.py:154-157 | App.hide_window | DELETE -> Qt QWidget.hide | W:9323 | the flush-at-hide goes; save in hideEvent W:9324 or only at aboutToQuit C:1703
+voice-dictation/vdict/tray/app.py:159-162 | App._on_unmap | KEEP: APP -- minimize-means-hide is product | W:9258 changeEvent, C:2946 QEvent.WindowStateChange, W:9340 isMinimized | Tk fires Unmap for every descendant, Qt fires changeEvent on the window only, so the widget== guard goes. SPIKE: hide() inside the minimize animation may leave a taskbar button; defer with QTimer.singleShot(0) if so. NOTE: B8 in POLISH changes this behavior (minimize -> taskbar, X -> tray).
+voice-dictation/vdict/tray/app.py:164-171 | App.exit_app | DELETE -> Qt QMessageBox.question | W:5306; doc: static functions are application modal | returns StandardButton, not bool; pass Ok|Cancel explicitly. Must also be reached from closeEvent W:9270 with event.ignore() on Cancel, or X exits without asking
+voice-dictation/vdict/tray/app.py:173-198 | App._run_shutdown_steps | KEEP: APP | W:7950 QSystemTrayIcon.hide | best-effort sequencing stays; daemon_proc.stop becomes stopping the in-process capture, icon.stop becomes hide(); the loop does not change
+voice-dictation/vdict/tray/app.py:200-212 | App._force_quit | KEEP: APP | W:5287 QMessageBox.critical, C:1782 QCoreApplication.quit | quit() only ends exec(); code after app.exec() in run() still runs, same shape as after mainloop()
+voice-dictation/vdict/tray/app.py:214-277 | App.run | KEEP: APP | W:620 QApplication.exec, C:8741 QTimer.singleShot, W:9437 restoreGeometry | boot order is product; after(500) becomes singleShot(500); after(100,_tick) and the icon thread go; daemon_proc.start becomes in-process start. G:2738 setQuitOnLastWindowClosed(False) is REQUIRED or closing Settings while the console is hidden quits the app
+voice-dictation/vdict/tray/console.py:31-33 | _swallow_set | DELETE: dead | grep: transcript_only_mode written once, False, console.py:28; no other writer | every call returns set(); the comment at :27 says the toggle was never wired
+voice-dictation/vdict/tray/console.py:36-222 | Console | DELETE -> Qt QPlainTextEdit | W:5409 | what survives is the category slot and the font clamp; the widget itself is Qt's
+voice-dictation/vdict/tray/console.py:39-81 | Console.__init__ | DELETE -> Qt QPlainTextEdit.setReadOnly + setFont + QAction.setShortcut | W:5521, W:9475, G:786; doc: read-only blocks the user, programmatic writes still land | NORMAL/DISABLED toggling goes; colors become QTextCharFormat.setForeground G:10311 with QTextCursor.insertText(text, fmt) G:9894; Ctrl+C/Ctrl+A ship with the widget; Ctrl+= needs setShortcuts G:792 since StandardKey.ZoomIn is Ctrl+Plus only. SPIKE: inactive selection color via stylesheet, confirm the selection still paints when unfocused
+    VERIFIER: wrap=tk.WORD at console.py:54 not carried; needs setWordWrapMode(QTextOption.WordWrap) (W:5527, G:10799); bg/fg at :55-56 need a palette or stylesheet line.
+voice-dictation/vdict/tray/console.py:83-89 | Console._write_error | DELETE -> Qt QPlainTextEdit.appendPlainText + ensureCursorVisible | W:5434, W:5468 | the leading "\n" doubles as a paragraph; drop it
+voice-dictation/vdict/tray/console.py:91-102 | Console._show_context_menu | DELETE -> Qt QPlainTextEdit default contextMenuEvent / createStandardContextMenu | W:5450; C:9639 DefaultContextMenu | UNVERIFIED: whether Copy greys without a selection and whether Select All also appears; right-click read-only and look
+voice-dictation/vdict/tray/console.py:104-109 | Console.copy | DELETE -> Qt QPlainTextEdit.copy | W:5447 | no-op without selection; the TclError guard goes
+voice-dictation/vdict/tray/console.py:111-114 | Console.select_all | DELETE -> Qt QPlainTextEdit.selectAll | W:5508 | return "break" goes
+voice-dictation/vdict/tray/console.py:116-119 | Console.copy_all | DELETE -> Qt QClipboard.setText(toPlainText) | G:1003, W:5534, G:2661 | toPlainText has no Tk trailing newline; rstrip goes
+    VERIFIER: rstrip goes only if the port stops inserting the trailing newline at console.py:202-203; with insertText(body+trailer) the rstrip at :119 stays.
+voice-dictation/vdict/tray/console.py:121-125 | Console.clear | DELETE -> Qt QPlainTextEdit.clear | W:5444 | none
+voice-dictation/vdict/tray/console.py:127-140 | Console.save_log_as | DELETE -> Qt QFileDialog.getSaveFileName | W:1693; doc: static call uses the native Windows dialog | returns (path, filter); the utf-8 write is one APP line. SPIKE: defaultextension has no static equivalent; check whether the native dialog appends .txt from the filter
+    VERIFIER: the dated default filename at console.py:134-135 (initialfile=) is not carried; getSaveFileName has only dir, so pass the dated name as the path argument. rstrip point applies to :140.
+voice-dictation/vdict/tray/console.py:142-145 | Console.set_font_size | KEEP: APP -- the clamp | G:2042 setPointSize, W:9475 setFont | Qt zoomIn W:5538 has no clamp, so FONT_MIN/MAX live here
+voice-dictation/vdict/tray/console.py:147-150 | Console.zoom_step | DELETE -> Qt QPlainTextEdit.zoomIn/zoomOut | W:5538, W:5540 | unclamped; if the clamp must hold, route the QAction to set_font_size and this row folds into it
+voice-dictation/vdict/tray/console.py:152-154 | Console._zoom_wheel | DELETE -> Qt QPlainTextEdit.wheelEvent | W:5536; doc: Ctrl+Wheel zooms read-only text | free, unclamped, same choice as zoom_step
+voice-dictation/vdict/tray/console.py:156-159 | Console.reset_font | DELETE -> Qt QAction("Ctrl+0") -> setFont(default) | G:786 accepts str; StandardKey has no zoom-reset | none
+voice-dictation/vdict/tray/console.py:161-163 | Console.set_loading | KEEP: APP | flag on the loading signal | becomes a slot
+voice-dictation/vdict/tray/console.py:165-172 | Console._animate_dots | KEEP: APP -- the dots | C:8713 QTimer, C:8727 setInterval, C:8715 timeout, W:5486 insertPlainText | one QTimer instance fixes the double-chain bug (notes); insertPlainText with the dim format, not appendPlainText
+voice-dictation/vdict/tray/console.py:174-222 | Console.drain | DELETE: glue | queue drain replaced by signals | the dispatch body (marker, color, swallow, toast W:7961, box handlers, transcript write) is APP and moves whole into the slot; root.state() != 'normal' becomes isMinimized W:9340 / not isVisible W:9344 (see notes on 'zoomed'); toast msecs ignored on Windows
+voice-dictation/vdict/tray/faults.py:18-23 | install | DELETE: glue | slots on the App QObject connect to the two fault signals | module-global injection existed to break an import cycle Tk forced
+voice-dictation/vdict/tray/faults.py:26-42 | _build_modal | DELETE -> Qt QMessageBox.open + setWindowModality(ApplicationModal) | W:5299, W:5329, C:10906; doc: open() is window-modal, returns immediately, no nested loop | Tk grab_set was application-modal, so set ApplicationModal or the console stays clickable underneath; the "100ms exit poll" comment at :29 dies with _tick
+    VERIFIER: faults.py:31-32 (raise the console, open Settings beneath the box) is orchestration a QMessageBox does not do; DELETE covers :34-41 only, those two lines stay APP.
+voice-dictation/vdict/tray/faults.py:45-55 | show_mic_fault | KEEP: APP | flag file + force quit; cross-launch resume is across launches, not processes, so it survives | Close and X both arrive on QDialog.finished W:1409, one handler
+voice-dictation/vdict/tray/faults.py:58-64 | show_model_fault | DELETE -> Qt QMessageBox.warning parented to Settings | W:5341; doc: static call blocks in a nested loop | prefer open() W:5299 to keep it async and avoid the nested-loop hazard
+voice-dictation/vdict/tray/menu.py:21-25 | _sync_help_menu | KEEP: APP -- the file-exists check | W:5034 QMenu.aboutToShow, G:774 QAction.setEnabled | the _help_menu global goes; hold the QAction
+voice-dictation/vdict/tray/menu.py:28-30 | _open_error_log | DELETE -> Qt QDesktopServices.openUrl(QUrl.fromLocalFile) | G:1596, C:8887 | returns False instead of raising; check the bool
+voice-dictation/vdict/tray/menu.py:33-37 | open_docs | DELETE -> Qt QDesktopServices.openUrl + QAction shortcut StandardKey.HelpContents | G:1596, G:3747; HelpContents is F1 on Windows | the QAction owns F1 so the root.bind at app.py:67 goes
+voice-dictation/vdict/tray/menu.py:40-45 | _open_vocabulary | KEEP: APP -- reseed first | G:1596 openUrl for the open half | same silent-False caveat
+voice-dictation/vdict/tray/menu.py:48-56 | _show_about | DELETE -> Qt QMessageBox.about | W:5269 | UNVERIFIED: "\n\n" rendering as blank lines in AutoText mode; open it once
+voice-dictation/vdict/tray/menu.py:59-116 | build | KEEP: APP -- which items exist | W:5168 QMenuBar.addMenu, W:5060 QMenu.addAction(text, shortcut, callable), W:5091 addSeparator, G:792 setShortcuts | underline= becomes "&" in the label; accelerator= becomes a real binding (the label lie closes); Zoom In needs setShortcuts([ZoomIn, "Ctrl+="]); the cb dict goes
+voice-dictation/vdict/tray/settings.py:23-28 | close | DELETE -> Qt QDialog.accept | W:1420 | no _win global; the App QObject holds the dialog
+voice-dictation/vdict/tray/settings.py:31-55 | _build_window | DELETE -> Qt QDialog + QFrame(HLine) + QLayout.SetFixedSize | W:1406, W:2068, W:4344, W:4399 | no withdraw/topmost dance: a parented QDialog sits above its parent; resizable(False) is SetFixedSize; scale() goes
+voice-dictation/vdict/tray/settings.py:58-87 | _build_microphone_row | KEEP: APP -- absent-device retention + "System Default" | M:731 audioInputs, M:181 description, M:182 id, M:724 audioInputsChanged | SPIKE: config.audio.device holds a sounddevice WASAPI name; Qt's key is the endpoint id. MEASURED elsewhere: Qt description() equals the config.json string, so migrate-by-description works; decide migrate or reset-and-log
+voice-dictation/vdict/tray/settings.py:90-110 | _build_ptt_row | DELETE -> Qt QPushButton + QComboBox.addItems | W:5667, W:1034, W:1043 currentText | PTTCapture keeps its pynput hook; Toggle/Hold strings unchanged
+voice-dictation/vdict/tray/settings.py:113-133 | _has_cuda | KEEP: GAP -- ctranslate2 lacks nvidia pip-wheel DLL discovery | venv ctranslate2/__init__.py:14-16 adds only its own dir and two ROCm dirs; requirements.txt:12-13 ship the nvidia wheels | see notes: stt.py:16-18 does the same PATH edit, and in one process both run; one PATH edit at import time, owned by whichever module loads ctranslate2 first
+voice-dictation/vdict/tray/settings.py:136-159 | _build_model_row | KEEP: APP -- CUDA gating of one item | W:1080 QComboBox.model, G:9208 QStandardItemModel.item, G:9141 QStandardItem.setEnabled | UNVERIFIED: that QComboBox's default model is a QStandardItemModel is a runtime fact; one isinstance check
+voice-dictation/vdict/tray/settings.py:162-168 | _build_beeps_row | DELETE -> Qt QCheckBox | W:863, W:3907 setChecked, W:3897 isChecked | none
+voice-dictation/vdict/tray/settings.py:171-177 | _build_console_boot_row | DELETE -> Qt QCheckBox | W:863, W:3907, W:3897 | none
+voice-dictation/vdict/tray/settings.py:180-191 | _build_hotkey_row | KEEP: APP -- the binding dict the capture writes | W:4198 QKeySequenceEdit exists but capture is settled on QKeyEvent.nativeVirtualKey because a QKeySequence carries no VK for RegisterHotKey | load_settings at :183 is a second config.json read inside one dialog build; pass config in
+voice-dictation/vdict/tray/settings.py:194-204 | _rebind_on_close | KEEP: APP -- re-register from disk | W:1409 QDialog.finished; emitted once on accept/reject/done, not on hide() | the descendant guard goes; Escape and X both reject() so both land here
+voice-dictation/vdict/tray/settings.py:207-288 | open_settings | KEEP: APP -- the save() closure into Config | W:9344 isVisible + W:9413 raise_ for the singleton; Esc calls reject() built in; G:8735 QScreen.availableGeometry excludes the taskbar; W:9253 adjustSize; W:9225 activateWindow | scale(60) taskbar guess goes; both update_idletasks go; the winfo_exists/TclError probe goes; the Literal casts at :242/:246 stay (pydantic boundary)
+
+NOTES
+- console.py:194 hidden second timer: every "loading" item schedules a fresh after(1000, _animate_dots) chain, and :172 reschedules each while _loading holds. Two "loading" lines before "ready" run two chains, dots at twice the rate. A single QTimer fixes it by construction; a bug fix, not a straight port.
+- console.py:209 string-shaped Tk state: the toast gate is root.state() != 'normal'; Tk reports 'zoomed' for maximized, so a maximized console toasts today. isMinimized() would not. Decide which is wanted.
+- console.py:19 and app.py:43-45 string-keyed contracts: COLOR_TAGS keys are CategorySpec.color values ("dim","yellow","red"); the fault handlers dict is keyed by "mic-fault"/"model-fault". Both become a signal per box category and a QTextCharFormat per color; output.py is the file that must agree.
+- app.py:61 close-means-exit plus hidden window: in Qt that is closeEvent calling exit_app and event.ignore() on Cancel. Separately, setQuitOnLastWindowClosed(False) is a required line with no Tk counterpart.
+- settings.py:113-133 vs stt.py:16-18: both edit PATH to find the nvidia wheels; in one process _has_cuda restoring old_path at :130 can undo stt.py's edit depending on order.
+- settings.py:64-73: sounddevice imported inside the tray only here; goes with the row.
+- app.py:143 int(self.window.wm_frame(), 0) is Tk's string HWND; Qt hands back int(window.winId()).
+- app.py:238-242 and faults.py:50: MIC_FAULT_FLAG_PATH is cross-launch, not cross-process; survives unchanged.
+- faults.py:12-15 and menu.py:16-18 "declared, deliberately unbound" globals exist because Tk callbacks had no owner object; with slots on the App QObject there is nothing to leave unbound.
+- Three Tk timers: app.py:263 (500ms first-run), app.py:270 (100ms tick), console.py:172/194 (1000ms dots). One QTimer survives (dots) plus one singleShot (first-run).
+- settings.py:274/:285 update_idletasks twice, :38/:286 topmost flip: layout-forcing and z-order tricks Qt does not need.
+
+==============================================================================
+TRAY B -- ptt_capture, hotkey_capture, geometry, hotkey, daemon_proc, session, log, dpi, icon, transcript
+==============================================================================
+
+voice-dictation/vdict/tray/daemon_proc.py:30-34 | install | DELETE: glue | sole caller app.py:42; hands in console edges for a subprocess the port has no more of | process plumbing
+voice-dictation/vdict/tray/daemon_proc.py:37-41 | set_fault_shown | DELETE: glue | sole caller faults.py:30; only silences poll(), which goes | no exit poll in one process
+voice-dictation/vdict/tray/daemon_proc.py:44-47 | _read_output | DELETE: glue | :47 calls output.parse, the stdout wire that signals replace | wire-protocol reader
+voice-dictation/vdict/tray/daemon_proc.py:50-88 | start | DELETE: glue | QProcess exists (QtCore.pyi:6694) but the settled port spawns nothing | the env block at :57-62 is a hidden import-order dependency, see notes
+voice-dictation/vdict/tray/daemon_proc.py:91-101 | stop | DELETE: glue | terminate/kill of a process that no longer exists | engine shutdown becomes an object call
+voice-dictation/vdict/tray/daemon_proc.py:104-108 | restart | DELETE: glue | caller app.py:125 (Save & Restart) | restart becomes re-creating the engine object in-process
+voice-dictation/vdict/tray/daemon_proc.py:111-127 | poll | DELETE: glue | app's tick polls a pid; _drain() at :123 is the console queue drain | engine death becomes a signal from the engine's QObject
+voice-dictation/vdict/tray/dpi.py:10-18 | _factor | DELETE -> Qt QScreen.devicePixelRatio | QtGui.pyi:8740 (logicalDotsPerInch 8745) | COST: Qt6 scales widgets per monitor itself; GetDpiForSystem is one system value. SPIKE: open Settings on a second monitor at a different scale and confirm nothing is sized twice
+voice-dictation/vdict/tray/dpi.py:21-24 | scale | DELETE -> Qt QWidget logical pixels (auto high-DPI) | QtGui.pyi:2666 QGuiApplication.devicePixelRatio | every caller (app.py:35, settings.py, faults.py) passes literal px that Qt already treats as logical; SPIKE: vdict_tray.py:23 SetProcessDpiAwareness(1) runs before QGuiApplication sets its own mode, measure which wins
+voice-dictation/vdict/tray/geometry.py:21-25 | set_flush | DELETE: glue | QObject.destroyed QtCore.pyi:6315; QSettings.setValue 7570 | a closing window writes QSettings directly in closeEvent; no registration hook
+voice-dictation/vdict/tray/geometry.py:28-34 | _geometry_parts | DELETE -> Qt QWidget.saveGeometry | QtWidgets.pyi:9438 | COST: "WxH+X+Y" text becomes an opaque QByteArray in the INI; the config.ui geometry fields are orphaned, see notes
+voice-dictation/vdict/tray/geometry.py:37-44 | _clamp_to_desktop | DELETE -> Qt QWidget.restoreGeometry | QtWidgets.pyi:9437; QScreen.availableVirtualGeometry QtGui.pyi:8737 if a manual clamp is still wanted | COST: stubs carry no docs, so restoreGeometry's on-screen check is UNVERIFIED. SPIKE: save on a second monitor, unplug it, restart, confirm the window lands on the remaining screen
+voice-dictation/vdict/tray/geometry.py:47-75 | _restore | DELETE -> Qt QWidget.restoreGeometry | QtWidgets.pyi:9437; showMaximized 9546; isMaximized 9339 | COST: the blob carries maximized state plus the normal rect, so ZOOM_PREFIX and the update_idletasks settle go; the POS shape (x,y only) has no blob equivalent, needs QWidget.move from a stored QPoint
+voice-dictation/vdict/tray/geometry.py:78-105 | manage | DELETE -> Qt QWidget.saveGeometry + QSettings | QtWidgets.pyi:9437-9438; QSettings QtCore.pyi:7489, IniFormat 7494 | COST: no <Configure> tracking; geometry is read once at hide/close instead of cached per move. Same outcome today since the cache only flushes at hide/exit
+voice-dictation/vdict/tray/geometry.py:108-120 | save_all | DELETE -> Qt QSettings.setValue | QtCore.pyi:7570, sync 7572 | COST: geometry leaves config.json for the INI (settled); restoreGeometry returns bool on a bad blob
+voice-dictation/vdict/tray/hotkey.py:20-21 | _noop | DELETE: dead | only the pump thread reads _callback before register(); pump goes | placeholder for deleted thread
+voice-dictation/vdict/tray/hotkey.py:31-38 | register | KEEP: GAP -- Qt lacks a system-wide hotkey | grep RegisterHotKey/GlobalShortcut/globalShortcut over all PySide6 *.pyi: no match; pywin32 in requirements.txt:11 | registration moves to the GUI thread; lock, _start and the command round-trip go
+voice-dictation/vdict/tray/hotkey.py:41-46 | unregister | KEEP: GAP -- Qt lacks a system-wide hotkey | same grep | one call on the GUI thread; the _thread is None guard becomes _registered
+voice-dictation/vdict/tray/hotkey.py:49-56 | _start | DELETE: glue | the owning thread becomes the thread running QApplication | thread plumbing
+voice-dictation/vdict/tray/hotkey.py:59-65 | _command | DELETE: glue | PostThreadMessage round trip exists only to cross threads | thread plumbing
+voice-dictation/vdict/tray/hotkey.py:68-91 | _pump | DELETE -> Qt QAbstractNativeEventFilter.nativeEventFilter | QtCore.pyi:297, 301; MEASURED in spike-notes | COST: WM_HOTKEY arrives through Qt's dispatcher on the GUI thread; message is typed int, decoding needs a ctypes MSG cast. SPIKE: press the hotkey while another app is focused and confirm the window comes to the foreground (the rule at hotkey.py:1-2)
+voice-dictation/vdict/tray/hotkey.py:94-103 | _claim | KEEP: GAP -- Qt lacks RegisterHotKey | same grep; win32gui stays | body unchanged, runs on the GUI thread
+voice-dictation/vdict/tray/hotkey.py:106-112 | _release | KEEP: GAP -- Qt lacks UnregisterHotKey | same grep | body unchanged
+voice-dictation/vdict/tray/hotkey_capture.py:31-39 | _windows_key_name | DELETE -> Qt QKeySequence.toString(NativeText) | QtGui.pyi:3858, NativeText 3735; MEASURED 'Ctrl+PgDown', 'Shift+Ins', 'NumLock' | COST: names come from Qt's table, not the Windows layout (GetKeyNameTextW says "Page Down", "Insert", "Num Lock"); the name is stored in the binding and printed in the session block. Keypad keys told apart by KeypadModifier (QtCore.pyi:10461), not lParam bit 24
+voice-dictation/vdict/tray/hotkey_capture.py:42-47 | _vk_name | DELETE -> Qt QKeySequence.toString | MEASURED 'F13', 'Pause', 'ScrollLock' | COST: the VK_NAMES Pause workaround goes
+voice-dictation/vdict/tray/hotkey_capture.py:50-56 | _combo_name | DELETE -> Qt QKeySequence.toString | MEASURED 'Ctrl+Alt+Shift+K', same modifier order as today | none beyond the naming difference above
+voice-dictation/vdict/tray/hotkey_capture.py:59-67 | _state_to_mods | KEEP: GAP -- Qt lacks a Qt.KeyboardModifier -> RegisterHotKey fsModifiers map | Qt's enum at QtCore.pyi:10138-10461; win32con.MOD_* stay | the Tk bit constants go; input becomes QKeyEvent.modifiers()
+voice-dictation/vdict/tray/hotkey_capture.py:70-83 | _confirm_bare_key | DELETE -> Qt QMessageBox.warning | QtWidgets.pyi:5341; StandardButton.Ok 5240, Cancel 5254; setButtonText 5309 | COST: defaultButton=Cancel keeps Enter safe; the button CAN be relabeled "Bind anyway", which Tk could not
+    VERIFIER: warning() returns StandardButton, not bool; hotkey_capture.py:122 tests not _confirm_bare_key(...) and Cancel is truthy, so compare == StandardButton.Ok. setButtonText is instance-only, so 'Bind anyway' needs a constructed QMessageBox plus exec(), not the static call.
+voice-dictation/vdict/tray/hotkey_capture.py:86-131 | capture | KEEP: APP | QKeyEvent.nativeVirtualKey QtGui.pyi:3727 gives the VK Tk's event.keycode gave; Key_Shift/Control/Meta/Alt QtCore.pyi:10138-10141 replace MODIFIER_KEYSYMS; isAutoRepeat 3720; installEventFilter QtCore.pyi:6376 | COST: bind/unbind becomes a keyPressEvent override or event filter; "break" becomes accept-and-stop; the two-Escapes rule (:111-114) must still stop propagation. Win_L/Win_R arrive as Key_Meta
+voice-dictation/vdict/tray/icon.py:16-32 | create | DELETE -> Qt QSystemTrayIcon + QIcon | QtWidgets.pyi:7921, setContextMenu 7955, activated 7923, ActivationReason.Trigger 7931 / DoubleClick 7930; QIcon QtGui.pyi:2796, availableSizes 2989; qico.dll in PySide6/plugins/imageformats | COST: pystray's default=True fires on left click; Qt emits activated(Trigger) which app must connect. QIcon holds all four .ico frames and picks by size, so GetSystemMetrics goes; pystray leaves requirements.txt:2; Pillow leaves only if icon.py is its sole user (UNVERIFIED, grep PIL). SPIKE: confirm the tray shows the 16px frame, not a downscaled 32, at 100% and 150%
+voice-dictation/vdict/tray/log.py:14-17 | install_screen | DELETE: glue | Signal QtCore.pyi:11034, emit 11038 | the console connects to a signal; no registration hook
+voice-dictation/vdict/tray/log.py:20-22 | log | DELETE -> Qt Signal.emit | QtCore.pyi:11034-11038; QueuedConnection 9631 | COST: the queue drained by console.py:179 on a Tk timer becomes one queued event per line; order kept, batching gone. (category, text) tuple is a string-shaped API
+voice-dictation/vdict/tray/log.py:25-35 | error_log | KEEP: APP | write_error_log in vdict.common.output | disk-then-screen is product policy; the try/except around the screen half goes since a signal emit cannot raise into the caller
+voice-dictation/vdict/tray/ptt_capture.py:9-108 | PTTCapture | KEEP: APP | pynput in requirements.txt:7; daemon/keyboard.py:16-21 BUTTON_MAP consumes pynput names, so the capture must produce them; no global hook in Qt | COST: becomes a QObject with a signal to cross from the pynput thread; root.after goes
+voice-dictation/vdict/tray/ptt_capture.py:13-22 | PTTCapture.__init__ | KEEP: APP | | Tk vars become the widget handles the settings dialog owns; root goes
+voice-dictation/vdict/tray/ptt_capture.py:24-37 | PTTCapture.start | KEEP: APP | QObject.destroyed QtCore.pyi:6315 replaces tk_btn.bind("<Destroy>") | the deferred pynput import (:27) is moot once the daemon runs in-process
+voice-dictation/vdict/tray/ptt_capture.py:39-44 | PTTCapture._unhook | KEEP: APP | pynput Listener.stop | unchanged
+voice-dictation/vdict/tray/ptt_capture.py:46-52 | PTTCapture.end | KEEP: APP | | tk_btn.config(state=) becomes setEnabled
+voice-dictation/vdict/tray/ptt_capture.py:54-59 | PTTCapture.accept | KEEP: APP | | unchanged
+voice-dictation/vdict/tray/ptt_capture.py:61-68 | PTTCapture.failed | KEEP: APP | | log("error", ...) becomes the signal
+voice-dictation/vdict/tray/ptt_capture.py:70-88 | PTTCapture._on_key | KEEP: APP | | root.after(0, ...) becomes Signal.emit(val, disp); the format-inside-except rule (:84-86) still holds because the emit is queued
+voice-dictation/vdict/tray/ptt_capture.py:90-108 | PTTCapture._on_click | KEEP: APP | | same marshalling change; deferred BUTTON_MAP import (:95) becomes a plain import in one process
+voice-dictation/vdict/tray/session.py:15-17 | _summary_line | KEEP: APP | | the session block's column format
+voice-dictation/vdict/tray/session.py:20-26 | _human_size | DELETE -> Qt QLocale.formattedDataSize | QtCore.pyi:5235; DataSizeTraditionalFormat 4607 | COST MEASURED (en_US, precision 1, Traditional): '512 bytes','1.5 kB','1.5 MB','3.2 GB' vs today's '512 B','2 KB','2 MB','3.2 GB'. Display only
+voice-dictation/vdict/tray/session.py:29-44 | _model_size_on_disk | REPLACE -> huggingface_hub.scan_cache_dir | huggingface_hub/utils/_cache_manager.py:588; repo.size_on_disk sums blob st_size by resolved path (790-801, 851); installed as a faster-whisper dependency, not named in requirements.txt | COST: scans every repo (685) not one glob; raises CacheNotFound when the cache dir is missing (673) where today returns None; cache path from constants.py:185 HF_HUB_CACHE replaces the hand lookup at :32-33; match on repo_id ending "whisper-{model}". NOTE: model-by-path (spike-notes MODEL LOCATION) makes this moot for the portable copy; size then is os.path on the model dir.
+voice-dictation/vdict/tray/session.py:47-56 | format_bind | KEEP: APP | | pynput name to display name; also imported by settings.py:12
+voice-dictation/vdict/tray/session.py:59-67 | _hotkey_line | KEEP: APP | | the three hotkey sentences
+voice-dictation/vdict/tray/session.py:70-90 | log_session_block | KEEP: APP | | :83 "vdict_daemon.py (PID ...)" has no pid in one process; log() becomes the signal
+voice-dictation/vdict/tray/transcript.py:23-25 | write | KEEP: APP | stdlib logging.handlers.TimedRotatingFileHandler at transcript.py:16; no rotating file writer in the stubs (not grepped exhaustively, UNVERIFIED) | consumer console.py:206-207; unchanged
+
+NOTES
+- daemon_proc.py:57-62 sets HF_HUB_VERBOSITY, HF_HUB_DISABLE_SYMLINKS_WARNING, HF_HUB_DISABLE_TELEMETRY in the child's env; huggingface_hub reads them at import. In one process they must be in os.environ before the first faster_whisper/huggingface_hub import.
+- daemon_proc.py:47 and output.parse(): the wire format dies but the category strings survive as the signal payload. session.py:81-90 emits "block" and "error"; console.py:179 switches on them.
+- log.py:9 output_queue plus console.py:179 is the hidden timer; daemon_proc.poll() :123 calls the same drain a second time to order the exit line. Both go with the queue.
+- vdict_tray.py:23 SetProcessDpiAwareness(1) runs before any import. Needs a measurement.
+- vdict_tray.py:63-70 shows "already running" through a Tk messagebox: a third dialog outside the two settled native ones. DECISION: native or QMessageBox.
+- hotkey_capture.py:95 and settings.py:203 both call hotkey.unregister() so Windows stops swallowing the live combination during capture. Survives the port.
+- hotkey.py:1-2 foreground rule: only the thread that registered the hotkey can SetForegroundWindow after WM_HOTKEY. With the GUI thread registering, the call is on the right thread; the SPIKE decides whether the hotkey still raises the window.
+- geometry.py:6 imports Pos from config; geometry strings live in config.ui. With QSettings holding window state, those fields must be dropped or they persist as dead config.
+- ptt_capture.py:79-81 and :99-101 render pynput names to display text; session.py:47-56 format_bind does the same. Two renderers of one name.
+- ptt_capture.py:27 and :95 defer pynput and BUTTON_MAP imports to keep pynput off the tray's startup path; moot in one process.
+- session.py:2 docstring names _format_bind; the symbol is format_bind. Stale.
+- icon.py:7 is the only PIL import read; whether Pillow can leave requirements.txt needs a grep for PIL across voice-dictation.
+- MEASURED by running the venv's python: QLocale.formattedDataSize and QKeySequence.toString.
+
+==============================================================================
+DAEMON -- audio.py, stt.py, keyboard.py, portaudio_io.py
+==============================================================================
+
+voice-dictation/vdict/daemon/audio.py:11-143 | AudioCapture | DELETE -> Qt QAudioSource | QtMultimedia.pyi:352 class QAudioSource(QObject); :357 __init__(QAudioDevice, QAudioFormat) | COST: the class becomes ~15 lines of APP glue around QAudioSource (build format, start, read, stop, normalize); no callback thread, samples arrive on the Qt event loop. MEASURED: QAudioSource(default, 16k/1ch/Float).start() -> ActiveState, NoError, format() reports 16000/1/Float on a 48 kHz-preferred device. SPIKE: who resamples (Qt or WASAPI AUTOCONVERTPCM) is not visible; compare a capture's spectrum against a sounddevice capture of the same mic.
+voice-dictation/vdict/daemon/audio.py:14-32 | AudioCapture._find_device_id | DELETE -> Qt QMediaDevices.audioInputs() / defaultAudioInput() | QtMultimedia.pyi:731, :736; QAudioDevice.description() :181, isDefault() :183; Qt6Multimedia.dll strings QWASAPIAudioSourceStream, IMMDeviceEnumerator (WASAPI-only backend) | COST: no hostapi filter needed. Substring match on description() stays as one APP line. MEASURED: Qt description "Microphone (PDP Audio Device)" equals config.json:3, so existing configs still resolve. A missing device is an empty list / isNull(), never an exception.
+voice-dictation/vdict/daemon/audio.py:34-62 | AudioCapture.__init__ | DELETE -> Qt QMediaDevices.audioInputsChanged | QtMultimedia.pyi:724 | COST: the 5 x 1 s sleep-retry for post-wake USB re-enumeration becomes a signal wait; startup no longer blocks up to 5 s, and the no-mic exit becomes a decision about how long to wait. SPIKE: confirm audioInputsChanged fires on sleep/wake re-enumeration, and how long after wake.
+voice-dictation/vdict/daemon/audio.py:64-79 | AudioCapture._exit_no_microphone | KEEP: APP | output.py:31 "mic-fault" is box=True (native crash path) | Message text is product logic. COST: log("mic-fault") becomes a Signal or the native box directly; sys.exit(1) at :79 now kills the whole one-process app, tray included.
+voice-dictation/vdict/daemon/audio.py:81-104 | AudioCapture.start_capture | DELETE -> Qt QAudioSource.start() | QtMultimedia.pyi:376 start() -> QIODevice; :365 error(); :1603 QtAudio, :1608 OpenError | COST: WasapiSettings(auto_convert=True) has no Qt argument, MEASURED accepted anyway. Open failure is not an exception: error() must be read after start() or stateChanged watched. SPIKE: how long after start() an unplugged device reports OpenError.
+voice-dictation/vdict/daemon/audio.py:106-113 | AudioCapture._audio_callback | DELETE -> Qt QIODevice.readyRead + readAll() | QtCore.pyi:3573 readyRead; :3608 readAll() -> QByteArray | COST: no background thread; bytes arrive on the event loop, np.frombuffer(float32) replaces the chunk list. MEASURED: bufferSize()/bytesAvailable() both 16000 bytes = 250 ms at 16 kHz float, so a main-thread stall longer than 250 ms (a blocking transcribe, a pyautogui paste) drops audio unless the stream is drained on a worker. SPIKE: hold PTT while the loop is busy and count samples vs wall clock. Overflow maps to error()==UnderrunError/IOError.
+voice-dictation/vdict/daemon/audio.py:115-143 | AudioCapture.stop_capture | KEEP: APP | stop -> QtMultimedia.pyi:380; normalization: faster_whisper/feature_extractor.py:226-228 clamps log-mel to max-8 then (x+4)/4, not gain-invariant, so faster-whisper does not normalize; QAudioSource.setVolume (:374) is a pre-capture gain, not a peak scale | The concat + 0.95/peak normalization is product logic. SPIKE: whether stop() leaves undelivered bytes readable afterward or discards them (the tail of every capture); read bytesAvailable() after stop() during a real hold.
+voice-dictation/vdict/daemon/keyboard.py:25-27 | _modifier_held | DELETE -> Qt QGuiApplication.queryKeyboardModifiers() | QtGui.pyi:2708 | COST: called from the pynput thread (keyboard.py:84), not the GUI thread; thread-safety on Windows UNVERIFIED. SPIKE: call it from the pynput callback with Shift held; if it reports none, this row flips to KEEP: GAP and pywin32 stays.
+voice-dictation/vdict/daemon/keyboard.py:30-120 | PTTListener | KEEP: APP | pynput settled; no Qt global-hook class (grep Listener/hook over QtGui/QtCore: none) | Which button, key:<name> parsing, Enter-closes-block are product logic. COST: the two threading.Events collapse to two Signals emitted from the pynput thread, QueuedConnection (QtCore.pyi:9631).
+voice-dictation/vdict/daemon/keyboard.py:33-69 | PTTListener.__init__ | KEEP: APP | :43-59 config-name -> pynput mapping; :63-69 listener start | COST: press_event/release_event go; a QObject with pressed/released Signals replaces them. ValueError on a bad name is a startup crash in the Qt process, same as today.
+voice-dictation/vdict/daemon/keyboard.py:71-80 | PTTListener._on_click | KEEP: APP | :73 filters on the configured button | Body becomes one Signal.emit() per branch, queued onto the Qt thread.
+voice-dictation/vdict/daemon/keyboard.py:82-90 | PTTListener._on_key_press | KEEP: APP | :84-85 Enter -> on_enter(GetForegroundWindow()); :87 target key | COST: win32gui.GetForegroundWindow stays; QGuiApplication.focusWindow() (QtGui.pyi:2674) returns this app's own windows only. on_enter runs on the pynput thread today; under Qt it should emit and let BlockTracker run on the Qt thread.
+voice-dictation/vdict/daemon/keyboard.py:92-97 | PTTListener._on_key_release | KEEP: APP | :94 target-key filter | Event clear/set becomes released.emit().
+voice-dictation/vdict/daemon/keyboard.py:99-109 | PTTListener.wait_for_press | DELETE -> Qt Signal + QTimer.singleShot | QtCore.pyi:11024; :8741 | COST: the 0.1 s poll exists only so KeyboardInterrupt can land in a blocking wait; a slot needs no poll. The 120 s toggle timeout (vdict_daemon.py:256) becomes a single-shot timer the pressed slot must stop. The straight-line run_once() becomes a state machine.
+voice-dictation/vdict/daemon/keyboard.py:111-114 | PTTListener.wait_for_release | DELETE -> Qt Signal | QtCore.pyi:11024 | Released slot ends the capture; release becomes event-immediate.
+voice-dictation/vdict/daemon/keyboard.py:116-120 | PTTListener.stop | KEEP: APP | :118-120 stops the pynput listeners | Call it from aboutToQuit or the tray quit slot.
+voice-dictation/vdict/daemon/keyboard.py:123-161 | KeyboardInjector | KEEP: APP | pyautogui Ctrl+V settled; QGuiApplication.clipboard() settled (QtGui.pyi:2661, :972) | Save/paste/restore cycle is product logic. COST: QClipboard is a GUI-thread object; inject must run on the Qt thread, so if transcribe moves to a worker the text comes back by Signal first.
+voice-dictation/vdict/daemon/keyboard.py:126-139 | KeyboardInjector.__init__ | DELETE: glue | :129-139 is an ImportError guard around pyperclip/pyautogui/time | pyperclip goes; pyautogui and time become module-level imports (crash-fast rule forbids the guard); one attribute assignment remains.
+voice-dictation/vdict/daemon/keyboard.py:141-161 | KeyboardInjector.inject | KEEP: APP | clipboard half -> QtGui.pyi:1007 text(), :1003 setText(); sleep -> QtCore.pyi:8741 QTimer.singleShot(50); pyautogui.hotkey stays | COST: time.sleep(0.05) at :158 blocks the Qt event loop for 50 ms; QTimer.singleShot(50, restore) is the same delay without the block. try/except around paste() shrinks: QClipboard.text() returns "" rather than raising. B6 rewrites this whole function later.
+voice-dictation/vdict/daemon/portaudio_io.py:7-11 | _wasapi_index | DELETE -> Qt QMediaDevices (WASAPI-only) | Qt6Multimedia.dll strings; QtMultimedia.pyi:722 | No hostapi concept in Qt. Unwired: no caller.
+voice-dictation/vdict/daemon/portaudio_io.py:14-17 | reinit | DELETE -> Qt QMediaDevices.audioInputsChanged | QtMultimedia.pyi:724 | Qt re-enumerates itself; the COM-apartment rule at :1-2 disappears, but QMediaDevices is a QObject that must live on the Qt thread, so pynput callbacks must not touch it. Unwired.
+voice-dictation/vdict/daemon/portaudio_io.py:20-29 | enumerate_inputs | DELETE -> Qt QMediaDevices.audioInputs() | :731; description() :181, id() :182, mode() :190 | Identity is QAudioDevice.id(), MEASURED as the WASAPI endpoint string, stable across re-enumeration unlike a PortAudio index. Unwired.
+voice-dictation/vdict/daemon/portaudio_io.py:32-38 | resolve_by_name | DELETE -> Qt QMediaDevices.audioInputs() + description() | :731, :181 | Exact-match on description() is one line at the call site; or store id() and skip the match. Unwired.
+voice-dictation/vdict/daemon/portaudio_io.py:41-53 | open_probe | DELETE -> Qt QAudioSource.start() then error()/state() | :376, :365, :379; OpenError :1608 | No exception; success/failure is a state read, MEASURED NoError only after processEvents + 300 ms. SPIKE: whether error() is set synchronously inside start() or only after the event loop runs. Unwired.
+voice-dictation/vdict/daemon/portaudio_io.py:56-73 | start_hold | DELETE -> Qt QAudioSource.start() + stateChanged | :376, :354 | on_status becomes a stateChanged/error() watch on the Qt thread; mid-stream unplug is a state transition. Unwired.
+voice-dictation/vdict/daemon/portaudio_io.py:76-86 | stop_hold | DELETE -> Qt QAudioSource.stop() / state() | :380, :379 | stream.active is state()==ActiveState (:1615); stop() is not documented as raising. Unwired.
+voice-dictation/vdict/daemon/stt.py:22-126 | STTEngine | KEEP: APP | faster-whisper settled | Model choice, compute_type rule, prompt and VAD settings are product logic. COST: every method that touches WhisperModel blocks for seconds; in one process that freezes the tray unless run through QThreadPool.globalInstance().start(callable) (QtCore.pyi:8462, :8476) with results back by Signal.
+voice-dictation/vdict/daemon/stt.py:25-32 | STTEngine.__init__ | KEEP: APP | busy_flag set at :65, cleared :84, read nowhere | busy_flag is write-only. Under Qt the busy state is a Signal or property on the engine QObject; the threading.Event and constructor parameter go.
+voice-dictation/vdict/daemon/stt.py:34-56 | STTEngine.load | KEEP: APP | huggingface_hub/file_download.py:1469 try_to_load_from_cache present; huggingface_hub not in requirements.txt, transitive via faster-whisper | COST: log("download") and log("model-fault") become Signals / the native box; sys.exit(1) at :56 kills the one process. The model.bin probe :39-42 is a GAP-shaped detail inside an APP function (faster-whisper caches partial snapshots) and stays.
+voice-dictation/vdict/daemon/stt.py:58-84 | STTEngine.reload | KEEP: APP | :67-73 duplicates :39-49 line for line | Second copy of load()'s body: one _build_model(name, device) serves both. COST: under Qt this runs on a worker and swaps self.model on the Qt thread by Signal, or a capture that starts mid-reload reads a half-swapped engine.
+voice-dictation/vdict/daemon/stt.py:86-108 | STTEngine.wake_gpu | KEEP: APP | :99-104 0.1 s of zeros through model.transcribe to raise the GPU P-state; no library does this | threading.Thread(daemon=True) at :108 can become QThreadPool.start(_primer); behavior identical, not required.
+voice-dictation/vdict/daemon/stt.py:110-126 | STTEngine.transcribe | KEEP: APP | :118-119 beam_size=5, vad_filter=True, initial_prompt | COST: synchronous; on the Qt thread it blocks the event loop for the full decode and starves the QAudioSource drain; must run via QThreadPool with the text returned by Signal, then inject on the Qt thread.
+
+NOTES
+- stt.py:12-19 mutates os.environ["PATH"] at import, prepending venv/Lib/site-packages/nvidia/{cublas,cuda_nvrtc,cudnn}/bin. Live, process-wide, breaks after the first site-packages hit. Must import before ctranslate2 does, same as today.
+- output.py:36-41 log() is a string-shaped wire. Every log( in audio.py (:78,:109) and stt.py (:42,:52,:70,:79) is a wire write. output.py:31-32 marks mic-fault and model-fault box=True, the two native MessageBoxW paths.
+- keyboard.py:43-48 resolves config "key:<name>" by getattr(keyboard.Key, name); pynput Key attributes reached by config string, invisible to grep.
+- keyboard.py:85 win32gui.GetForegroundWindow() has no Qt equivalent. pywin32 stays in the daemon whatever _modifier_held becomes.
+- Hidden timers: keyboard.py:105 and :113 are 100 ms poll loops; vdict_daemon.py:256 passes the 120 s toggle timeout into one. Both vanish with the wait_for_* rows; the 120 s becomes a QTimer someone owns and cancels.
+- vdict_daemon.py:269, :316-317 read self.audio.sample_rate for the FLAC write and the corpus row; the replacement must expose the rate (QAudioSource.format().sampleRate(), QtMultimedia.pyi:366).
+- vdict_daemon.py:250-251 documents ~600 ms first-capture latency under sounddevice. SPIKE: time from start() to first readyRead, cold and warm.
+- vdict_daemon.py:356-362 opens a sd.OutputStream for tones. If tones move to QAudioSink (settled) sounddevice leaves the process entirely; if not, PortAudio and Qt's WASAPI both initialize COM/MMDevice in one process.
+- stt.py:39 and :67 import huggingface_hub, not in requirements.txt:1-13.
+- stt.py:32 busy_flag is read by nothing in the repo (mention only in core-arch-plan.txt:238).
+- Probe script at scratchpad/qmd_probe.py ran once; the MEASURED items above are its output. The app itself was not started.
+
+==============================================================================
+COMMON -- config.py, output.py, blocks.py, corpus_db.py, audio_io.py
+==============================================================================
+
+voice-dictation/vdict/common/audio_io.py:9-29 | write_timestamped_flac | KEEP: APP | QMediaRecorder exists (QtMultimedia.pyi:1020) but MEASURED and rejected (24-bit/8-bit, no sample-format setter); soundfile settled as encoder | COST: capture is streaming, so the whole-buffer sf.write at :28 becomes a soundfile.SoundFile (soundfile.py:583) opened before frames arrive; the empty guard :12-13 becomes "zero frames written, delete the file"; (path, timestamp) return keeps its shape. Timestamp name and Y/M/D layout are product logic.
+voice-dictation/vdict/common/blocks.py:8-31 | BlockTracker | KEEP: APP | QMutex exists (QtCore.pyi:6247) but the symbol is the hwnd-to-block map; nothing in Qt tracks paragraph blocks | on_enter fires on pynput's thread (keyboard.py:63,:85), pynput stays; block_for runs on the capture path (vdict_daemon.py:301).
+voice-dictation/vdict/common/blocks.py:12-15 | BlockTracker.__init__ | KEEP: APP | same | threading.Lock could be QMutex; swapping gains nothing.
+voice-dictation/vdict/common/blocks.py:17-26 | BlockTracker.block_for | KEEP: APP | caller vdict_daemon.py:301 survives | Block id is time.time_ns() and the pid check catches Windows handle reuse.
+voice-dictation/vdict/common/blocks.py:28-31 | BlockTracker.close | KEEP: APP | caller vdict_daemon.py:231 on_enter=self.blocks.close survives | Nothing changes.
+voice-dictation/vdict/common/config.py:20-23 | Pos | DELETE -> Qt QWidget.saveGeometry()/restoreGeometry() into QSettings.setValue() | QtWidgets.pyi:9437-9438; QtCore.pyi:7489,:7570; only reader/writer is geometry.py:6,:116 | COST: blob is opaque, _clamp_to_desktop goes with it. UNVERIFIED: whether restoreGeometry pulls an off-screen window back onto a live monitor; SPIKE by restoring a blob saved on a monitor then unplugged. A bad blob returns False and the window opens at default.
+voice-dictation/vdict/common/config.py:26-29 | AudioConfig | KEEP: APP | pydantic model settled | COST: the endpoint id field is added beside device; FIELD_LABELS :163-174 has no loc for it, so a bad id heals silently unless a row is added.
+voice-dictation/vdict/common/config.py:32-35 | PttConfig | KEEP: APP | settled | No change.
+voice-dictation/vdict/common/config.py:38-40 | KeyboardConfig | KEEP: APP | settled | Field stays; B6 deletes it later.
+voice-dictation/vdict/common/config.py:43-46 | SttConfig | KEEP: APP | settled | No change.
+voice-dictation/vdict/common/config.py:49-53 | HotkeyConfig | KEEP: APP | settled; RegisterHotKey stays | Three locs share one label (:170-172); the dedupe at load_settings :215 keeps it one line.
+voice-dictation/vdict/common/config.py:56-64 | UiConfig | KEEP: APP | settled; but settings_pos (:62) and console_geometry (:63) have no reader/writer outside geometry.py:50,:116,:119, settings.py:276, app.py:225, all deleted | COST: those two fields go DEAD and are dropped, with the by-NAME comment at :60-61. console_font_size, open_console_on_boot, first_run stay.
+voice-dictation/vdict/common/config.py:67-74 | Config | KEEP: APP | settled | COST: the holder emits changed(old, new), which wants a new instance per save; every current writer mutates in place under validate_assignment=True (app.py:151,:266; settings.py:250). model_copy(update=...) (pydantic/main.py:393) is the new-instance path.
+voice-dictation/vdict/common/config.py:77-80 | read_config | DELETE: dead | only caller load_config :92, deleted | load_settings :206 does the same model_validate on the healed path.
+voice-dictation/vdict/common/config.py:83-96 | load_config | DELETE: glue | exists because the daemon is a second process trusting the tray to seed first (:85,:88); only caller vdict_daemon.py:328 | COST: the raise-on-invalid path disappears; the worker inherits the healed config.
+voice-dictation/vdict/common/config.py:99-113 | load_vocabulary | KEEP: APP | no library builds a Whisper hint string; caller vdict_daemon.py:232 | COST: raises when vocabulary.txt is absent (:102-106) and relies on app.py:222 reseed having run first; the process boundary enforced that order; in one process the STT worker start must stay after the reseed.
+voice-dictation/vdict/common/config.py:121-127 | reseed_vocabulary_if_missing | KEEP: APP | QFile.copy exists (QtCore.pyi:3121) but the symbol is the seed decision; callers app.py:222, menu.py:43 | shutil vs QFile is a no-gain swap.
+voice-dictation/vdict/common/config.py:130-137 | _summarize_config_error | KEEP: APP | pydantic ValidationError has no one-line summary (pydantic_core/_pydantic_core.pyi:684-707) | Product wording; used only by _wholesale_reset_message :156.
+voice-dictation/vdict/common/config.py:140-150 | _delete_at_path | KEEP: GAP -- pydantic lacks per-field fallback to default on validation failure | model_validate takes strict/extra/from_attributes/context/by_alias/by_name only (pydantic/main.py:694-704) | Settled per-field repair; caller load_settings :210.
+voice-dictation/vdict/common/config.py:153-158 | _wholesale_reset_message | KEEP: APP | product wording; callers load_settings :203,:223 | No change.
+voice-dictation/vdict/common/config.py:177-187 | _format_value | KEEP: APP | display rule; caller load_settings :227 | Walks the model by getattr on the loc tuple (:181-182), string-shaped.
+voice-dictation/vdict/common/config.py:190-228 | load_settings | KEEP: APP | settled per-field repair; seven callers: app.py:107,:149,:218; settings.py:183,:202,:224,:237 | COST: becomes the one loader. Six of seven callers re-read the file at point of use, the beaten alternative to the holder; after the port only the boot call reads disk, the rest read the holder.
+voice-dictation/vdict/common/config.py:231-234 | save_settings | KEEP: APP | settled: config.json stays the hand-edited file; callers app.py:123,:152,:267 | COST: holder swap and disk write need one door so a save cannot emit without persisting or persist without emitting; today three callers write independently.
+voice-dictation/vdict/common/corpus_db.py:4-5 | get_corpus_db_path | KEEP: APP | QStandardPaths (QtCore.pyi:7912) rejected by the portable rule | Path relative to __file__ per CLAUDE.md.
+voice-dictation/vdict/common/corpus_db.py:7-26 | get_corpus_connection | KEEP: APP | QSqlDatabase exists (QtSql.pyi:53); sqlite corpus writer settled | Per-write open/close at vdict_daemon.py:88,:109 keeps each connection on the thread that made it; keep that when the daemon becomes a thread. PRAGMA per connect stays.
+voice-dictation/vdict/common/corpus_db.py:28-57 | init_db | KEEP: APP | the corpus row schema; caller vdict_daemon.py:333 | Caller imports it inside a function (:331), as does :87.
+voice-dictation/vdict/common/output.py:13-17 | CategorySpec | KEEP: APP | category dispatch stays; consumer console.py:181 | console.py:17 maps color to a Tk tag; the Qt console maps it to a text format instead.
+voice-dictation/vdict/common/output.py:36-44 | log | DELETE -> Qt Signal(str, str).emit | QtCore.pyi:11024 Signal, :11038 emit; 22 daemon-side callers and the tray's queue-backed log (tray/log.py:20-22) collapse onto one signal | COST: an emit from the worker reaches the main-thread console through a queued connection (QtCore.pyi:9629-9631), per event-loop pass instead of the 100ms batch. The newline defense :38-44 exists only because stdout is line-oriented; a signal carries "\n" intact, so the "line break removed" note moves to the console insert or is dropped.
+voice-dictation/vdict/common/output.py:47-52 | parse | DELETE: glue | only caller tray/daemon_proc.py:47, deleted | Nothing else splits on "|".
+voice-dictation/vdict/common/output.py:55-59 | write_error_log | KEEP: APP | qInstallMessageHandler (QtCore.pyi:11080) routes Qt's messages, appends nothing to a file; stdlib logging.FileHandler would put a Logger/Handler/Formatter in front of the startup-crash caller (vdict_tray.py:34) that runs before anything is set up | Entry format is what the crash dialogs and the "open error log" menu point the user at. Callers vdict_daemon.py:112,:285 and tray/log.py:28 survive.
+
+NOTES
+- FIELD_LABELS keys (config.py:163-174) are tuples of field names as strings; _delete_at_path (:144-150) and _format_value (:181-182) walk the model by those strings; a label is dropped silently on a .get miss (:214). Renaming a field or adding the endpoint-id field changes which errors get named with no grep or lint noticing. Survives the port.
+- output.py:9 runs LOG_DIR.mkdir at import; tray/transcript.py:11 builds its path from LOG_DIR assuming it exists. Import-order dependency.
+- app.py:222 reseeds vocabulary.txt then spawns the daemon whose load_vocabulary raises if absent; the tray's load_settings heals and writes before the daemon's load_config reads. Both orderings become plain call order in one main.
+- Two log functions, same name, different sinks: common.output.log prints to stdout; tray.log.log puts on a queue drained on the Tk timer. Both collapse onto the signal; tray/log.py:9 output_queue and its drain are glue in the same cut.
+- Lazy imports: vdict_daemon.py:87,:331 import corpus_db inside functions.
+- save_settings (config.py:234) re-validates a Config instance; whether that returns the same instance or a copy depends on revalidate_instances, unset (:68). UNVERIFIED; matters only if the holder compares by identity.
+- Nothing above was executed against Qt.
+
+==============================================================================
+ENTRY -- vdict_daemon.py, vdict_tray.py
+==============================================================================
+
+voice-dictation/vdict_daemon.py:34-56 | get_window_context | KEEP: APP | QtGui.pyi:2674 focusWindow() returns Qt's own QWindow only, no foreign-HWND API; already pywin32 (requirements.txt:11) | The GetForegroundWindow call pairs the row's (hwnd,pid) with blocks.py:17; the worker thread makes the same call unchanged.
+voice-dictation/vdict_daemon.py:58-78 | CaptureRow | KEEP: APP | corpus_db.py:33-53 is the schema it mirrors; corpus writer settled | Product data; INSERT at :90-96 names its columns.
+voice-dictation/vdict_daemon.py:81-112 | _record_corpus_row | KEEP: APP | QtSql.pyi:53,:68,:325 exist, but sqlite3 corpus writer is settled | Runs on the worker thread; the lazy import at :87 still resolves.
+voice-dictation/vdict_daemon.py:131-137 | _load_tone | REPLACE -> soundfile.read(path, dtype="float32") | soundfile.py:225 signature, :253 dtype, :283-286 mono 1-D, :317 returns (data, samplerate); in requirements.txt:5 | QAudioDecoder (QtMultimedia.pyi:123-160) is async into QAudioBuffer, not numpy, wrong shape for numpy-into-QAudioSink. Return order flips (rate, samples) -> (samples, rate) at :141-143.
+voice-dictation/vdict_daemon.py:153-178 | _output_callback | DELETE -> Qt QAudioSink.start() -> QIODevice.write | QtMultimedia.pyi:343 start(self) -> QIODevice (push mode); QtCore.pyi:3632 QIODevice.write; :330 bytesFree, :340 setBufferSize, :1618 IdleState | COST: no PortAudio real-time thread and no callback; caller writes float32 bytes and the sink drains; queue and partial-fill logic vanish; buffer empty -> IdleState, stream stays open (matches today's zero-fill). write() accepts only bytesFree(); low_double is 63360 frames x 4 B = 253 KB. SPIKE: write each tone once, compare write()'s return to len(bytes) at default bufferSize; measure write-to-audible latency against today.
+voice-dictation/vdict_daemon.py:181-194 | _resolve_output_device | DELETE -> Qt QMediaDevices.defaultAudioOutput() | QtMultimedia.pyi:738, :725 audioOutputsChanged, :335 QAudioSink.isNull | COST: returns QAudioDevice, not a PortAudio index; no host-API filter, "WASAPI only" not expressible; which backend Qt's Windows plugin uses is UNVERIFIED from stubs. The sys.exit(1) at :189,:193 must become log + return: SystemExit on a QThread ends that thread only.
+voice-dictation/vdict_daemon.py:201-217 | play_tone | KEEP: APP | QSoundEffect.play (QtMultimedia.pyi:1276) would play the WAVs directly, but numpy-into-QAudioSink is settled; QAudioSink.setVolume (:341) is sink-wide so per-tone reference volumes :197-198 stay baked into samples | tone_type -> (tone, volume) is product meaning. Only :217 changes (_tone_queue.put -> device.write). Drop .reshape(-1,1) at :216: PortAudio's 2-D frame layout; QIODevice takes flat bytes.
+voice-dictation/vdict_daemon.py:220-323 | CaptureSession | KEEP: APP | The capture cycle | Becomes the worker's per-capture object. Holds the pydantic config (:227) and PTTListener binds config.ptt.button at construction (:231); today a config change restarts the daemon. Under the single changed signal the session is rebuilt, not mutated.
+voice-dictation/vdict_daemon.py:223-232 | CaptureSession.__init__ | KEEP: APP | keyboard.py:30-69 PTTListener starts pynput threads at construction; pynput stays | load_vocabulary (:232) is read once here; vocabulary reset (menu.py:44) relies on daemon restart today. One process needs an explicit reload path or the prompt goes stale.
+voice-dictation/vdict_daemon.py:234-236 | CaptureSession.stop | KEEP: APP | keyboard.py:116-120 stops pynput; QtCore.pyi:8429 requestInterruption cannot stop pynput | stop() does not unblock run_once: it sits in wait_for_press (keyboard.py:105, 0.1 s poll, no timeout). Today terminate() ends it. The worker loop must test QThread.isInterruptionRequested() (QtCore.pyi:8420) between polls or tray exit hangs on thread join.
+voice-dictation/vdict_daemon.py:238-263 | CaptureSession._capture | KEEP: APP | audio.py:81 start_capture / :115 stop_capture are the settled QAudioSource swap points | Two blocking waits (120 s toggle timeout, release): fine on a QThread, fatal on the GUI thread. SPIKE: :250-251 says start_time leads the first sample by ~50 ms, ~600 ms on first capture; measure the same lead with QAudioSource cold and warm.
+voice-dictation/vdict_daemon.py:265-269 | CaptureSession._write_flac | KEEP: APP | audio_io.py:9,28 via soundfile (settled) | Gate is module-level FLAC_CORPUS_CAPTURE_ENABLED (:120-126), read once at import, now in the tray process.
+voice-dictation/vdict_daemon.py:271-294 | CaptureSession._transcribe_and_inject | KEEP: APP | keyboard.py:141-161 inject() via pyperclip+pyautogui; settled clipboard swap: QtGui.pyi:2661 QGuiApplication.clipboard, :1003 setText, :1007 text | Runs on the worker thread. QClipboard thread affinity is UNVERIFIED; SPIKE: call clipboard().setText from the worker. If GUI-thread-only, inject() needs a BlockingQueuedConnection hop and the 50 ms sleep (keyboard.py:158) lands on the GUI thread. The 0.4 s gate (:275) and tone ordering are product logic.
+voice-dictation/vdict_daemon.py:296-323 | CaptureSession.run_once | KEEP: APP | "every outcome writes exactly one row"; corpus_db.py:33 | log("rec") :249 and log("done") :323 are the tags console.py:33 swallows in transcript-only mode; they become signals carrying the same category string.
+voice-dictation/vdict_daemon.py:326-378 | main | KEEP: APP -- becomes worker.run(); process plumbing inside is DELETE: glue | QtCore.pyi:8384 QThread, :8420 isInterruptionRequested; loop :374-378 is glue | Drops: load_config :328, sd.OutputStream :355-363, KeyboardInterrupt + ANSI print :376-377 (pythonw has no stdout). Keeps: init_db, AudioCapture/STTEngine/KeyboardInjector construction, stt.load() :348 (seconds-long, off the GUI thread), READY sequence :367-371 (output.py:28 marks "ready" toast=True). while True -> while not isInterruptionRequested(), exits only between captures.
+voice-dictation/vdict_tray.py:30-48 | _log_startup_crash | KEEP: APP | Settled: crash-path dialogs stay native MessageBoxW; QMessageBox.critical (QtWidgets.pyi:5287) needs a QApplication that may not exist at :77 | New gap: the daemon's startup faults (mic-fault/model-fault) now raise inside QThread.run, not on this path; without a handler there they die silently.
+
+NOTES
+- Wire protocol is string-shaped: output.py:36-41 prints category|text; daemon_proc.py:47 parses; console.py:33 swallows rec/done, :185-190 runs a loading/ready state machine, :202,:205 branch on transcript. Every log() in vdict_daemon.py (:111,158,188,192,249,259,277,284,289,292,323,347,367-370) becomes a signal whose payload keeps the category string. Vocabulary in output.py:20-33.
+- Hidden child-process env: daemon_proc.py:57-62 sets HF_HUB_VERBOSITY, HF_HUB_DISABLE_SYMLINKS_WARNING, HF_HUB_DISABLE_TELEMETRY, PYTHONIOENCODING, PYTHONUNBUFFERED. Under one process, os.environ must be set before the first faster-whisper / huggingface_hub import (read at import time, per daemon_proc.py:55-56).
+- Tone WAV format, MEASURED: all three 192000 Hz mono int16; high 15360 frames, low 17280, low_double 63360. Today sd.WasapiSettings(auto_convert=True) (:362) sets paWinWasapiAutoConvert (sounddevice.py:2475-2478,2507-2508) so WASAPI resamples. QAudioSink has no such flag; checks are QAudioDevice.isFormatSupported (QtMultimedia.pyi:184) and preferredFormat (:191). SPIKE: defaultAudioOutput().isFormatSupported(192000/1ch/Float); if false, resample once at load with numpy to preferredFormat().sampleRate(), or re-export the WAVs at 48 kHz.
+- Module-level side effects at import: :8-10 platform exit, :27 import sounddevice, :120-126 dev-flags read, :141-145 three WAV loads plus an assert. In one process these run when the tray imports the module; the assert becomes a startup crash on _log_startup_crash's path.
+- sys.exit on the worker: :189,:193 and any future one. SystemExit on a QThread ends only that thread; the tray stays up with no daemon, and daemon_proc.poll(), which reports the exit today, is deleted.
+- vdict_tray.py:23 SetProcessDpiAwareness(1) runs before Qt. Qt 6 sets its own awareness at QGuiApplication construction and Windows refuses a second setting per process; which mode Qt lands in when pre-set is UNVERIFIED. SPIKE: remove line 23, launch, drag Settings between monitors of different scale, look for blur.
+- vdict_tray.py:63-69 is a second Tk dialog (already-running), a third dialog outside the two settled native ones; QLockFile (QtCore.pyi:5363, tryLock :5384) is Qt's single-instance guard; existing mutex + MessageBoxW is fewer moving parts. DECISION.
+- session.py:83 prints "Started vdict_daemon.py (PID {pid})", false under one process.
+- Tray-side sounddevice: settings.py:60-73 enumerates WASAPI mics for the dropdown; QMediaDevices.audioInputs() (QtMultimedia.pyi:731) and audioInputsChanged (:724) replace it. config.audio.device is matched by substring (audio.py:29); description() vs id() decides which string config stores.
+- Two __version__ constants: vdict_daemon.py:114 and vdict/__init__.py:4; the daemon's copy goes into every corpus row (:320). One process, one constant.
+- BlockTracker (blocks.py:10) is already cross-thread under its own lock; no Qt involvement needed.
+- What ran: the WAV-parameter measurement. Nothing else executed against Qt.
+
+==============================================================================
+MODULARITY
+==============================================================================
+
+MODULARITY PASS -- derived by script (import graph) and by reading (jobs, cliff test)
+
+IMPORT GRAPH: 52 edges, 0 cycles, 1 cross-package edge, 0 common->anything.
+  Cross: vdict/tray/ptt_capture.py:95 imports BUTTON_MAP from vdict/daemon/keyboard.py:16,
+    nested inside _on_click; a top-of-file grep misses it. Exists because the ptt.button
+    vocabulary lives in the daemon.
+  Orphan: vdict/daemon/portaudio_io.py, in-degree 0. Only consumers are plan docs.
+  Acyclic by construction: daemon_proc.py:30-34 and faults.py:18-23 take callables from app
+    via install() instead of importing app.
+  Hub: vdict/tray/app.py out-degree 14. Leaf hub: vdict/common/output.py in-degree 10.
+  Nested imports: vdict_tray.py:73 (app after DPI awareness, deliberate);
+    vdict_daemon.py:87,331 (corpus_db only when the dev flag is on).
+
+ONE JOB PER MODULE -- 10 of 30 have more than one:
+  vdict_daemon.py: SIX jobs. foreground-window context :34-56; corpus row schema + INSERT
+    :58-112; dev-flag load :120-126; tone loading/stream/play_tone :131-217; CaptureSession
+    :220-323; main :326-378. Seams: tones -> daemon/tones.py; CaptureRow + INSERT ->
+    common/corpus_db.py (CREATE at corpus_db.py:33-53 and INSERT at :90-96 are one schema in
+    two files, tied only by the comment at :59); get_window_context next to blocks.py.
+  common/output.py: THREE. category vocabulary :13-33; stdout wire format log/parse :36-52
+    (dies with the port); error-log path and disk write :7-10,55-59.
+  common/config.py: SIX. paths :12-17; pydantic schema :20-74; strict loader :77-96;
+    vocabulary load/reseed :99-127 (-> common/vocabulary.py); healing loader with
+    user-facing FIELD_LABELS and "SYSTEM DEFAULT"/"NOT SET" strings :130-228 (tray display
+    policy living in common); save :231-234.
+  daemon/keyboard.py: TWO. PTTListener :30-120 (mostly a mouse listener; BUTTON_MAP :16-22
+    is config vocabulary the tray needs) and KeyboardInjector :123-161. Seam :122.
+  tray/app.py: NINE. root+wiring :29-74; Tk exception handler :76-95; 100 ms tick :97-102;
+    session-block bridge :104-108; save->restart :120-125; hotkey register + raise with
+    hotkey_name/hotkey_failed state :127-144; state save/hide/unmap :146-162; exit +
+    shutdown steps :164-212; run() incl. the mic-fault-flag branch :214-277.
+  tray/console.py: FIVE. widget+bindings :53-81; clipboard/select/clear/save-as :104-140;
+    zoom :142-159; loading-dots timer :161-172; drain() category dispatch :174-222.
+    transcript_only_mode :27-33 has no setter anywhere.
+  tray/daemon_proc.py: TWO, dies entirely in one process.
+  tray/hotkey_capture.py: TWO. vk->keycap name :31-56 and Tk-state->mods :59-67; capture
+    flow :70-131. Seam :69.
+  tray/session.py: THREE. session block :59-90; DEVICE_LABELS + format_bind :10,47-56;
+    HuggingFace cache size :29-44. Docstring :71 cites start_vdict, which exists nowhere.
+  tray/settings.py: SIX. dialog rows :31-191; _has_cuda probe with PATH mutation :113-133;
+    WASAPI mic enumeration :58-87; rebind-on-close :194-204; save :234-253; placement
+    :274-287. (b) and (c) duplicate stt.py:15-19, audio.py:17-32, portaudio_io.py:20-29.
+  Name does not match job: tray/__init__.py and common/__init__.py docstrings (stale),
+    daemon/keyboard.py, daemon/portaudio_io.py (":1 the one place that touches sounddevice"
+    is false: audio.py:6, vdict_daemon.py:27, settings.py:60 all import it),
+    tray/session.py, common/output.py.
+  Other: audio.py:64-79 composes the user-facing sentence faults.py later shows.
+    stt.py reload() :58-84 and busy_flag :25,32 have no callers. geometry.py:50,116,119
+    reaches config.ui fields by string name. tray/log.py log() and common/output.py log()
+    share a name and signature; daemon_proc.py:47 calls one with the parsed output of the
+    other. menu.py:40-45 _open_vocabulary does file management. ptt_capture.py:99-101
+    re-derives display names session.py:52-55 also derives. corpus_db.py has no docstring.
+
+CLIFF TEST -- other files a reader must open:
+  app.py: 16. Categories "mic-fault"/"model-fault" at :44-45 must match output.py:31-32,
+    emit sites audio.py:78, stt.py:52,79, dispatch console.py:212-215. Menu callback keys
+    :49-58 match menu.py:69-100. "console_geometry" by string :225 -> config.py:63. Tk
+    strings :61,64,67,161. pystray callback signature :110,115,164 -> icon.py:27-29.
+    Timing: the 100 ms tick :97-102,270 is what makes console.drain and daemon_proc.poll
+    run at all; _on_hotkey runs on hotkey.py's pump thread and marshals via after(0)
+    :135-137; mic-fault flag :238-244 written by faults.py:50 in the PREVIOUS launch, path
+    const.py:13, text from audio.py:68-77 in the other process; _register_hotkey must
+    precede daemon_proc.start :236-237 because session.py:70 prints hotkey_failed;
+    hotkey_name/hotkey_failed created lazily :130-131, read :108,144. DPI awareness at
+    vdict_tray.py:23 must precede tk.Tk() at app.py:32 and app.py cannot see that.
+  config.py: 6. geometry.py:50,116,119 string-addresses fields; keyboard.py:16-22 is the
+    real valid set for PttConfig.button :34 (not a Literal; keyboard.py:56 raises at daemon
+    start instead); AudioConfig.device :28 "" = WASAPI default, non-empty is a SUBSTRING
+    match at audio.py:29 while settings.py:78 treats it exact and portaudio_io.py:32-34
+    says exact; settings.py:15-16,240 "System Default" displays ""; app.py:218,249-255 and
+    menu.py:43-44 consume reset_reason/VOCABULARY_RESET_MESSAGE; two loaders, two
+    behaviors, daemon relies on tray writing first (config.py:84-85, app.py:216-218).
+    FIELD_LABELS :163-174 keyed by pydantic loc tuples: a renamed field silently drops out.
+  console.py: 8. COLOR_TAGS :19 keys must match CategorySpec.color values output.py:14,21-32.
+    "loading","ready","transcript","rec","done" special-cased by literal :33,185-205.
+    handlers keys from app.py:43-45 matched against spec.box :212-215. icon.notify :210 is
+    pystray. drain() runs only via app.py:100 and daemon_proc.py:123. Loading-dot timer
+    :165-172 (1000 ms) races the "ready" line on the 100 ms tick, :185-188 handles it.
+    output_queue fed by daemon_proc.py:44-47 reader thread AND in-process log.py:20 callers.
+  vdict_daemon.py: 8. Every log(category) string :158-370 is the wire format
+    output.py:36-52 consumed by daemon_proc.py:47, dispatched console.py:174-222; "ready"
+    also ends the loading animation (console.py:187-188) and toasts (output.py:28).
+    INSERT order :90-96 -> corpus_db.py:33-53. "capture_corpus" :124 -> dev-flags.toml.
+    PYTHONUNBUFFERED/PYTHONIOENCODING set by daemon_proc.py:57-62; nothing here says so.
+    sys.exit(1) from audio.py:79 and stt.py:56 inside constructors :338,348 is what makes
+    the tray show a modal, reported by daemon_proc.py:125 only if _fault_shown is False.
+    wake_gpu :304 and play_tone :248 async, ordering explained only at :246-247.
+    wait_for_press/release poll 0.1 s in keyboard.py:105,113. on_enter -> blocks.close :231
+    on pynput's thread. KeyboardInterrupt :376 never fires in production (terminate()).
+  settings.py: 9. DEFAULT_MIC_LABEL :16 <-> "" config.py:28 <-> audio.py:23-25. "Toggle"/
+    "Hold" :109 lowercased :242 to config.py:35. Model names :142-146 are faster-whisper
+    suffixes consumed stt.py:40. "GPU (CUDA)" :152,155-156 must equal DEVICE_LABELS["cuda"]
+    session.py:10. hotkey_binding :184,248 dict shaped like HotkeyConfig mutated in place by
+    hotkey_capture.py:99,126. PTTCapture writes "key:<name>"/BUTTON_MAP name
+    (ptt_capture.py:79-81,102) parsed by keyboard.py:43-58 in the other process.
+    "settings_pos" by string :276 -> config.py:62. :234-237 re-reads disk because
+    app._save_state writes geometry while the dialog is open. _rebind_on_close :194-204 on
+    <Destroy> of every descendant. _has_cuda :120-130 mutates PATH, same as stt.py:15-19.
+    Mic-fault modal (faults.py:32) calls open_settings re-entrantly :213-217.
+
+REMOVED FOR FREE BY ONE PROCESS:
+  stdout wire format (output.py:36-52, daemon_proc.py:44-47, env contract :57-62, the two
+  same-named log functions); the 100 ms tick and exit poll (app.py:97-102,270,
+  daemon_proc.py:111-127, _exit_reported/_fault_shown, console's exit-check second call);
+  two config loaders and the tray-seeds-first ordering; sys.exit(1) as the fault channel
+  (audio.py:79, stt.py:56, vdict_daemon.py:189,193) and the mic-fault/model-fault box
+  dispatch; the mic-fault flag file spanning two launches (faults.py:50, app.py:238-242,
+  const.py:13); daemon_proc.py entirely and the install() injection pattern; the dead
+  KeyboardInterrupt path.
+
+SURVIVE THE PORT, NEED A DELIBERATE BOUNDARY:
+  1 Category vocabulary + rendering rule: output.py:20-33 data table vs console.py:185-205
+    literal special cases. One module owns the vocabulary AND the per-category rendering,
+    as signals or an enum, or the string cliff moves into a QTextEdit slot.
+  2 ptt.button vocabulary in four files: keyboard.py:16-22, session.py:47-56,
+    ptt_capture.py:99-101, config.py:34 (no Literal). One module owns names, display names,
+    validation; config imports it.
+  3 Config fields by string: geometry.py:50,116,119, app.py:225, settings.py:276. Typed
+    accessor, or geometry owns its own sub-model.
+  4 Hardware probing in three places: WASAPI at audio.py:17-32, settings.py:64-73,
+    portaudio_io.py:7-29; CUDA PATH at stt.py:15-19, settings.py:117-125. One device module.
+  5 Corpus schema in two files: corpus_db.py:33-53 and vdict_daemon.py:58-112. CaptureRow
+    and the INSERT move next to the CREATE.
+  6 Tones: vdict_daemon.py:131-217 self-contained; needs its own thread in one process.
+    daemon/tones.py.
+  7 Hotkey owning-thread rule survives (hotkey.py:68-91); hotkey state (app.py:130-133)
+    leaves app, lives with the owner; session.py:70 reads it there.
+  8 Engine threading: blocks.py:9-10, audio.py:106-113, stt.py:96-108, keyboard.py:71-97.
+    Rule: engine code never touches a widget; every engine->GUI hop is a Qt signal. Today
+    documented by comment only (app.py:136, ptt_capture.py:71).
+  9 Vocabulary file handling: config.py:99-127, app.py:222,248-249, menu.py:43-45. Split
+    from config, one owner.
+
+VERSION-13 VERDICT: leaves (blocks, audio_io, dpi, const, hotkey, icon, transcript,
+geometry, log) hold in one screen. The four hubs (app.py 16 files, settings.py 9,
+console.py 8, vdict_daemon.py 8) do not hold without opening half the package; about half
+of each hub's cost is process-seam cost the port deletes, the other half (string
+vocabularies in 3-4 files each, split schema, three probes, hotkey state in app) is carried
+into version 13 unless the rewrite draws the nine boundaries above.

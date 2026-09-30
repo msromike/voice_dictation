@@ -78,8 +78,18 @@ all day at home and at work without Mike in the room.
    uses today, working the same, on Qt, existing model and compute
    dropdowns included. Built alongside the Tk tray with a throwaway
    launcher, switched at the entry point, Tk deleted at cleanup. Before
-   the build sheet: the one-sitting read of Qt's examples against the
-   parity inventory, from the plan's SCRATCHPAD.
+   the build sheet: the hand-rolled sweep. Every function and class in
+   the tree, list derived by script, gets three questions in order: does
+   Qt do it (named, checked against the PySide6 stubs), does a maintained
+   package do it, or why does it exist (app logic, or a library gap that
+   goes in spike-notes TOOLKIT GAPS). Verdict per symbol: DELETE for Qt,
+   REPLACE with a package, or KEEP with the reason. Every DELETE carries
+   a cost line; a behavioral edge gets a spike before it is trusted. A
+   separate pass maps imports and flags modules with more than one job.
+   Output is hand-rolled-ledger.txt; the Qt build sheet consumes it as
+   its deletion list, then it dies. Mike rules on KEEP rows only. The old
+   parity inventory stays as the exit gate after a script check that its
+   rows match the menus and bindings in code.
 
 4. B6 clipboard delivery, from backlog.txt. Every dictation destroys the
    clipboard today, and the restore switch only ever handled text. Save

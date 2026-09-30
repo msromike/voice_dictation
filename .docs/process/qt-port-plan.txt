@@ -41,12 +41,10 @@ item remains.
 A finding that is useful later rather than now goes to new_next.md as one
 line. It is not a DELIVERABLE and it does not stay here.
 
-  - What would a Qt developer's plan for this app contain that this one does
-    not? One sitting, bounded: walk the example categories in the
-    pyside-setup clone and the installed module list against
-    qt-parity-inventory.txt, never against today's feature set. Output is
-    deliverables added, or nothing. Runs before the build sheet. Reading
-    against today's features can only confirm what was already built.
+  - The hand-rolled sweep, defined in new_next.md step 3: every symbol in
+    the tree, Qt or package or keep-with-reason, into hand-rolled-ledger.txt.
+    Subsumes the read of Qt's examples: asking "does Qt do this" per symbol
+    is that read, done against the code instead of the feature list.
 
 
 ==============================================================================

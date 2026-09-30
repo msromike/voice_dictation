@@ -316,3 +316,20 @@ TOOLKIT GAPS
 Hand-rolled because a library did not do it. One line each: what was
 hand-rolled, which library gap forced it, and why a package was not used.
 Read when a plan is converted to a build sheet.
+
+  - hotkey.py register/unregister/_claim/_release: Qt has no system-wide
+    hotkey API (grepped every PySide6 stub); RegisterHotKey via pywin32,
+    received through QAbstractNativeEventFilter. No package wraps it better
+    than the four win32 calls.
+  - hotkey_capture.py _state_to_mods: Qt.KeyboardModifier has no map to
+    RegisterHotKey's MOD_* flags; six lines, no package.
+  - app.py _raise_window: whether QWidget.activateWindow() is granted the
+    foreground after WM_HOTKEY is unverified; SetForegroundWindow stays
+    until the spike says otherwise.
+  - settings.py _has_cuda and stt.py PATH prepend: ctranslate2's own
+    add_dll_directory covers ROCm only, not the nvidia pip wheels; the
+    PATH prepend is the fix, done ONCE at import by the module that loads
+    ctranslate2 first, not twice.
+  - config.py _delete_at_path: pydantic validates whole or fails whole; no
+    per-field fallback to default exists (model_validate takes no such
+    option), so the per-field repair is hand-rolled.
