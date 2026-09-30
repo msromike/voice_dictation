@@ -191,10 +191,15 @@ hoisted into a local before the daemon's loop starts.
 Read while B1 was written. Re-check against STTEngine.transcribe's signature
 rather than trusting this line.
 
-Reading it per dictation, measured 2026-09-30 on the real 581-byte file
-(one term): load_vocabulary median 0.13 ms, max 0.41 ms over 1000 reads,
-first call 0.25 ms; shutil.copyfile to a .bak median 0.5 ms, max 1.1 ms over
-200. A file with hundreds of terms was not measured.
+Reading it per dictation, measured 2026-09-30. Real 581-byte file, zero
+terms (comments only): load_vocabulary median 0.13 ms, max 0.41 ms over
+1000 reads. Same file plus 500 office words (4541 bytes): median 0.28 ms,
+max 0.63 ms. shutil.copyfile to a .bak: median 0.5 ms either size.
+
+ONLY THE LAST 223 PROMPT TOKENS REACH WHISPER. faster_whisper/transcribe.py
+:1550 keeps previous_tokens[-(max_length // 2 - 1):], max_length 448 at
+:722. The 500 words encode to 1055 tokens with large-v3's tokenizer, so
+roughly the first 400 are dropped every call, silently.
 
 
 QT NATIVE EVENT FILTER RECEIVES WM_HOTKEY

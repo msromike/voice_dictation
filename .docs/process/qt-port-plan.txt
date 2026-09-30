@@ -172,6 +172,14 @@ VOCABULARY, live:
     is missing, restore from .bak first, keeping curated words, else reseed
     from the template; log a note either way. Why .bak over the template
     alone: UNVERIFIED beyond "preserves curated words" (f2854e8).
+  - Nice to have: warn when the vocabulary is over Whisper's prompt limit.
+    faster-whisper keeps only the last 223 tokens (spike-notes.txt
+    VOCABULARY); 500 words came to 1055, the first ~400 silently dropped.
+    Count with the loaded model's tokenizer; one output-window note naming
+    how many words at the top are ignored, only when the file changed.
+    Never block or trim ourselves. Tokenizing cost per read: UNVERIFIED,
+    measure first. templates/vocabulary.txt gains a line: Whisper reads
+    only about the last 100 words, most important at the bottom.
 
 
 ==============================================================================
