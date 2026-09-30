@@ -1,0 +1,257 @@
+VOICE DICTATION - PLAN: AMBIENT MODE
+
+Seed. Drained whole from backlog.txt; nothing cut to a line. Shaped to
+plan-template.txt when this item reaches the front of new_next.md.
+Phases: capture and transcribe, then attribution, then search.
+
+
+==============================================================================
+B24. AMBIENT LISTEN MODE -- CONTINUOUS TRANSCRIPTION, OPTIONAL SPEAKER ATTRIBUTION -- NEW FEATURE
+==============================================================================
+A second, selectable mode alongside today's PTT dictation -- mutually
+exclusive, not simultaneous, not a separate app. Same engine
+(STTEngine, model selection, tray shell), different capture loop and
+different output target.
+
+MOTIVATION
+Passive background transcription for meeting-heavy roles -- a
+searchable, timestamped record of a day's conversations without
+active note-taking. Validated against a real use case (management
+role, back-to-back meetings), and market-precedented (Otter.ai,
+Fireflies.ai, Read.ai already succeed doing exactly this). Legal/
+consent questions are the user's to navigate, not this tool's to
+gate -- same posture as any dual-use recording capability.
+
+PIPELINE
+  - Continuous capture, no PTT trigger. Async double-buffer: capture
+    never blocks on transcription -- next chunk records while the
+    current one transcribes.
+  - 5-minute chunks flushed to disk as timestamped FLAC files, not
+    passed in-memory. Decouples capture cadence from transcription
+    cadence. FLAC, not raw WAV -- lossless, encode cost is sub-second
+    even at max compression on modern hardware (no reason to trade
+    size for it), and Whisper never reads the file directly either way
+    (already decodes to a raw sample array before transcribing), so
+    there's no compatibility cost to writing compressed from the start.
+    No WAV anywhere in this path, not even as an intermediate -- FLAC
+    decodes in one step straight into the same raw sample array Whisper
+    already consumes, on the way out of the queue, same as it comes in.
+  - Disk-based FIFO queue, oldest-first, plain directory scan -- no
+    scheduler package needed (one producer, one consumer, one
+    machine). Backlog bounded by disk space, not memory; self-
+    revealing if it falls behind (stale timestamps visible to user).
+    Real per-chunk throughput unverified -- confirm on real hardware
+    when built.
+  - No overlap, no dedup between chunks. A sentence split across two
+    timestamped entries is acceptable -- cut doesn't mean lost.
+
+SILENCE HANDLING
+  - Whole-chunk pre-check (RMS/amplitude heuristic) before calling
+    Whisper at all -- near-total silence skips transcription entirely,
+    logs "[silence, skipped]" instead of risking hallucinated filler
+    text (the well-known "thank you"-on-silence phenomenon).
+  - vad_filter=True stays on for this mode too -- different
+    granularity than the pre-check (trims partial silence within a
+    chunk that has real speech), not redundant with it.
+
+OUTPUT
+Timestamped disk log only. No cursor injection -- that's PTT mode's
+delivery mechanism, not this one's.
+
+ATTRIBUTION -- THREE INCREMENTAL TIERS, each independently shippable
+  Tier 1: Pure transcription. No speaker awareness at all.
+  Tier 2: Diarization without attribution. Speaker A/B/? labels,
+    always on by default -- privacy-safer than tier 1 (structure
+    without PII), no enrollment system, no added risk.
+  Tier 3: Diarization with attribution. Persistent voice-ID via
+    embeddings, each distinct voice assigned a permanent GUID.
+    Separate GUID-to-name lookup table (empty until user labels it) --
+    naming is just filling in one row, never touches the embedding-
+    matching layer. UI: present a snippet of an unresolved "Speaker ?"
+    voice, prompt for a typed name. Same person surfacing as two GUIDs
+    (different mic, sick voice, etc.) self-corrects for free -- typing
+    the same name for both produces an identical-looking transcript
+    to an actual merge, no explicit merge operation needed.
+
+ACCEPTED LIMITATIONS, NOT BUGS
+  - No retroactive relabeling. Naming a "Speaker ?" only applies going
+    forward; past log entries using that placeholder stay as-is.
+  - False merges (two different real people collapsing into one GUID)
+    have no correction lever, unlike false splits (which self-correct
+    via re-naming) -- mitigated by biasing the similarity threshold
+    conservative (favor staying unresolved over confidently guessing
+    wrong). For voices that are genuinely hard to tell apart, the
+    realistic steady-state is mostly-correct with a persistent
+    "Speaker ?" residue, not silent misattribution -- self-explaining
+    to the user, accepted as-is, not designed around further.
+
+NOT DESIGNED IN DETAIL YET
+Exact chunk duration and silence threshold tuning, which diarization/
+embedding library, the naming-snippet UI itself, Settings integration
+for the mode toggle. No gate, no P-item.
+
+SUPPLEMENTARY SPIKE IDEA: play YouTube (or any audio source) out loud and let
+ambient mode's own mic capture it, instead of yt-dlp. Superseded, not just an
+alternative -- yt-dlp's ToS question disappears entirely (nothing touches YouTube's servers or
+download restrictions; this is just watching a video normally while a
+mic that's already listening happens to pick it up), and mic-captured
+audio is arguably the better test anyway -- real room acoustics and
+speaker response baked in, matching what production ambient mode
+actually encounters, not pristine directly-extracted audio. Same
+coverage as the yt-dlp idea: a single video only tests Tier 2 (telling
+concurrent speakers apart within one file); validating Tier 3's actual
+hard problem (same person recognized across separate sessions) needs
+the same identifiable voice across multiple separate videos/sessions,
+not one clip -- just play a different video from the same channel each
+session instead of downloading a batch.
+
+DEV-ONLY CAPTURE FLAG. A second entry in dev-flags.toml, which
+portable-folder-build-sheet.txt introduces -- an absent file means every
+flag is off. It gates whether ambient mode's processed chunks are retained
+instead of deleted, which is what feeds real multi-speaker corpora
+(including the spike above) through the actual ambient pipeline and keeps
+the output for validation. Production default is always delete; retention
+has no shipped-feature use.
+NOT a bare code constant and not a config field. A constant ships with the
+source, and "off before any push" never fires for a folder handed to someone
+on a USB stick -- the recipient gets recorded. dev-flags.toml is dev tooling
+only: gitignored, and never on the copy list.
+
+TWO-STEP SPIKE TEST: segmented clips as-is (per-sample consistency),
+then grouped into ~5-minute assemblies with realistic silence gaps
+(production-chunk accuracy). Don't merge the whole corpus into one file
+for either step.
+
+
+==============================================================================
+B29. CORPUS OPT-IN THE USER CAN SEE AND SWITCH OFF -- NEW FEATURE
+==============================================================================
+dev-flags.toml is dev tooling: a handed-out copy captures nothing, which is
+the right default and the wrong ceiling. A user who never gets the choice
+starts from zero on the day any corpus feature ships, and a corpus cannot be
+back-filled -- the same reason the corpus database sits at the front of the
+roadmap applies to them.
+
+TWO CONDITIONS, both load-bearing.
+  They know up front. Disclosed at the moment it would start recording, in
+  plain words, naming what is stored: their voice, their transcripts, and the
+  title of whatever window they were dictating into.
+  They can turn it off without drama. One switch, no confirmation maze, no
+  warning about what they lose. Off means off from that point; it does not
+  delete what exists, and it does not have to.
+
+NOT dev-flags.toml and not a second flag file. A Settings control, because
+this is a user's choice about their own data and dev-flags is explicitly dev
+tooling only -- mixing them means that file never empties.
+
+The filenames carry the same posture: userdata/dictation_history_PRIVATE.db
+and userdata/voice_recordings_PRIVATE. Someone who opens the folder learns
+what is there without reading code.
+
+B24 ambient mode needs the identical switch on a much larger volume. Build
+one control, not two.
+
+
+==============================================================================
+B30. FLAC RETENTION -- A SIZE BUDGET THE USER PICKS -- NEW FEATURE
+==============================================================================
+Anyone who turns audio capture on prunes by hand every week or two, or lets
+the folder grow until they notice it. Nothing in the app manages it.
+
+THE CONTROL
+A Settings dropdown: roughly 1 GB, 5 GB, 10 GB, unlimited. A number the user
+already understands, not a retention window they have to convert into one.
+
+THE MECHANISM IS AGE, NOT SIZE
+corpus-database-build-sheet.txt settled deletion by age -- the date
+directories make dropping a month one directory removal instead of a query.
+Oldest directories go until the folder is under budget. Rows are never
+touched: they are small, permanent, and every query runs off them alone.
+
+DELETION IS THE PART THAT GOES WRONG
+Carried from that sheet, unchanged: nobody has measured how much audio
+voice-ID actually needs, and you can delete later but not undelete.
+
+Same Settings area as the corpus opt-in item, which is the switch this prunes
+behind. Ambient mode needs the identical control on a far larger volume --
+build one, not two.
+
+------------------------------------------------------------------------------
+FUTURE / MAJOR EXPANSION
+------------------------------------------------------------------------------
+
+
+==============================================================================
+B26. VOICE PROMPT MODE -- NEW FEATURE
+==============================================================================
+A second trigger, or a modifier on the existing one, marks speech as a
+prompt to a local model rather than as text to type.
+
+Decide first which of four behaviours version one is: generate at the
+cursor, transform a selection, answer in the output window, or run a
+command. They are four different features, not one with options.
+
+Needs its own start tone, or the user cannot tell which mode fired until the
+wrong thing appears. Needs a busy state -- a model reply takes seconds where
+transcription takes about one.
+
+The model runs in a separate process, so this is configured at home and does
+not travel in the portable folder.
+
+The corpus mode column already exists for it -- see
+corpus-database-build-sheet.txt.
+
+
+==============================================================================
+B27. SELECTION TRANSFORM -- NEW FEATURE
+==============================================================================
+Speak at selected text and have it replaced. Mechanically cheap: copying does
+not deselect, so Ctrl+C then Ctrl+V lands the replacement on the live
+selection with no cursor bookkeeping, and the app already owns both halves.
+
+Three hazards to design against. The selection can die while the user is
+still talking, so the copy happens at press and not at release. The paste
+replaces whatever is selected AT PASTE TIME, which may not be what was
+copied. An empty selection silently transforms a stale clipboard, so clear it
+first and check something arrived.
+
+Windows UI Automation reads and replaces text without the clipboard, which
+avoids all three and keeps formatting -- but coverage across applications is
+inconsistent, so clipboard stays as the fallback.
+
+This edits documents rather than appending to them. A bug here destroys work
+rather than leaving a stray word.
+
+
+==============================================================================
+B28. SEARCH THE CORPUS BY MEANING -- FUTURE / MAJOR EXPANSION
+==============================================================================
+Ask a question in English and get back what you actually said about it,
+months ago, from a corpus that never left the machine. Embeddings in SQLite
+via the sqlite-vec extension, retrieval by pure vector math, a local LLM
+(Ollama) reading the retrieved rows and answering.
+
+Design lives in vector-analysis-investigation.txt. Read its provenance
+header first -- it is outside work and nothing in it was measured here.
+
+WHY IT IS NOT QUEUED. It adds an embedding model and a generative model to
+a dictation tool, which changes what the product is. It also assumes a
+corpus of ambient transcripts, and ambient mode is B24, unbuilt.
+
+WHAT MAKES IT POSSIBLE LATER IS ALREADY BEING BUILT. Text tied to a
+timestamp tied to an audio file is the whole substrate, and that is
+corpus-database-build-sheet.txt. Embeddings are derived from the text and
+can be computed over the entire history at any time, so the embedding model
+is not chosen now and choosing it early is the worse decision -- vectors
+from two models do not share a space, so any model change discards every
+vector ever stored.
+
+THE HARD PART IS NOT THE DATABASE. Captures are utterances, not documents
+(median 7.3s, see spike-notes.txt, CAPTURE LENGTH), and one embedded
+seven-second fragment carries almost no meaning on its own. Deciding what a retrievable unit is -- grouping
+consecutive captures, embedding windows rather than single rows -- is the
+feature. The storage and search half is arithmetic at this scale.
+
+FIRST CONCRETE STEP, whenever it is pulled: prove sqlite-vec loads, then
+backfill vectors over whatever rows have accumulated. Both run without
+touching the daemon, and the backfill improves the longer it waits.

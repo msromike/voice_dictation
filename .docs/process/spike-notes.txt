@@ -266,6 +266,51 @@ stateChanged signal cannot be connected from Python in PySide6 6.11.1
 ("QAudio::State cannot be converted"); poll state() and error() instead.
 
 
+PUNCTUATION RESTORATION (B13)
+
+rpunct is a dead end: it hard-pins pandas==1.2.4 and torch==1.8.1, 2021
+exact versions with no Python 3.12 wheels, and the source build fails
+against current Cython. Unmaintained, do not retry it.
+oliverguhr/fullstop-punctuation-multilang-large via the
+deepmultilingualpunctuation package, CPU-only: model load ~3s once at
+startup, restoration call ~88ms average. Threshold tested at 25
+words/sentence, an untuned placeholder. 52 real transcript_log.txt lines
+flagged only 1; HOLD mode's release-and-re-press between thoughts may
+already prevent the run-ons this targets. Toggle mode has no such
+discipline.
+
+
+PHONETIC CODES COLLIDE ON ORDINARY WORDS (B21)
+
+jellyfish (maintained, MIT, prebuilt wheels, Rust-backed) gives metaphone,
+soundex, nysiis and match_rating_codex as pure algorithms. "Trey" and
+"Tray" share a metaphone code, so the mechanism works for the motivating
+case. Bare code equality is not safe: "cloud" and "clod" both collide with
+"Claude", "true" with "Tray", "pity" with "PTT". A bare match silently
+rewrites an everyday word to a name.
+
+
+WHISPER MODEL LADDER (B22, Mike's GPU testing, i7 9th gen + 3070 Ti)
+
+VRAM watched live. GPU curated three: small.en / medium.en / large-v3,
+one per card tier (4GB+/6GB+/8GB+), biggest-that-fits. large-v3-turbo is
+a nuanced alternate, not a fourth tier. CPU by compute concept, not
+measured: tiny.en / small.en / medium.en, same family, no distillation.
+large-v3-turbo on CPU: its speedup prunes only the decoder (32 layers to
+4); the encoder, which is what CPU struggles with, stays large-size, so it
+costs about what large-v3 costs. Reopens if the workload becomes
+decoder-bound, which ambient mode's long chunks would do. distil-small.en
+rejected: a distillation tradeoff to explain for marginal gain. Reopens if
+a CPU user reports small.en too slow. Per-tier speed on real hardware is
+unverified; inference tuning measures it.
+
+
+CAPTURE LENGTH (B28)
+
+Over the corpus as of the B28 entry: median capture 7.3 seconds, 85
+percent under fifteen. Utterances, not documents.
+
+
 TOOLKIT GAPS
 
 Hand-rolled because a library did not do it. One line each: what was

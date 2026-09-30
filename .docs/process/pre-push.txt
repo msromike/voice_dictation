@@ -4,9 +4,123 @@ Run in order before the first push, and again before any release tag after it.
 
 
 ==============================================================================
-P1. DOCS DRAINED
+P1. README, MEDIA AND DISCOVERABILITY
 ==============================================================================
-backlog.txt and defects.txt both empty.
+Consolidates the old B5 (demo capture), B7 (GitHub discoverability), and B16
+(README accuracy) into one item. Exact final shape (a real pre-push design
+doc) is separate, later work -- this just keeps it in one place instead of
+three. Sub-items drain individually.
+
+SCREENSHOTS -- DONE
+  images/tray.png and images/settings.png, wired into README.md as clickable
+  HTML thumbnails in the "Using it" section.
+
+DEMO CLIP -- OUTSTANDING
+  images/demo.gif is still the orange placeholder, referenced right after
+  the "Why you might want it" bullets -- currently visible to anyone
+  reading the file.
+
+  What to capture: roughly 5 seconds -- hold the button, speak a sentence,
+  text lands at the cursor. Something recognizable (VS Code, a browser
+  search box).
+
+  FORMAT: MP4, NOT GIF. GitHub strips <video> tags from rendered markdown,
+  so an MP4 committed to the repo never plays inline. The only upload path
+  that works: push the repo, drag the MP4 into a GitHub issue comment box
+  (do not submit the issue), GitHub hands back a
+  github.com/user-attachments/assets/... URL, paste that into README.md.
+  Requires the repo to already be pushed. The demo.gif reference gets
+  REPLACED by that URL, not filled in -- the placeholder file can be
+  deleted at that point.
+
+  Keep it short, large media is slow on mobile. Image files live in
+  images/ at the repo root, which is tracked -- not .docs.
+
+"WHAT THIS RECORDS" SECTION -- OUTSTANDING, WRITE THIS ONE
+  A named section in README.md, not a general instruction to make the README
+  accurate. Three things, in this order: every file the app writes that
+  contains the user's own words, where it puts them, and how to switch each
+  one off. Name them literally --
+  userdata/voice_recordings_PRIVATE, userdata/dictation_history_PRIVATE.db,
+  userdata/logs/transcript_log.txt -- so someone can grep the source and
+  confirm the list is complete.
+  It is the only place the privacy work becomes visible. dev-flags.toml
+  keeping a handed-out copy silent, userdata never riding along in a copy,
+  the PRIVATE filenames -- all of it is invisible to anyone who does not read
+  the code. The posture is that we know what we store, we are not hiding it,
+  and we made it easy to find. Nothing states that today.
+  Say it plainly and do not inflate it. The section is a fact list, not a
+  privacy pledge.
+
+SEO FINDING
+  The README describes the app accurately but never uses the words people
+  actually search for. Re-count before acting on this: offline 0, speech to
+  text / speech-to-text 0, speech recognition 0, voice typing 0, open source 0,
+  privacy/private 0. dictation 5, Whisper 6, transcri* 6. It already says
+  "Nothing leaves your machine" and "runs on your own PC," which mean
+  offline and privacy without ever saying either word -- naming the thing
+  accurately, not inflating it, every missing term is literally true.
+
+PUSH-DAY ACTIONS (blocked: no remote, repo does not exist yet)
+  - Repo topics: single biggest lever, github.com/topics/<x> browsing plus
+    weighted in GitHub's own search. Limit 20, currently zero. Proposed 19:
+    speech-to-text, dictation, whisper, faster-whisper, push-to-talk,
+    speech-recognition, voice-typing, offline, privacy, windows, python,
+    stt, system-tray, accessibility, ai, llm, transcription, no-cloud,
+    game-chat. Set via repo settings or gh repo edit --add-topic <t>. One
+    slot left -- candidate: pystray (the tray is a working example of a
+    Windows system-tray app in Python, worth a factual line in the README).
+  - Repo description: the About blurb, heavily weighted in GitHub search
+    and shown in search results. Currently unset.
+  - A tagged release: indexed separately from the repo, gives people a
+    download target instead of a clone.
+  - PROJECT_URL is a 404 (github.com/msromike/voice_dictation) --
+    Help > Documentation, F1, and the About box all open a
+    dead link today. Resolves itself on push if the repo name matches
+    exactly -- verify after pushing.
+
+README CHANGES (do-able now, deliberately deferred)
+  - First ~155 characters: Google's meta description. Keep the "Hold a
+    button, talk..." hook, follow it with one flat sentence naming the
+    category -- offline speech-to-text / voice dictation for Windows,
+    Whisper, no account.
+  - Weave the six missing SEO terms into existing prose, not a keyword
+    block -- e.g. "Nothing leaves your machine" becomes "Nothing leaves
+    your machine -- it works fully offline." Same sentence, same tone.
+  - Alt text on the three images is already descriptive and keyword-
+    bearing -- just don't lose it in a future rewrite.
+  - "Similar projects" section (Talon, WhisperWriter, Windows Voice
+    Access) -- undecided, has tone risk. The one item here that adds a
+    claim rather than renaming an existing one.
+
+EXPLICITLY REJECTED
+  Badges, keyword footers, emoji headings, awesome-list submissions before
+  the repo has any history -- read as AI slop, cost more than the traffic
+  is worth. Badges are SEO-worthless besides.
+  Awesome-list submissions reopen once the repo has real history. The other
+  three do not reopen on any condition anyone has named.
+
+ACCURACY CATCHALL (from the old B16, still draining individually)
+  - Multilingual dictation: Whisper/large-v3 is multilingual and the code
+    already auto-detects language, but nobody has tested it end to end.
+    Don't claim it until verified.
+  - Exclusive-mode conflict: Known Limitations should note that another
+    app holding the mic in WASAPI exclusive mode blocks dictation until
+    released or a different device is picked. Gated on the input-device
+    rebuild shipping -- documents real behavior, not written in ahead of it.
+  - Windows-default-device recommendation: once input-device-plan.txt's
+    NO SYSTEM DEFAULT design ships, the README's advice to set your mic
+    as Windows default becomes actively wrong, not just stale. Same gate.
+
+
+------------------------------------------------------------------------------
+NEW FEATURES
+------------------------------------------------------------------------------
+
+Every entry here builds its plan first -- encapsulate only what that entry
+calls for, as a reusable API, and cross-check the other new-feature plans
+before sizing the extraction. Not extra process: it avoids rebuilding one
+shared piece narrower-then-wider, one feature at a time.
 
 ==============================================================================
 P2. AUTOMATED CHECKS

@@ -35,13 +35,11 @@ lands wherever it belongs, often in several sections at once, and is deleted
 here in the same edit.
 
 The parity inventory that used to sit here is DONE and lives in
-qt-parity-inventory.txt. It ran first because the Qt-surface item below reads
-against it by name, and DELIVERABLES defines pass-1 parity against it. The
-remaining items are independent and run in any order.
+qt-parity-inventory.txt. DELIVERABLES defines pass-1 parity against it. One
+item remains.
 
-A finding that is useful later rather than now goes to backlog.txt under the
-port's name, one entry each. It is not a DELIVERABLE and it does not stay
-here -- a plan that accumulates someday-items stops being readable.
+A finding that is useful later rather than now goes to new_next.md as one
+line. It is not a DELIVERABLE and it does not stay here.
 
   - What would a Qt developer's plan for this app contain that this one does
     not? One sitting, bounded: walk the example categories in the
@@ -130,10 +128,272 @@ work, or portaudio_io.py gets wired and a deletion becomes a rework.
     stateChanged is unconnectable from PySide6 6.11.1; poll state() and
     error(). MEASURED in spike-notes.txt.
   - Settings has a mic test with a live level meter. Reference
-    implementation is Qt's own examples/multimedia/audiosource.
+    implementation is Qt's own examples/multimedia/audiosource. Why and
+    how: B19 under POLISH.
 
 APPEARANCE. Pass 1 ships the mechanism without the polish.
   - Dark and light follow the system.
+
+POLISH -- AFTER PASS 1, BUILT ONCE IN THE QT TRAY. Drained whole from
+backlog.txt; Tk mechanics deleted, everything decided kept.
+
+==============================================================================
+B1. SETTINGS TIERING / DECOUPLE SETTINGS FROM MODEL RELOAD
+==============================================================================
+Changing any setting pays a full GPU model reload -- including moving the
+Settings window, which writes ui.settings_pos on the same save path. Break
+that coupling so only the settings that genuinely need a reload pay for it.
+
+The full 730-line design was cut from this file; git log on backlog.txt
+recovers it when that sheet is written.
+QT: the config holder with one changed signal is SETTLED. This item is the
+tier inventory: which fields make the STT engine, audio or hotkey rebuild.
+
+
+==============================================================================
+B3. TONE VOLUME CONTROL -- REFINEMENT
+==============================================================================
+THE PROBLEM
+Tone volume is two module constants, TONE_VOLUME_HIGH and TONE_VOLUME_LOW in
+vdict_daemon.py. Ear-tuned on one machine, imposed on every user.
+
+WHY NOT JUST USE THE WINDOWS VOLUME MIXER
+The daemon is pythonw.exe, the tray is ALSO pythonw.exe, and the venv
+redirector stub means each appears TWICE. The mixer shows up to four
+identical "pythonw" entries with no way to tell them apart.
+REOPENED BY THE PORT: one process and the embeddable interpreter (no venv
+stub) is ONE mixer entry. Whether the mixer then suffices is a question for
+the sheet, not settled here.
+
+THE WORK
+  - The Config model gains two volumes, 0-100, defaults matching the two
+    constants so existing behaviour is unchanged.
+  - Settings gains two sliders, start tone and stop tone. Zero is off, which
+    is how someone silences one and keeps the other.
+  - The value multiplies into the generated tone, read at the point of use
+    through the shared live Config holder. A standalone per-call
+    config.json re-read is NOT a substitute: save_settings() writes
+    non-atomically (truncate then write), so a read landing mid-write raises.
+  - The two defaults are not equal because the high tone reads louder than the
+    low at equal amplitude. Do not normalise them. Pitch itself belongs to
+    qt-port-plan.txt's AUDIO deliverable, not to this item.
+  - The 1ms cosine tail is not this item's to decide or to drop -- see
+    spike-notes.txt TONE CLICK.
+  - too_short and timeout both play the low double at the low volume, same as
+    stop. They follow the stop slider. No third control.
+
+  QUESTION: ready plays the low double at the low volume too, but it fires
+  once at launch rather than inside a dictation cycle. Does it follow the
+  stop slider, or is silencing the startup chime its own control?
+
+
+==============================================================================
+B8. WINDOW CONTROLS -- MINIMIZE, X AND EXIT SHOULD DIFFER -- REFINEMENT
+==============================================================================
+The confirm dialog needs icon=WARNING.
+
+THE PROBLEM
+X kills the app, and with it dictation. Under one process and ambient mode,
+closing the window must never stop recording. The confirm dialog exists to guard a
+behavior users do not expect; conventional actions do not need one.
+
+ALREADY TRIED AND REJECTED
+X -> tray while minimize -> tray. That was the pre-release behavior: two
+controls, one outcome. Returning to it needs a reason the two controls should
+do the same thing.
+
+THE ARRANGEMENT
+  Minimize -> taskbar, native behavior. Not configurable.
+  X        -> hide to tray. Default.
+           -> confirm dialog (icon=WARNING), then exit, when
+              ui.close_button_exits is on.
+  Exit     -> tray menu and File > Exit, both already exist, no dialog --
+              deliberate, conventional actions, nothing to guard.
+
+  - The Config model gains ui.close_button_exits, default False.
+  - Settings gains "Close button exits the app". The label names X, not the
+    minimize button.
+Re-verify the hotkey raises a taskbar-minimized output window.
+
+SIDE EFFECT, WANTED
+An open output window means a taskbar button exists, which answers "I lost the
+tray icon". The app only disappears when the user asks it to.
+QT: closeEvent on the output window does the arrangement above. The
+confirm dialog, icon warning, fires only on the X path when
+ui.close_button_exits is on; tray Exit and File > Exit never confirm.
+
+
+==============================================================================
+B11. SETTINGS AND THE OUTPUT WINDOW SHOULD OPEN AND CLOSE TOGETHER -- REFINEMENT
+==============================================================================
+settings.open_settings doesn't show the output window -- Settings can be
+open with
+no visible feedback while dictating. hide_window doesn't close Settings if
+it's open either. Neither currently happens; README's "Opens Settings
+without opening the output window first" is accurate today, becomes wrong
+once this lands.
+
+Fix: settings.open_settings calls show_window first, ahead of the
+existing-window
+return. hide_window closes Settings if one is open.
+Closing Settings on its own does not touch the output window -- one
+direction only.
+
+
+==============================================================================
+B14. LOG TRANSCRIPTS TO A FILE -- REFINEMENT
+==============================================================================
+A View-menu toggle (working title: "Log Transcripts") exposing user
+control over transcript logging -- useful on its own (a plain record of
+what was dictated), and separately feeds the real corpus B13 and B21 are
+both waiting on before their own ROI can be judged. Not gated on either
+shipping; the toggle has value independent of what, if anything, ends up
+built on top of the data.
+
+The mechanism exists -- transcript.write() and its handler in
+vdict/tray/transcript.py, gated on that module's ENABLED constant rather
+than on a Settings checkbox. What is left is the View-menu toggle.
+
+THIS TOGGLE IS ALSO THE DISCLOSURE CONTROL, which the item was not written
+for. transcript_log.txt records every transcript on any machine that runs
+the app, with no flag and nothing telling the user it exists. It stays out
+of dev-flags.toml -- portable-folder-build-sheet.txt 1f settled that, and
+for a reason that still holds: this is an unfinished feature waiting on
+Settings, not dev tooling. But that question was "is it a dev flag," never
+"should a handed-out copy write it silently." So the toggle carries a second
+job, and B5's "what this records" section names the file whether or not the
+toggle exists yet.
+DECIDE ITS NAME AND PLACE WHEN THE TOGGLE IS BUILT, not before.
+userdata/logs holds the app's own diagnostics -- tray_error.log and the
+console log -- and this is the only file in there containing the user's own
+words. Three ways out: the PRIVATE label like the database and the
+recordings folder, a move up out of logs/, or leave it. Unlike those two,
+this filename is already self-describing, so the label adds posture and no
+information. Cost of a rename, derived by grep, not recalled: two code sites
+in vdict/tray/transcript.py and nine doc references.
+
+
+==============================================================================
+B17. SETTINGS MODEL DROPDOWN -- CURATED LIST, NOT AUTO-GENERATED -- REFINEMENT
+==============================================================================
+settings._build_model_row hardcodes five models ("tiny.en", "base.en",
+"small.en",
+"medium.en", "large-v3"). faster_whisper currently supports 19, read from
+faster_whisper.utils._MODELS -- count drifts, don't hardcode it in prose.
+
+Auto-generating via filter (endswith(".en") or startswith("large")) was
+rejected -- verified against the real dictionary, it also pulls in
+"distil-medium.en" and "distil-small.en" by accident.
+
+Fix: keep it a curated static list, human-picked. Same five as today is
+the safe default; adding large-v3-turbo is a build-sheet call, not
+decided here. Write the population logic so B22's escape hatch can reuse
+the same available_models() call, filtered differently.
+
+No gate -- independent of the mechanical open_settings split.
+
+
+==============================================================================
+B20. RELAUNCH RAISES THE RUNNING INSTANCE INSTEAD OF JUST SAYING SO -- REFINEMENT
+==============================================================================
+Single instance is SETTLED as Qt's local-socket pattern, which already
+detects a second launch -- currently just shows "already running" and exits, leaving the
+user to find the tray icon themselves. Standard single-instance behavior
+elsewhere is to bring the running instance forward instead.
+
+
+QT: the second launch connects to the first's local socket and sends one
+message; the first calls show_window(). Drop the "already running" box;
+raising the window IS the acknowledgment.
+
+
+==============================================================================
+B22. SETTINGS MODEL DROPDOWN -- DEVICE-AWARE + SHOW-ALL ESCAPE HATCH -- NEW FEATURE
+==============================================================================
+Two related ways B17's static curated list falls short, both requiring
+the dropdown to react rather than just list:
+
+DEVICE-AWARE FILTERING
+CPU and GPU users want different curated sets, not one list serving
+both. The dropdown's model options should follow whichever compute
+device is currently selected in the same dialog.
+
+THE AXIS IS IN QUESTION. Both lists sort by hardware budget. The user is
+choosing how good and how fast their English is; VRAM is a filter, not a
+choice. Turbo fell into the show-all hatch because it fits no budget tier,
+which is the taxonomy failing rather than the model. Reconsider the axis
+before rebuilding the dropdown -- a language picker may replace the model
+picker for most users.
+
+MODEL LISTS: the measured GPU ladder and the CPU reasoning are in
+spike-notes.txt, WHISPER MODEL LADDER. Inference tuning re-measures both.
+
+ENGLISH-ONLY VARIANTS: every size above uses its .en variant, not the
+multilingual one -- app isn't localized, Whisper's
+.en models are smaller, faster, AND slightly more accurate on English
+audio than their multilingual counterpart of the same size, no tradeoff
+either direction. large-v3 is the one forced exception: OpenAI only
+ever trained .en variants for tiny/base/small/medium -- large-tier
+models (including large-v3-turbo, in the show-all list) are
+multilingual-only, no .en version exists to switch to.
+
+CUDA detection already exists -- settings._has_cuda() (Compute
+Device section) already probes and disables the GPU option when no CUDA
+device is found. Reuse it, don't reinvent the probe.
+
+SHOW-ALL ESCAPE HATCH
+Neither curated set exposes turbo variants outside their bucket, older
+large versions, or the rest of the distil-* family. An "advanced" or
+"show all" option surfaces the full available_models() list for anyone
+who goes looking.
+
+Both likely share one population function, called with a different
+filter depending on device-vs-show-all. Not designed in detail. No gate,
+no P-item.
+
+
+==============================================================================
+B23. SETTINGS DIALOG LAYOUT -- GROUP BY FUNCTION, NOT ONE LONG STACK -- REFINEMENT
+==============================================================================
+settings.py lays out every control in one vertical stack -- microphone,
+PTT button, PTT mode, AI model, compute device, audio beeps, console-on-boot,
+console hotkey -- no grouping, no visual separation between unrelated settings.
+
+Rough vision: two columns with dividers, controls grouped by function (e.g.
+audio/input together, PTT together, model/compute together, window behavior
+together). Not designed in detail -- exact column split, grouping, and
+divider style are all open. Design goes in a build sheet when this item
+comes up.
+
+
+==============================================================================
+B19. SETTINGS -- MIC TEST BUTTON WITH LEVEL METER -- NEW FEATURE
+==============================================================================
+A "Test" button next to the microphone dropdown. Click it, speak, watch a
+live dB bar respond -- direct, empirical confirmation the selected device
+is actually receiving signal, instead of trusting any indirect signal
+(Windows default-device state, our own resolution logic, anything else).
+Same convention as Discord's "Let's Check", Windows' own Sound settings,
+Zoom, OBS -- click-to-test needs no explanation, everyone already knows
+the pattern.
+
+Mainly for the "semi-maven" -- someone who picked a device that opens fine
+but isn't actually wired up right (routing, wrong jack, disabled channel)
+and has no way to tell without dictating and seeing nothing happen.
+
+Mechanism: on click, open a short-lived stream on whatever's currently
+selected in the dropdown, read amplitude from the callback, render a bar.
+A plain button handler. One deliberate click
+opens one stream, rather than a stream potentially opening and closing
+repeatedly as someone browses the list.
+
+If the device is busy (WASAPI exclusive mode held by another app, or by
+this app's own active dictation), the probe stream fails to open --
+fail quietly, no bar shown, not a crash.
+
+
+B29 corpus opt-in and B30 FLAC retention are Settings controls built here
+and designed in ambient-plan.txt: one switch and one budget serve both modes.
 
 AND ON -- WHAT WAS LEFT ON THE TABLE
 No fixed list. Each pass re-asks the question.
