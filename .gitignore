@@ -15,8 +15,6 @@ __pycache__/
 .gemini/
 *.code-workspace
 pyrightconfig.json
-.github/copilot-instructions.md
-.github/instructions/
 .reference/
 
 # Project Specific
