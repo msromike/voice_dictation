@@ -43,10 +43,11 @@ push-to-talk must fire while unfocused and no widget event can do that.
 
 ## Order
 
-Three versions. v1.0 is done when the son runs it all day at home and at
-work without Mike in the room.
+Four versions. The only users are Mike and his son; the repo goes public
+when Mike decides it is done. v1.0 is done when the son dictates with it
+all day at home and at work without Mike in the room.
 
-### v1.0
+### v1.0 -- dictation on Qt
 
 1. Doc cut, by draining. A file is never summarized on the way out. Each
    paragraph gets a destination or an explicit delete, shown as a table
@@ -86,44 +87,45 @@ work without Mike in the room.
    re-press during a busy cycle, tones that say what happened. Deletes
    the preserve_clipboard switch.
 
-5. Ambient plan from ambient-plan.txt, then phase one built in the Qt
-   app: continuous capture in chunks, background transcription that does
-   not need real time, retention as a size budget, default unlimited. The
-   B29 corpus switch and B30 budget are its Settings controls.
-
-6. Portable folder. Model directory and interpreter inside the tree,
+5. Portable folder. Model directory and interpreter inside the tree,
    model loaded by path. The embeddable interpreter loads CUDA from its
-   own site-packages; measured, in spike-notes.txt.
+   own site-packages; measured, in spike-notes.txt. Capture is off in a
+   handed-out copy, so nothing is retained and nothing needs a switch.
 
-7. Day view. What got recorded today, as text, in a text editor. The
-   product before speakers exist.
+6. Polish a new user hits on day one, from qt-port-plan.txt POLISH:
+   B8 X hides to tray instead of killing the app; B19 mic test with a
+   level meter; B14 transcript toggle and the what-this-records
+   disclosure, since the transcript log is written on every machine.
 
-8. Polish a new user hits on day one, from qt-port-plan.txt POLISH:
-   B29 corpus switch he can see and turn off; B14's transcript toggle and
-   the what-this-records disclosure; B8 X hides to tray, never stops
-   recording; B19 mic test with a level meter; B30 retention control.
+### v2.0 -- ambient
 
-### v1.1
+7. Ambient plan from ambient-plan.txt, then phase one built in the Qt
+   app: continuous capture in chunks, background transcription that does
+   not need real time, retention as a size budget default unlimited (B30),
+   the corpus switch the user can see and turn off (B29), and a day view:
+   what got recorded today, as text, in a text editor.
 
-9. Attribution, per B24's three tiers in ambient-plan.txt: Speaker A/B
+### v2.1 -- who said it
+
+8. Attribution, per B24's three tiers in ambient-plan.txt: Speaker A/B
    labels, then persistent voice GUIDs with a GUID-to-name table the user
    fills in one row at a time.
 
-10. Lookup by person and day. What Bob said, on what date, with the text.
-    A query on the captures table's speaker, start_time and text columns
-    once tier three fills the speaker column.
+9. Lookup by person and day. What Bob said, on what date, with the text.
+   A query on the captures table's speaker, start_time and text columns
+   once tier three fills the speaker column.
 
-11. Pre-push from pre-push.txt, then decide whether to ship.
+10. Pre-push from pre-push.txt, then the public-repo decision.
 
-### v1.2
+### v2.2 -- aspirational
 
-12. Search by meaning, B28 in ambient-plan.txt.
+11. Search by meaning, B28 in ambient-plan.txt.
     vector-analysis-investigation.txt is its input and stays until the
     search plan drains it.
-13. Voice prompt mode B26 and selection transform B27, ambient-plan.txt.
-14. Punctuation rescue B13 and phonetic correction B21, backlog.txt. Both
+12. Voice prompt mode B26 and selection transform B27, ambient-plan.txt.
+13. Punctuation rescue B13 and phonetic correction B21, backlog.txt. Both
     wait on corpus measurements ambient produces for free.
-15. Remaining POLISH in qt-port-plan.txt: B1 settings tiering, B3 tone
+14. Remaining POLISH in qt-port-plan.txt: B1 settings tiering, B3 tone
     sliders, B11 settings and output together, B17 and B22 model dropdown
     curation, B20 relaunch raises the window, B23 settings layout.
 
