@@ -16,3 +16,8 @@ mutex
 # Pydantic's own metaclass reads this class attribute internally to configure
 # the model (e.g. validate_assignment=True) -- never read by our code directly.
 model_config
+
+# geometry.py's registry reaches these UiConfig fields by name. Delete both
+# lines when the Qt port deletes geometry.py and drops the fields.
+settings_pos
+console_geometry

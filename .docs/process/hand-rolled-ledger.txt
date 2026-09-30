@@ -449,7 +449,8 @@ SURVIVE THE PORT, NEED A DELIBERATE BOUNDARY:
     as signals or an enum, or the string cliff moves into a QTextEdit slot.
   2 ptt.button vocabulary in four files: keyboard.py:16-22, session.py:47-56,
     ptt_capture.py:99-101, config.py:34 (no Literal). One module owns names, display names,
-    validation; config imports it.
+    validation; config imports it. A bad value then fails validation and heals to the
+    default through load_settings, with a note and no fault modal.
   3 Config fields by string: geometry.py:50,116,119, app.py:225, settings.py:276. Typed
     accessor, or geometry owns its own sub-model.
   4 Hardware probing in three places: WASAPI at audio.py:17-32, settings.py:64-73,
