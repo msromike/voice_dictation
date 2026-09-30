@@ -72,8 +72,12 @@ push-to-talk must fire while unfocused and no widget event can do that.
    BLOCKED item in qt-port-plan.txt that names it. Hotkey, GPU release,
    embeddable CUDA and the audio path are measured and settled.
    - Mic hotplug, reboot half only. The signal fires and the id survives
-     replug, measured. One id comparison after the next restart decides
-     whether config carries the id beside the name.
+     replug, measured. After the restart, with the USB mic plugged in,
+     run from the repo root:
+       venv/Scripts/python -c "from PySide6.QtCore import QCoreApplication; from PySide6.QtMultimedia import QMediaDevices; import sys; QCoreApplication(sys.argv); [print(d.description(), bytes(d.id()).decode()) for d in QMediaDevices.audioInputs()]"
+     Before the reboot, Microphone (USB Audio Device) was
+     {0.0.1.00000000}.{c25e4532-854b-4b9e-8981-b82c60f349cc}. Same id:
+     config carries id beside name. Different: name only.
 
 3. Inference tuning, from its existing sheet. The app ships float32 on CPU
    and has never measured which compute type wins per device class. GPU arm
