@@ -26,5 +26,5 @@ Read the code before explaining it. A comment is a claim, not evidence.
 Measure before asking.
 
 ## Docs
-TXT. MD needs permission. No line numbers, no emojis.
+Markdown. No line numbers, no emojis.
 Show new prose in chat before writing it.
