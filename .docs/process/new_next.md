@@ -70,9 +70,7 @@ a mismatch is the first line of the report, before any work.
    Still to walk: core-arch-plan.txt and input-device-plan.txt (into the
    Qt plan), roadmap.txt (into this file). Every walked paragraph gets survival (does it still make sense
    with Tk, sounddevice and the second process gone) and cost (does Qt
-   make it cheaper or dearer). Close the corpus sheet: tick STEP 2, run
-   STEP 3 cleanup, delete tools/migrate_flac_corpus.py, write the missing
-   CHANGELOG entries, fix the version declared twice.
+   make it cheaper or dearer).
 
 2. Inference tuning, both arms, from its existing sheet. The app ships
    float32 on CPU and has never measured which compute type wins per

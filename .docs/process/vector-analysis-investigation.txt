@@ -55,14 +55,14 @@ CORRECTION and are the authority where they contradict the text.
    2. Vector Table (vec_transcripts): transcript_id (FK), embedding_vector.
 
  LOCAL CORRECTION -- THE SOURCE TABLE ALREADY EXISTS AND IS NOT CALLED THIS.
- It is captures, in userdata/dictation_history_PRIVATE.db, built by
- corpus-database-build-sheet.txt, and it is wider than the four columns above
+ It is captures, in userdata/dictation_history_PRIVATE.db, created by init_db
+ in vdict/common/corpus_db.py, and it is wider than the four columns above
  -- it carries outcome, mode, speaker, and the foreground window title and
  process name that give retrieval its strongest context signal. Building a
  transcripts table as written would split the corpus in half with no error to
  say so. Only the vector table is new work.
- That sheet's governing rule -- record observations, never derivations --
- names embeddings specifically as a thing kept out of captures, which is the
+ The table's governing rule, in commit 26b1d40 -- record observations, never
+ derivations -- names embeddings specifically as a thing kept out of captures, which is the
  same split this section describes, reached independently.
 
  LOCAL CORRECTION -- SCALE, MEASURED. At the capture rate in spike-notes.txt

@@ -38,7 +38,22 @@ All notable changes to this project are documented here. Format follows
   open underneath so you can pick a different model and Save & Restart
   without relaunching the app.
 
+- A capture history, for development builds only. With the development
+  recording flag on, every press of the button writes one row to
+  `userdata/dictation_history_PRIVATE.db`: when the audio started and ended,
+  when the text landed, the recording's file, the model and compute type that
+  ran, the transcript, how it ended (transcribed, too short, no speech, error,
+  or abandoned after two minutes in toggle mode), the window it was aimed at,
+  and a paragraph number shared by dictations into the same message until
+  Enter is pressed. Failed captures get a row too. Without the flag nothing is
+  written.
+
 ### Changed
+
+- Development audio recordings moved from `userdata/flac` to
+  `userdata/voice_recordings_PRIVATE`, filed in one folder per day. A toggle
+  recording abandoned after two minutes now keeps its audio instead of
+  discarding it.
 
 - The transcript log now starts a new file each midnight and keeps the last
   thirty days, instead of growing to 100 MB and keeping the last five files.

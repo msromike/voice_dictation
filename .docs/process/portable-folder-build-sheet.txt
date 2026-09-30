@@ -47,8 +47,6 @@ stays open rather than blocking.
       Do this before STEP 2, which repoints the same file again. Debugging
       two unproven edits at once is how a five-minute problem becomes an
       afternoon.
-      corpus-database-build-sheet.txt 0a is that double-click. Tick this box
-      when it passes there.
   [x] Does PATH alone LOAD the CUDA DLLs under the embeddable build. Yes:
       PATH prepend only, no add_dll_directory, CUDA_PATH removed and every
       cuda and nvidia PATH entry stripped, a real GPU model load and
@@ -87,7 +85,7 @@ STEP 1  MODEL INTO THE TREE
           holds nothing, and nothing is a symlink or a hardlink. stt.py's
           comment claiming HuggingFace does it both ways is not what this
           cache actually does.
-  [ ] 1d  stt.py load() and reload() both tell the user to pick a different
+  [ ] 1d  stt.py load() tells the user to pick a different
           model or switch to CPU. That is wrong advice when nothing is on
           disk to load. Split the message: name a missing model separately
           from a device that cannot run it.
@@ -109,10 +107,9 @@ STEP 1  MODEL INTO THE TREE
           capture_corpus. AN ABSENT FILE MEANS EVERY FLAG IS OFF -- the
           file's existence is the master switch and the capture branch never
           runs without it.
-          BUILT BY corpus-database-build-sheet.txt STEP 0, which runs first
-          and carries the facts needed to write it. Tick this box when that
-          step passes; building it twice is what this line prevents. The rest
-          of this item is the definition, and stays here.
+          BUILT: vdict_daemon.py reads capture_corpus from dev-flags.toml into
+          FLAC_CORPUS_CAPTURE_ENABLED at import. The rest of this item is the
+          definition, and stays here.
           It travels by neither route: gitignored, and not on copy_usb.bat's
           include list. Name it once, here -- the daemon, .gitignore and the
           copy list all have to agree, and three sites inventing three
@@ -220,11 +217,10 @@ ENTRY
           userdata behind. Required set only -- Step 4 adds README, LICENSE
           and startup_folder_install.bat, which nothing needs in order to run.
   [ ] 3b  Confirm the copy rebuilds userdata on its own -- config.json from
-          the model defaults, vocabulary.txt from templates. Read the seeded
-          config and confirm corpus capture came back FALSE, and that no
-          recordings directory appears after a dictation -- FLAC_CORPUS_DIR
-          in vdict_daemon.py names it, and the corpus sheet renames it
-          mid-flight. That is 1f proved rather than assumed.
+          the model defaults, vocabulary.txt from templates. Confirm the copy
+          has no dev-flags.toml and that no recordings directory appears
+          after a dictation -- FLAC_CORPUS_DIR in vdict_daemon.py names it.
+          That is 1f proved rather than assumed.
 
 EXIT
   [ ] Rename C:\bin\PortableTools\Python312 away, launch the COPY, dictate
@@ -340,4 +336,4 @@ ENTRY
       has been zero and it has been seven.
   [ ] State what git status should show.
 
-Mike deletes this sheet.
+Delete this sheet in the commit that ticks its last box.

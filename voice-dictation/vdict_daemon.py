@@ -9,6 +9,7 @@ if sys.platform != "win32":
     sys.exit("Voice Dictation is Windows-only. See 'Windows only' in the "
              "README for what a port would involve -- one would be welcome.")
 
+from vdict import __version__
 from vdict.daemon.audio import AudioCapture
 from vdict.daemon.stt import STTEngine
 from vdict.daemon.keyboard import KeyboardInjector, PTTListener
@@ -110,8 +111,6 @@ def _record_corpus_row(row):
     except Exception as db_e:
         log("error", f"Failed to record capture to database: {db_e}")
         write_error_log("Database write failed", traceback.format_exc())
-
-__version__ = "1.0.0"
 
 
 # 0.4 seconds at 16kHz. Shorter recordings are treated as accidental clicks.

@@ -97,4 +97,4 @@ STEP n  CLEANUP
       has been zero and it has been seven.
   [ ] State what git status should show.
 
-Mike deletes this sheet.
+Delete this sheet in the commit that ticks its last box.

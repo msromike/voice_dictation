@@ -53,12 +53,9 @@ STEP 1  THE RIG
           duration, and freeze that list to a file. Every arm reads the same
           list or the numbers are not comparable. Re-derive the corpus size
           rather than trusting a figure written here.
-          THE DIRECTORY DEPENDS ON WHICH SHEET LANDED. The corpus sheet
-          renames userdata/flac to userdata/voice_recordings_PRIVATE and puts
-          clips under YYYY/MM/DD inside it. Read FLAC_CORPUS_DIR in
-          vdict_daemon.py rather than either name here, and glob RECURSIVELY
-          -- a flat listing silently finds nothing or finds only the
-          stragglers.
+          Read FLAC_CORPUS_DIR in vdict_daemon.py for the directory, and glob
+          RECURSIVELY -- clips sit under YYYY/MM/DD, so a flat listing finds
+          nothing.
   [ ] 1c  Reference run: large-v3, cuda, float32, over the frozen list. Its
           output is the pseudo-truth every other config is scored against.
           It is not truth; it is the best available and it is consistent.
@@ -239,4 +236,4 @@ ENTRY
       has been zero and it has been seven.
   [ ] State what git status should show.
 
-Mike deletes this sheet.
+Delete this sheet in the commit that ticks its last box.
