@@ -49,16 +49,11 @@ stays open rather than blocking.
       afternoon.
       corpus-database-build-sheet.txt 0a is that double-click. Tick this box
       when it passes there.
-  [ ] Does PATH alone LOAD the CUDA DLLs under the embeddable build. The
-      spike proved the libraries can be located, not that they load: the test
-      also called os.add_dll_directory(), which the shipped code does not,
-      and importing ctranslate2 does not touch CUDA until a model is built on
-      it. Needs a real GPU model load. Step 2's gesture is where it becomes
-      observable.
-      FALLBACK if it cannot carry them: a full copy of a normal Python
-      installation into the tree instead. Heavier, and Step 2 becomes the
-      same step with a different payload. A failed spike changes the
-      mechanism, never the plan.
+  [x] Does PATH alone LOAD the CUDA DLLs under the embeddable build. Yes:
+      PATH prepend only, no add_dll_directory, CUDA_PATH removed and every
+      cuda and nvidia PATH entry stripped, a real GPU model load and
+      transcribe on python-3.12 embeddable. spike-notes.txt, EMBEDDABLE
+      PYTHON LOADS CUDA FROM THE TREE.
 
 
 ==============================================================================

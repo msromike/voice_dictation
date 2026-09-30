@@ -192,6 +192,55 @@ Read while B1 was written. Re-check against STTEngine.transcribe's signature
 rather than trusting this line.
 
 
+QT NATIVE EVENT FILTER RECEIVES WM_HOTKEY
+
+RegisterHotKey(None, ...) on the main thread posts WM_HOTKEY to the thread
+queue, and a QAbstractNativeEventFilter installed on the application
+receives it: 6-8ms from synthetic key press to filter, four of four runs,
+under QCoreApplication and QApplication alike. Read the message with
+MSG.from_address(int(message)). hotkey.py needs no thread and no pump of
+its own under Qt.
+
+
+WHISPERMODEL SWAP RELEASES CUDA MEMORY
+
+Four cycles of load small/float16, transcribe, del, gc: each load +808 MiB,
+each delete back to +165 MiB over baseline, loaded peak drifting 3 MiB
+across the four. The 165 MiB is the CUDA context and cuBLAS workspace, paid
+once per process and never growing. Reload in place is safe.
+
+
+EMBEDDABLE PYTHON LOADS CUDA FROM THE TREE
+
+python-3.12 embeddable zip, site enabled in python312._pth, pip
+bootstrapped, faster-whisper plus nvidia-cublas-cu12 and nvidia-cudnn-cu12
+installed into its own site-packages. With CUDA_PATH removed and every cuda
+and nvidia entry stripped from PATH, ctranslate2 found the device and
+transcribed on the GPU. The mechanism is stt.py's existing prepend of
+site-packages/nvidia/*/bin to PATH; ctranslate2's own add_dll_directory
+covers ROCm only. Only the driver comes from the machine.
+
+
+MODEL LOCATION
+
+Loading by name puts the model in the profile cache, outside the tree.
+The portable folder ships the model directory and loads it by path.
+
+
+FILE-CENTRIC AUDIO: STREAM QAUDIOSOURCE INTO SOUNDFILE, NOT QMEDIARECORDER
+
+QMediaRecorder records real FLAC and shares the mic with a raw
+QAudioSource and with the live daemon at once, but it has no sample-format
+setter. The default FFmpeg backend writes 24-bit at every quality setting
+and its constant-bitrate mode writes a file nothing can open.
+QT_MEDIA_BACKEND=windows writes 8-bit at 44.1kHz and ~270 bytes for 1.5s:
+broken in this Qt build. QAudioSource Int16 frames written into a
+soundfile FLAC as they arrive: 16-bit, 27KB for 3s against ~92KB from the
+recorder. Hard-killed with the file still open, PyAV decoded 2.82 of 3.00s;
+only the encoder's last buffer is lost, and faster-whisper reads the path
+directly. One capture path serves PTT and ambient.
+
+
 TOOLKIT GAPS
 
 Hand-rolled because a library did not do it. One line each: what was

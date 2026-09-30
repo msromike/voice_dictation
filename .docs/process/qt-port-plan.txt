@@ -94,8 +94,8 @@ Not the implementation: reproducing a Tk accident is not parity.
   - Single instance is enforced through Qt. win32event.CreateMutex goes.
   - geometry.py and dpi.py are deleted. Window state persists through a
     QSettings INI file in userdata. See SETTLED.
-  - The hotkey message pump runs in Qt's event loop, if the spike says it can.
-    hotkey.py keeps RegisterHotKey either way.
+  - RegisterHotKey on the main thread; WM_HOTKEY arrives through a native
+    event filter on the application. hotkey.py loses its thread and pump.
   - Modals are Qt, except the two crash-path dialogs. See SETTLED.
   - Clipboard reads and writes are Qt. pyperclip goes, and so do the console's
     two Tk clipboard paths.
@@ -112,6 +112,9 @@ AFTER PASS 1 -- INDEPENDENT, IN ANY ORDER
 AUDIO. Separable because it owns no windows. Must land before input-device
 work, or portaudio_io.py gets wired and a deletion becomes a rework.
   - Capture and playback run through Qt. sounddevice goes.
+  - Capture is file-centric: QAudioSource Int16 frames stream into a
+    soundfile FLAC as they arrive, and Whisper reads the path. One capture
+    path for PTT and ambient. soundfile stays; it is the encoder.
   - Tones are numpy into a QAudioSink, generated with a 1ms cosine tail.
     Deleted, not ported: vdict/sounds' three wav files, _load_tone, the wave
     import, _resolve_output_device, the persistent OutputStream, _tone_queue,
@@ -335,15 +338,6 @@ ASSUMED
       rig carried are answered and sit in MEASURED.
   [ ] Is QAudioDevice.id() stable, and across what -- session, reboot, driver
       update. Called stable on no evidence.
-  [ ] Does Qt's dispatcher see WM_HOTKEY from RegisterHotKey(None, ...),
-      which posts to the thread queue rather than to a window. Read the
-      Windows event dispatcher, then confirm on hardware.
-  [ ] Does the shipped multimedia backend record FLAC on this machine, and
-      can a QMediaRecorder session and a raw QAudioSource open the same mic
-      at once. PySide6 ships both the FFmpeg plugin (default) and the
-      Windows Media Foundation plugin; check which one the answer holds
-      for. faster-whisper decodes a file path itself through PyAV, so no
-      reader is needed on the way back.
 
 
 ==============================================================================
@@ -419,27 +413,25 @@ SETTLED
     makes restoreGeometry return false and the window opens at its default,
     so no repair path is needed. Reopens if the portable copy list cannot
     carry the second file, which it can.
+  - hotkey.py keeps RegisterHotKey and loses its thread: Qt has no
+    global-shortcut API, and WM_HOTKEY posted to the main thread's queue
+    reaches a native event filter on the application. MEASURED in
+    spike-notes.txt. Beat: keeping the pump thread, which existed only
+    because Tk could not receive Win32 messages.
+  - Audio is file-centric through QAudioSource streaming into soundfile:
+    16-bit FLAC written as frames arrive, Whisper reads the path, a killed
+    process loses only the encoder's last buffer. Beat: QMediaRecorder,
+    which records FLAC and shares the mic but writes 24-bit on the FFmpeg
+    backend and 8-bit on the Windows one, with no sample-format setter.
+    MEASURED in spike-notes.txt. Reopens if a Qt release adds a sample
+    format to QMediaRecorder.
 
 BLOCKED ON EVIDENCE
-  - Does hotkey.py keep its own thread. Qt exposes no global-shortcut API
-    (checked against every PySide6 stub); RegisterHotKey stays. What Qt
-    exposes is QAbstractNativeEventFilter installed on the application.
-    Blocked on whether WM_HOTKEY, posted to the thread queue rather than a
-    window, reaches that filter. Yes: hotkey.py loses its thread and its
-    pump. No: it keeps both, and signals the app from there.
   - Does config persist a device id alongside the name. Blocked on whether
     QAudioDevice.id() is stable. Either way the name is what config.json and
     the dropdown show. If the id survives replug and reboot, config carries
     both, match id first and name second. If it does not, name only, exact
     match, no system default -- the rule input-device-plan.txt carries.
-  - Buffer-centric or file-centric audio. Today: capture to numpy,
-    transcribe from the buffer, soundfile writes the FLAC afterward.
-    Alternative: QMediaRecorder writes the file during capture, Whisper
-    reads the path. B24's chunk queue is the file-centric shape. Blocked on
-    whether the backend records FLAC and shares the mic. Pass 1 keeps the
-    buffer path either way -- parity changes no behavior. If the spike
-    passes, ambient goes file-centric, PTT follows, soundfile leaves the
-    tree. If it fails, buffer-centric stays and soundfile with it.
 
 
 ==============================================================================

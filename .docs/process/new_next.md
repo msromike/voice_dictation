@@ -68,23 +68,12 @@ push-to-talk must fire while unfocused and no widget event can do that.
    write the missing CHANGELOG entries, fix the version declared twice.
    Commit with the three changes already uncommitted.
 
-2. Spikes, about a day. Each answer goes to spike-notes.txt and closes
-   the BLOCKED item in qt-port-plan.txt that names it.
-   - WM_HOTKEY through Qt. Does a hotkey registered with no window reach
-     a native event filter on the application. Yes: hotkey.py loses its
-     thread. No: it keeps it.
+2. Spikes still open. Each answer goes to spike-notes.txt and closes the
+   BLOCKED item in qt-port-plan.txt that names it. Hotkey, GPU release,
+   embeddable CUDA and the audio path are measured and settled.
    - Mic hotplug. Does audioInputsChanged fire on unplug and replug, and
      does the device id survive replug and reboot. Decides whether config
      carries the id beside the name.
-   - Recorder. Does the shipped backend record FLAC here, and can a
-     recorder session and a raw capture stream share the mic. Decides
-     buffer-centric or file-centric audio for ambient, and whether
-     soundfile leaves the tree.
-   - Embeddable Python and CUDA. Does the interpreter inside the tree
-     load the GPU DLLs. From the portable sheet; decides whether the
-     handed-out copy gets the GPU.
-   - Whisper/GPU cleanup. Does swapping the model release CUDA memory, or
-     does it leak across reloads.
    - Device swap mid-recording. What happens when the mic changes while
      the button is held.
 
@@ -103,8 +92,9 @@ push-to-talk must fire while unfocused and no widget event can do that.
    as a size budget. Attribution and search are phases two and three of the
    same plan.
 
-6. Portable folder. Model and interpreter inside the tree. The CUDA DLL
-   spike in step 2 decides whether the portable copy gets the GPU.
+6. Portable folder. Model directory and interpreter inside the tree,
+   model loaded by path. The embeddable interpreter loads CUDA from its
+   own site-packages; measured, in spike-notes.txt.
 
 7. Handoff polish, the items from the old NEXT.txt that a new user hits
    first. All after Qt, built once in the Qt tray:
