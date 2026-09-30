@@ -69,6 +69,9 @@ stays open rather than blocking.
       stays offline after install. Reverses 1c (copy every model into the
       tree) and 1e (refuse downloads). Still UNVERIFIED: whether the son's
       work network allows GitHub, Hugging Face and pip.
+      PARKED, Mike's to rule: a public repo before the handoff means
+      pre-push.txt runs inside v1.0, not under new_next.md's "No version".
+      Going public publishes the whole git history, not just current files.
 
 
 ==============================================================================
