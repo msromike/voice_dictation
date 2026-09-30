@@ -13,7 +13,7 @@ cleanly. Everything after it was documentation. Nothing in code is
 half-built.
 
 The corpus flag is on and has been since Aug 3: 44,783 FLAC files, 6.2 GB.
-No retention exists. Keep recording; two later items read the captures
+No retention exists. Keep recording; later items read the captures
 table.
 
 ## The vision
@@ -43,8 +43,8 @@ push-to-talk must fire while unfocused and no widget event can do that.
 
 ## Order
 
-Four versions. The only users are Mike and his son; the repo goes public
-when Mike decides it is done. v1.0 is done when the son dictates with it
+Versions v1.0 through v2.3. The only users are Mike and his son; the repo
+goes public when Mike decides it is done. v1.0 is done when the son dictates with it
 all day at home and at work without Mike in the room.
 
 Model per item. Fable when the item writes a plan or a build sheet, or
@@ -108,37 +108,59 @@ a mismatch is the first line of the report, before any work.
    level meter; B14 transcript toggle and the what-this-records
    disclosure, since the transcript log is written on every machine.
 
+### v1.1 -- settings and window polish
+
+7. Remaining POLISH in qt-port-plan.txt: B1 settings tiering (moving the
+   Settings window reloads the model today), B11 settings and output
+   together, B20 relaunch raises the window, B17 and B22 model dropdown
+   (B22 needs inference tuning's numbers), B23 settings layout, B3 tone
+   sliders (may be deleted: one process is one mixer entry).
+
+### v1.2 -- dictation accuracy and the corpus
+
+8. Two corpus queries, run-ons and name misspellings, over the captures
+   table that exists today. Each decides whether its fix gets built.
+9. Punctuation rescue B13 and phonetic correction B21, backlog.txt, each
+   only if its query shows it is needed. B21 still needs a second signal
+   designed. The Ollama tuning workflow under B13 only if its defaults
+   fall short.
+10. Corpus opt-in B29 and retention budget B30, ambient-plan.txt. A corpus
+    cannot be back-filled, so the son's starts filling here; ambient
+    inherits the one switch and the one budget.
+
 ### v2.0 -- ambient
 
-7. Ambient plan from ambient-plan.txt, then phase one built in the Qt
-   app: continuous capture in chunks, background transcription that does
-   not need real time, retention as a size budget default unlimited (B30),
-   the corpus switch the user can see and turn off (B29), and a day view:
-   what got recorded today, as text, in a text editor.
+11. Ambient plan from ambient-plan.txt, then phase one built in the Qt
+    app: continuous capture in chunks, background transcription that does
+    not need real time, and a day view: what got recorded today, as text,
+    in a text editor.
 
 ### v2.1 -- who said it
 
-8. Attribution, per B24's three tiers in ambient-plan.txt: Speaker A/B
-   labels, then persistent voice GUIDs with a GUID-to-name table the user
-   fills in one row at a time.
+12. Attribution, per B24's three tiers in ambient-plan.txt: Speaker A/B
+    labels, then persistent voice GUIDs with a GUID-to-name table the user
+    fills in one row at a time.
 
-9. Lookup by person and day. What Bob said, on what date, with the text.
-   A query on the captures table's speaker, start_time and text columns
-   once tier three fills the speaker column.
+13. Lookup by person and day. What Bob said, on what date, with the text.
+    A query on the captures table's speaker, start_time and text columns
+    once tier three fills the speaker column.
 
-10. Pre-push from pre-push.txt, then the public-repo decision.
+### v2.2 -- talking to a model
 
-### v2.2 -- aspirational
+14. Voice prompt mode B26 and selection transform B27, ambient-plan.txt.
+    Both need a local model, which stays home and does not travel in the
+    portable folder.
 
-11. Search by meaning, B28 in ambient-plan.txt.
+### v2.3 -- search by meaning
+
+15. Search by meaning, B28 in ambient-plan.txt. Needs ambient's corpus.
     vector-analysis-investigation.txt is its input and stays until the
     search plan drains it.
-12. Voice prompt mode B26 and selection transform B27, ambient-plan.txt.
-13. Punctuation rescue B13 and phonetic correction B21, backlog.txt. Both
-    wait on corpus measurements ambient produces for free.
-14. Remaining POLISH in qt-port-plan.txt: B1 settings tiering, B3 tone
-    sliders, B11 settings and output together, B17 and B22 model dropdown
-    curation, B20 relaunch raises the window, B23 settings layout.
+
+### No version
+
+Pre-push from pre-push.txt, then the public-repo decision, whenever Mike
+decides it is done.
 
 ## Rules for this file
 
