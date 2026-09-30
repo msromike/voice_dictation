@@ -13,6 +13,7 @@ Crash-fast: no null checks between internal modules. Validate at boundaries
 only -- config.json, audio device, model input.
 Paths relative to __file__.
 Install deps. No workarounds.
+Commits use commit-per-protocol, never the global commit skill.
 A lint gate on finished code: report the number, never restructure to pass.
 Second special case in one function for the same reason -- ask whether
 Windows already owns the problem.
