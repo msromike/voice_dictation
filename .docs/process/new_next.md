@@ -47,6 +47,12 @@ Four versions. The only users are Mike and his son; the repo goes public
 when Mike decides it is done. v1.0 is done when the son dictates with it
 all day at home and at work without Mike in the room.
 
+Model per item. Fable when the item writes a plan or a build sheet, or
+Mike rules on a design. Opus when the item runs a sheet, drains a doc, or
+measures. Fable has its own usage limit, so opus is the default. At
+session start, say which the front item calls for and which is running;
+a mismatch is the first line of the report, before any work.
+
 ### v1.0 -- dictation on Qt
 
 1. Doc cut, by draining. A file is never summarized on the way out. Each
