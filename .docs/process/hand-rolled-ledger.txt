@@ -10,7 +10,13 @@ to those rows as VERIFIER lines). MEASURED means a script ran; SPIKE means
 one should before the claim is trusted; UNVERIFIED means neither.
 
 Consumed by the Qt build sheet as its deletion and replacement list, then
-deleted. Mike rules on KEEP rows; DELETE and REPLACE rows are evidence.
+deleted.
+
+Every SPIKE named in a row below has since been run. Results are in
+spike-notes.txt under AUDIO SPIKES, THREAD AND GUI SPIKES, SLEEP AND WAKE,
+CONFIGURED MIC ABSENT AT START, LIVE DISPLAY-SCALE CHANGE and TWO VISUAL
+CHECKS. The one exception is mixed-scale monitors, untestable on this
+machine; it is a first-launch check on the son's laptop.
 
 COUNTS
   60  DELETE -> Qt

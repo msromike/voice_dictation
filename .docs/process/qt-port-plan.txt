@@ -35,16 +35,12 @@ lands wherever it belongs, often in several sections at once, and is deleted
 here in the same edit.
 
 The parity inventory that used to sit here is DONE and lives in
-qt-parity-inventory.txt. DELIVERABLES defines pass-1 parity against it. One
-item remains.
+qt-parity-inventory.txt. DELIVERABLES defines pass-1 parity against it.
 
 A finding that is useful later rather than now goes to new_next.md as one
 line. It is not a DELIVERABLE and it does not stay here.
 
-  - The hand-rolled sweep, defined in new_next.md step 3: every symbol in
-    the tree, Qt or package or keep-with-reason, into hand-rolled-ledger.txt.
-    Subsumes the read of Qt's examples: asking "does Qt do this" per symbol
-    is that read, done against the code instead of the feature list.
+  (empty -- the hand-rolled sweep ran; hand-rolled-ledger.txt holds it)
 
 
 ==============================================================================

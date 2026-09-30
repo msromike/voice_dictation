@@ -77,19 +77,14 @@ all day at home and at work without Mike in the room.
 3. Qt rewrite. One process, PySide6, one QSS file. Exit gate: the app Mike
    uses today, working the same, on Qt, existing model and compute
    dropdowns included. Built alongside the Tk tray with a throwaway
-   launcher, switched at the entry point, Tk deleted at cleanup. Before
-   the build sheet: the hand-rolled sweep. Every function and class in
-   the tree, list derived by script, gets three questions in order: does
-   Qt do it (named, checked against the PySide6 stubs), does a maintained
-   package do it, or why does it exist (app logic, or a library gap that
-   goes in spike-notes TOOLKIT GAPS). Verdict per symbol: DELETE for Qt,
-   REPLACE with a package, or KEEP with the reason. Every DELETE carries
-   a cost line; a behavioral edge gets a spike before it is trusted. A
-   separate pass maps imports and flags modules with more than one job.
-   Output is hand-rolled-ledger.txt; the Qt build sheet consumes it as
-   its deletion list, then it dies. Mike rules on KEEP rows only. The old
-   parity inventory stays as the exit gate after a script check that its
-   rows match the menus and bindings in code.
+   launcher, switched at the entry point, Tk deleted at cleanup.
+   Done ahead of it: qt-port-plan.txt has no open spikes, blockers,
+   judgments or scratchpad items; hand-rolled-ledger.txt rules every
+   symbol (82 delete, 2 replace, 99 keep) and every SPIKE it raised is
+   measured in spike-notes.txt except mixed-scale monitors, a first-launch
+   check on the son's laptop; qt-parity-inventory.txt matches the code.
+   Next: write the Qt build sheet from the ledger's DELETE and REPLACE
+   rows plus the modularity section's nine boundaries.
 
 4. B6 clipboard delivery, from backlog.txt. Every dictation destroys the
    clipboard today, and the restore switch only ever handled text. Save
