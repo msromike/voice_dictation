@@ -1,41 +1,4 @@
 ==============================================================================
-LIVE-READ SETTINGS (no reconfigure entry point)
-==============================================================================
-  - main() reads config once at startup and nobody re-reads config.json
-    again, which is why every change needs Save & Restart today. This
-    section is what replaces that. Hoists gone -- CaptureSession reads
-    config at point of use.
-  - The orchestrator holds one live Config instance for the whole process
-    lifetime. The Save handler mutates its fields in place -- it never
-    replaces the object with a new instance. Every thread needing a live
-    value holds a reference to that same object, not a copy.
-  - Consumers read the field directly, at the point of use, every time --
-    play_tone() reads the live value right where it's called. No entry
-    point, no flag, nothing to call.
-  - Safe without a lock: attribute get/set on a shared object is atomic
-    under the GIL.
-  - Inventory (B1's CONFIG RE-READ tier): vocabulary.txt, audio.feedback,
-    ptt.mode, keyboard.preserve_clipboard.
-  - Persistence is still the Save handler's job, same checkpoint
-    mechanism as CONFIG PERSISTENCE -- mutating the field live doesn't
-    write it to disk by itself.
-  - vocabulary.txt specifically: parsed fresh on every PTT cycle, not
-    hoisted once like today's prompt = load_vocabulary() before the
-    loop. Every successful read also copies what was just read into
-    vocabulary.txt.bak -- costs the same as the read itself.
-  - Recovery priority if vocabulary.txt is missing at read time: restore
-    from vocabulary.txt.bak if it exists (preserves curated words), else
-    reseed from the template. Either way, log a note -- never silent.
-  - The reseed-if-missing logic consolidates into one shared helper in
-    vdict/common/config.py, replacing two separate implementations that
-    only existed because tray and daemon used to be different processes
-    (common/config.py's reseed_vocabulary_if_missing, which copies from the
-    template, and load_vocabulary()'s current raise-if-missing). Both the
-    tray's boot-time reseed and File > Vocabulary's reseed become thin
-    callers of the same function the live-read path uses.
-
-
-==============================================================================
 MODEL RELOAD / AUDIO DEVICE
 ==============================================================================
 COMMON TO BOTH

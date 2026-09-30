@@ -191,6 +191,11 @@ hoisted into a local before the daemon's loop starts.
 Read while B1 was written. Re-check against STTEngine.transcribe's signature
 rather than trusting this line.
 
+Reading it per dictation, measured 2026-09-30 on the real 581-byte file
+(one term): load_vocabulary median 0.13 ms, max 0.41 ms over 1000 reads,
+first call 0.25 ms; shutil.copyfile to a .bak median 0.5 ms, max 1.1 ms over
+200. A file with hundreds of terms was not measured.
+
 
 QT NATIVE EVENT FILTER RECEIVES WM_HOTKEY
 

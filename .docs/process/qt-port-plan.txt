@@ -144,11 +144,34 @@ Changing any setting pays a full GPU model reload -- including moving the
 Settings window, which writes ui.settings_pos on the same save path. Break
 that coupling so only the settings that genuinely need a reload pay for it.
 
-The full 730-line design was cut from this file; git log on backlog.txt
-recovers it when that sheet is written.
+The original design is backlog.txt B1 at f2854e8 (142 lines).
 QT: the config holder with one changed signal is SETTLED. This item is the
 tier inventory: which fields make the STT engine, audio or hotkey rebuild.
 ptt.button is one: it rebuilds the PTT listener.
+
+THE SETTINGS WINDOW, chosen 2026-09-30:
+  - Plain values apply the moment they change and are written to config.json
+    then: audio.feedback, ptt.mode, keyboard.preserve_clipboard (until B6
+    deletes it), the ui options. No Save for these.
+  - Anything that rebuilds part of the app waits for the button: mic, PTT
+    button, output-window hotkey, model, compute device. One rebuild path.
+  - The button reads "Close" with nothing pending, "Apply" with something
+    pending, "Apply & reload model" when model or compute is among it.
+  - X discards whatever is pending, no prompt. Instant values stay applied.
+    Nothing is ever saved but not running, so no "not active until restart".
+  - Beat: one "Save" button and a "Restart Required" Yes/No after the click
+    (f2854e8). Its shape came from config.json being the only link between
+    two processes; one process removes that.
+
+VOCABULARY, live:
+  - vocabulary.txt is read fresh on every dictation, so a new term works on
+    the next press. Why: "adding a term means restarting the engine, which
+    is cumbersome enough that it doesn't get used in the moment a term is
+    missed" (backlog.txt B21). Cost MEASURED in spike-notes.txt.
+  - Each good read copies the file to vocabulary.txt.bak. If vocabulary.txt
+    is missing, restore from .bak first, keeping curated words, else reseed
+    from the template; log a note either way. Why .bak over the template
+    alone: UNVERIFIED beyond "preserves curated words" (f2854e8).
 
 
 ==============================================================================
@@ -756,8 +779,6 @@ Derive once DESIGN is empty of open items, spikes and judgment alike.
 
 BREADCRUMBS
   - input-device-plan.txt rests throughout on constraints this port removes.
-  - core-arch-plan.txt: LIVE-READ SETTINGS changes. Its log() blocker is
-    JUDGMENT above.
   - the portable-folder work adds a constraint the port must not break:
     nothing the app needs lives outside the tree. Qt's own conventions point
     the other way, so this is not automatic. QSettings defaults to the
