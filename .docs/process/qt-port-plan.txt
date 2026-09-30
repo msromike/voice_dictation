@@ -159,6 +159,10 @@ THE SETTINGS WINDOW, chosen 2026-09-30:
     pending, "Apply & reload model" when model or compute is among it.
   - X discards whatever is pending, no prompt. Instant values stay applied.
     Nothing is ever saved but not running, so no "not active until restart".
+  - While Apply's rebuild runs, a PTT press starts no capture. One busy
+    gate, shared with B6's delivery gate (backlog.txt B6 PTT GATING): "only
+    one decision being protected, three things that can hold it closed"
+    (f2854e8) -- model reload, mic rebuild, a paste still landing.
   - Beat: one "Save" button and a "Restart Required" Yes/No after the click
     (f2854e8). Its shape came from config.json being the only link between
     two processes; one process removes that.
@@ -671,9 +675,10 @@ JUDGMENT  (both moved from core-arch-plan.txt, where they sat as blockers)
     separate calls, and error_log's screen flag splits its call sites two
     ways; re-derive by grepping error_log( for screen=. That flag is a
     per-call-site convention, so the capability belongs in the signal.
-  - A mic change saved in Settings while a capture is running. The config
-    holder's changed signal reaches audio mid-capture, and replacing the
-    source out from under it is a different failure from a bad transcribe().
+  - A mic or model change applied in Settings while a capture is running.
+    The config holder's changed signal reaches audio or the STT engine
+    mid-capture, and replacing either out from under it is a different
+    failure from a bad transcribe(), which is already wrapped (b882fde).
     Nearest measured case: spike-notes.txt UNPLUG MID-STREAM, where the
     source stops with IOError and the app ends that capture as an error.
 
