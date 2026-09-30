@@ -25,28 +25,25 @@ under venv/Lib/site-packages/PySide6/.
 
 
 ==============================================================================
-DISAGREEMENTS BETWEEN SWEEPS -- open, each closes by spike or by the sheet
+DISAGREEMENTS BETWEEN SWEEPS -- all four CLOSED by measurement, spike-notes.txt
 ==============================================================================
-1. SystemExit on the worker. daemon table says sys.exit(1) in
-   _exit_no_microphone and STTEngine.load kills the whole one-process app;
-   entry table says SystemExit on a QThread ends only that thread. Neither
-   measured. SPIKE: raise SystemExit inside QThread.run and see what dies.
-   Either way the fault channel becomes a signal, so the answer decides the
-   worker's exception handler, not the design.
-2. Blocking waits vs event-driven capture. daemon table deletes
-   wait_for_press/wait_for_release for Signals and has QAudioSource deliver
-   readyRead on the event loop; entry table keeps the two blocking waits as
-   fine on a QThread. A QThread blocked in a wait runs no event loop, so a
-   QAudioSource owned by it never delivers. Both cannot hold. The sheet
-   picks: the capture worker is event-driven (a state machine on signals),
-   or QAudioSource lives on the GUI thread and the worker only transcribes.
-3. QClipboard thread affinity. daemon table asserts GUI-thread-only; entry
-   table marks it UNVERIFIED. SPIKE: setText from a worker thread.
-4. restoreGeometry with an off-screen blob. tray_b and common mark it
-   UNVERIFIED with a SPIKE; tray_a routes geometry through it with no
-   caveat. SPIKE: feed a blob with off-screen coordinates, see where the
-   window lands.
+1. SystemExit on the worker: neither. It hangs the thread and crashes the
+   later shutdown. The fault channel is a signal to the GUI thread to quit.
+2. Blocking waits vs event-driven capture: event-driven. A blocked thread
+   receives no audio at all; the capture worker spins its own event loop
+   and never blocks. wait_for_press/wait_for_release are DELETE as ruled.
+3. QClipboard thread affinity: GUI thread only. Off-thread writes fail
+   silently, deadlock, or wipe the clipboard. inject() runs on the GUI
+   thread; transcription returns its text by signal.
+4. restoreGeometry off-screen: Qt pulls the window back onto the primary
+   screen. No clamp. The Pos and _clamp_to_desktop rows stand as DELETE.
 
+Also settled by the same batch: the SetProcessDpiAwareness line in
+vdict_tray.py is DELETE (pins the process below Qt's per-monitor mode);
+hotkey.py's SetForegroundWindow is DELETE (activateWindow() is granted
+after WM_HOTKEY); minimize-to-tray must defer hide() by one event-loop
+turn; a null QAudioDevice never errors and records from the default mic,
+so device validity is checked before start().
 
 ==============================================================================
 TRAY A -- app.py, console.py, settings.py, menu.py, faults.py
