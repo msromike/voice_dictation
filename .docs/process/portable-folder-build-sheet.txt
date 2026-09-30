@@ -72,6 +72,25 @@ stays open rather than blocking.
       PARKED, Mike's to rule: a public repo before the handoff means
       pre-push.txt runs inside v1.0, not under new_next.md's "No version".
       Going public publishes the whole git history, not just current files.
+      PARKED, second idea, Mike 2026-09-30, to talk through later:
+        - The desktop install is mandatory and needs internet once: the
+          bootstrap above. Work runs off a stick made FROM that install.
+        - A "Copy to USB..." action in the app, calling copy_usb.bat
+          underneath (4j: one copy routine). 4f's free-space check first.
+        - It asks: FRESH INSTALL, no userdata -- for handing to someone
+          else, what 4c builds today -- or CLONE THIS MACHINE, for the
+          son's own stick, so work matches home. Re-running the clone is
+          how the stick follows changes made at home.
+        - Clone carries config.json and vocabulary.txt, NOT transcripts,
+          history or recordings: a stick is lost more easily than a desktop,
+          and those diverge the moment he dictates at work. A separate box,
+          off by default, if he ever wants them. Claude's suggestion.
+        - Mic and compute device belong to the machine. The home mic is
+          absent at work, which the mic-fault path already handles by
+          opening Settings; a home GPU setting fails on a work PC without
+          one. Re-cloning at home overwrites what he picked at work, so
+          remember those two per computer. Suggestion, design UNVERIFIED.
+        - UNVERIFIED: whether his work PC allows running from a stick.
 
 
 ==============================================================================
