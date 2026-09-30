@@ -38,6 +38,7 @@ you're doing and why; ask only when both sides cost something.
 ## Docs
 Markdown. No line numbers, no emojis.
 Drain, never summarize: a retired doc's paragraphs each get a destination
-or an explicit delete, in a table shown first.
+or an explicit delete, in a table shown first. Every row has a Source
+column: the commit or file:line its reason came from, or UNVERIFIED.
 Agents read .docs/agent-rules.md before any task.
 Nobody else checks the docs for coherence. That is mine, unprompted.

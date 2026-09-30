@@ -94,9 +94,11 @@ Not the implementation: reproducing a Tk accident is not parity.
   - Config keeps its current pydantic shape, held by one QObject with a
     single changed signal. See SETTLED.
   - config.json writes are atomic and name their encoding. Today
-    save_settings and load_settings open it with a bare "w", so a crash
-    mid-write leaves a truncated file. Temp file then os.replace(), or
-    QSaveFile (QtCore.pyi:7428); encoding="utf-8" either way.
+    save_settings and load_settings open it with a bare "w". Atomic was
+    for B1's cross-process re-read (1991fbf), gone in one process; what
+    remains is a crash mid-save, likelihood UNVERIFIED. utf-8 is D15
+    (2fc2d4b): a mic name with non-ASCII characters. Temp file then
+    os.replace(), or QSaveFile (QtCore.pyi:7428).
   - Every non-Qt survivor carries the fact that keeps it.
   - First step of the build sheet: derive the dropped-dependency set from
     requirements.txt and from every import in the tree, reading INDENTED
