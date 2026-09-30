@@ -68,37 +68,26 @@ push-to-talk must fire while unfocused and no widget event can do that.
    write the missing CHANGELOG entries, fix the version declared twice.
    Commit with the three changes already uncommitted.
 
-2. Spikes still open. Each answer goes to spike-notes.txt and closes the
-   BLOCKED item in qt-port-plan.txt that names it. Hotkey, GPU release,
-   embeddable CUDA and the audio path are measured and settled.
-   - Mic hotplug, reboot half only. The signal fires and the id survives
-     replug, measured. After the restart, with the USB mic plugged in,
-     run from the repo root:
-       venv/Scripts/python -c "from PySide6.QtCore import QCoreApplication; from PySide6.QtMultimedia import QMediaDevices; import sys; QCoreApplication(sys.argv); [print(d.description(), bytes(d.id()).decode()) for d in QMediaDevices.audioInputs()]"
-     Before the reboot, Microphone (USB Audio Device) was
-     {0.0.1.00000000}.{c25e4532-854b-4b9e-8981-b82c60f349cc}. Same id:
-     config carries id beside name. Different: name only.
-
-3. Inference tuning, from its existing sheet. The app ships float32 on CPU
+2. Inference tuning, from its existing sheet. The app ships float32 on CPU
    and has never measured which compute type wins per device class. GPU arm
    decides all-day throughput on the son's card; CPU arm decides the work
    desktop if it has no card. Touches stt.py only, which the port carries
    over unchanged, so it runs before Qt without being done twice.
 
-4. Qt rewrite. One process, PySide6, one QSS file. Exit gate: the app Mike
+3. Qt rewrite. One process, PySide6, one QSS file. Exit gate: the app Mike
    uses today, working the same, on Qt. Built alongside the Tk tray with a
    throwaway launcher, switched at the entry point, Tk deleted at cleanup.
 
-5. Ambient plan, then phase one built in the Qt app: continuous capture in
+4. Ambient plan, then phase one built in the Qt app: continuous capture in
    chunks, background transcription that does not need real time, retention
    as a size budget. Attribution and search are phases two and three of the
    same plan.
 
-6. Portable folder. Model directory and interpreter inside the tree,
+5. Portable folder. Model directory and interpreter inside the tree,
    model loaded by path. The embeddable interpreter loads CUDA from its
    own site-packages; measured, in spike-notes.txt.
 
-7. Handoff polish, the items from the old NEXT.txt that a new user hits
+6. Handoff polish, the items from the old NEXT.txt that a new user hits
    first. All after Qt, built once in the Qt tray:
    - Live shared config. Settings read from one object instead of
      re-reading disk; stops every settings change paying a full model
@@ -117,16 +106,16 @@ push-to-talk must fire while unfocused and no widget event can do that.
    - Corpus opt-in switch the user can see and turn off.
    - FLAC retention as a size budget the user picks.
 
-8. Attribution, per B24's three tiers: transcription only, then Speaker
+7. Attribution, per B24's three tiers: transcription only, then Speaker
    A/B labels, then persistent voice GUIDs with a GUID-to-name table the
    user fills in one row at a time.
 
-9. Lookup by person and day. What Bob said, on what date, with the text.
+8. Lookup by person and day. What Bob said, on what date, with the text.
     A query on the captures table's speaker, start_time and text columns,
     nothing more, once tier three fills the speaker column. Output to a
     text editor.
 
-10. Search by meaning. Pipeline sketch from the old NEXT.txt: Whisper to
+9. Search by meaning. Pipeline sketch from the old NEXT.txt: Whisper to
     sentence-transformers to SQLite nearest rows, Ollama summary optional,
     paste into Notepad. vector-analysis-investigation.txt is the input to
     this plan and stays until it drains.

@@ -337,11 +337,6 @@ make a Qt symbol checkable instead of recalled.)
   - QDataWidgetMapper maps widgets to a QAbstractItemModel, not to a plain
     QObject
 
-ASSUMED
-  [ ] Is QAudioDevice.id() stable across reboot. Replug is MEASURED in
-      spike-notes.txt; one id comparison after the next restart closes this.
-
-
 ==============================================================================
 DESIGN
 ==============================================================================
@@ -427,15 +422,11 @@ SETTLED
     backend and 8-bit on the Windows one, with no sample-format setter.
     MEASURED in spike-notes.txt. Reopens if a Qt release adds a sample
     format to QMediaRecorder.
-
-BLOCKED ON EVIDENCE
-  - Does config persist a device id alongside the name. The signal fires
-    and the id survives replug, MEASURED. Blocked only on the reboot check.
-    Either way the name is what config.json and the dropdown show. If the
-    id survives reboot, config carries both, match id first and name
-    second. If not, name only, exact match, no system default -- the rule
-    input-device-plan.txt carries.
-
+  - Config carries the mic's endpoint id beside its name. Match id first,
+    name second, exact, no system default -- the rule input-device-plan.txt
+    carries. The id survived four replugs and a reboot, MEASURED in
+    spike-notes.txt. The name is what config.json and the dropdown show.
+    Beat: name only, which two identical devices defeat.
 
 ==============================================================================
 SEAMS
