@@ -7,6 +7,9 @@ pythonw.exe shows twice per process. Filter on "vdict".
 Don't start the app unless asked -- it's probably running. Say what to run.
 voice_dictation-stable is his dictation fallback. Leave it frozen.
 He dictates his prompts. Garbled words are transcription artifacts.
+Everything the app writes is under userdata/. A test that forces a config
+change backs up config.json first and restores it after he confirms the app
+is down.
 
 ## Code
 Crash-fast: no null checks between internal modules. Validate at boundaries
@@ -27,6 +30,8 @@ Say "nothing found" rather than going quiet.
 Never soften a finding by when it should be fixed.
 Read the code before explaining it. A comment is a claim, not evidence.
 Measure before asking.
+Ask in prose, never the multiple-choice question tool.
+Gates are oversight, never a schedule: do not pace work to fit them.
 A choice with nothing to gain on one side is not a choice. Say what
 you're doing and why; ask only when both sides cost something.
 
@@ -35,3 +40,4 @@ Markdown. No line numbers, no emojis.
 Drain, never summarize: a retired doc's paragraphs each get a destination
 or an explicit delete, in a table shown first.
 Agents read .docs/agent-rules.md before any task.
+Nobody else checks the docs for coherence. That is mine, unprompted.
