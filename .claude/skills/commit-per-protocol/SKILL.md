@@ -37,10 +37,11 @@ Cheap first. Stop on the first failure.
     ./venv/Scripts/vulture.exe voice-dictation tools/vulture_whitelist.py --min-confidence 60
     ./venv/Scripts/python.exe tools/check_docstrings.py
 
-- ruff, pyright and vulture must be CLEAN. All three have been at zero; a
-  finding here is new unless the owning plan records it.
-- vulture needs --min-confidence 60; above that it stops reporting unused
-  METHODS, which is the whole reason it is here. Its false positives live in
+- ruff and pyright must be CLEAN.
+- vulture is a REPORT, never a stop: EMIT every finding, then continue.
+  Unreferenced code is the normal state mid-refactor. It needs
+  --min-confidence 60; above that it stops reporting unused METHODS, which
+  is the whole reason it is here. Its false positives live in
   tools/vulture_whitelist.py -- read that file before "fixing" anything it
   lists.
 - check_docstrings must be 0. Any count above zero is a regression. Treat
@@ -50,12 +51,8 @@ Cheap first. Stop on the first failure.
 - RUF100 (stale noqa) is the one exception: never a judgment call, ruff has
   already proven the suppression is dead. Fix it inline -- drop the unused
   code from the noqa comment -- re-run step 2, and EMIT what was removed. Do
-  not stop to ask. Every other failure (ruff non-RUF100, pyright, vulture,
+  not stop to ask. Every other failure (ruff non-RUF100, pyright,
   check_docstrings) still stops.
-- Before reporting a finding as undecided, run the same tool on HEAD
-  (git stash, run, git stash pop) and diff. A finding present on HEAD is
-  expected and needs no escalation; the check at commit time is that
-  nothing NEW appeared, not that the count is zero.
 - FAIL -> stop. Name the violation and the fix. Wait.
   - Not a binary. Three resume paths: fix it now; defer the whole commit; or
     get explicit authorization to proceed with it unresolved. On
