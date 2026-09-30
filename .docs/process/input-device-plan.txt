@@ -2,8 +2,8 @@ VOICE DICTATION - PLAN: INPUT DEVICE HANDLING
 
 Reference for the input-device build sheet.
 
-SEQUENCING: build this after core-arch-plan.txt's own build lands, not
-before. Wires AudioCapture.rebuild() once, against the
+SEQUENCING: build this after the Qt port lands (core-arch-plan.txt was
+drained into qt-port-plan.txt), not before. Wires AudioCapture.rebuild() once, against the
 post-merge architecture, instead of once now and once again after.
 portaudio_io.py's vulture findings (reinit, resolve_by_name, open_probe,
 start_hold, stop_hold) stay overridden at commit time until this build

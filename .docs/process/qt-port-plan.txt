@@ -99,6 +99,16 @@ Not the implementation: reproducing a Tk accident is not parity.
     remains is a crash mid-save, likelihood UNVERIFIED. utf-8 is D15
     (2fc2d4b): a mic name with non-ASCII characters. Temp file then
     os.replace(), or QSaveFile (QtCore.pyi:7428).
+  - Three crash catch points, one destination: the startup try/except and
+    sys.excepthook (SETTLED below), plus threading.excepthook, not built
+    today. QThread raises reach sys.excepthook (spike-notes.txt THREAD AND
+    GUI SPIKES 3); plain threads -- pynput's listeners, the GPU primer
+    (ledger row 237) -- die silently without it. "cheap, catches silent
+    thread-death-by-exception" (1991fbf).
+  - Every log() call inside code being rewritten is carried over on
+    purpose, checked site by site. "Logging does not survive by default
+    just because the code around it does" (f2854e8). The daemon's sites
+    are listed in the ledger's vdict_daemon notes.
   - Every non-Qt survivor carries the fact that keeps it.
   - First step of the build sheet: derive the dropped-dependency set from
     requirements.txt and from every import in the tree, reading INDENTED
@@ -159,6 +169,9 @@ THE SETTINGS WINDOW, chosen 2026-09-30:
     pending, "Apply & reload model" when model or compute is among it.
   - X discards whatever is pending, no prompt. Instant values stay applied.
     Nothing is ever saved but not running, so no "not active until restart".
+  - After "Apply & reload model" the session header reprints, so the new
+    model or device shows in the log, as Save & Restart's does today
+    (CHANGELOG.md, Changed). One process has no pid for it (ledger row 185).
   - While Apply's rebuild runs, a PTT press starts no capture. One busy
     gate, shared with B6's delivery gate (backlog.txt B6 PTT GATING): "only
     one decision being protected, three things that can hold it closed"
@@ -668,7 +681,12 @@ lack; each closes by spike or by an explicit decision to build without it.
 BLOCKED waits on a named ASSUMED item and cannot close before it. The plan is
 done when all four are empty -- not when the scratchpad is.
 
-JUDGMENT  (both moved from core-arch-plan.txt, where they sat as blockers)
+JUDGMENT  (all three moved from core-arch-plan.txt, drained 2026-09-30)
+  - The mic-fault modal once a mic fault no longer quits the app: does
+    Close just dismiss, and does MIC_FAULT_FLAG_PATH, which carries the
+    fault into the next launch, go? The ledger disagrees with itself: row
+    128 says the flag "survives unchanged", its summary at :442 lists it
+    under "removed for free by one process". Raised in dc33806.
   - The log signal's payload. One event has to carry both a human sentence
     and a traceback, and each destination -- the output window, the error
     log -- decides whether to render it. Today log() and error_log() are

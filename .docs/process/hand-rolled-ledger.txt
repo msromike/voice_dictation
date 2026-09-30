@@ -247,7 +247,7 @@ NOTES
 - vdict_daemon.py:250-251 documents ~600 ms first-capture latency under sounddevice. SPIKE: time from start() to first readyRead, cold and warm.
 - vdict_daemon.py:356-362 opens a sd.OutputStream for tones. If tones move to QAudioSink (settled) sounddevice leaves the process entirely; if not, PortAudio and Qt's WASAPI both initialize COM/MMDevice in one process.
 - stt.py:39 and :67 import huggingface_hub, not in requirements.txt:1-13.
-- stt.py:32 busy_flag is read by nothing in the repo Deleted in a161191; the gate it was for is Qt plan B1 busy gate.
+- stt.py:32 busy_flag is read by nothing in the repo. Deleted in a161191; the gate it was for is Qt plan B1 busy gate.
 - Probe script at scratchpad/qmd_probe.py ran once; the MEASURED items above are its output. The app itself was not started.
 
 ==============================================================================

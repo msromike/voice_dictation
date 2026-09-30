@@ -36,8 +36,8 @@ What the rewrite deletes, per qt-port-plan.txt: sounddevice for
 QAudioSource and QAudioSink; the stdout wire protocol and the 100 ms drain
 for signals; pystray, geometry.py, dpi.py, the WAV tone machinery, the
 win32event mutex, pyperclip, and the two Tk clipboard paths for Qt calls.
-Two processes become one with worker threads, which is what core-arch
-wanted. What carries over unchanged: the corpus writer (plain SQLite), the
+Two processes become one with worker threads, which is what the retired
+core-arch plan wanted. What carries over unchanged: the corpus writer (plain SQLite), the
 STT engine (faster-whisper), and pynput in the capture thread, because
 push-to-talk must fire while unfocused and no widget event can do that.
 
@@ -62,8 +62,7 @@ a mismatch is the first line of the report, before any work.
    POLISH, its ambient items in ambient-plan.txt, B5 in pre-push.txt P1,
    its measurements in spike-notes.txt. Three unowned entries remain in
    backlog.txt.
-   Still to walk: core-arch-plan.txt and input-device-plan.txt (into the
-   Qt plan), roadmap.txt (into this file). Every walked paragraph gets survival (does it still make sense
+   Still to walk: input-device-plan.txt (into the Qt plan), roadmap.txt (into this file). Every walked paragraph gets survival (does it still make sense
    with Tk, sounddevice and the second process gone) and cost (does Qt
    make it cheaper or dearer).
 
@@ -78,8 +77,9 @@ a mismatch is the first line of the report, before any work.
    dropdowns included. Built alongside the Tk tray with a throwaway
    launcher, switched at the entry point, Tk deleted at cleanup.
    Done ahead of it: qt-port-plan.txt has no open spikes, blockers or
-   scratchpad items, and two JUDGMENT items the core-arch drain moved in
-   (the log signal's payload, a mic change mid-capture); hand-rolled-ledger.txt rules every
+   scratchpad items, and three JUDGMENT items the core-arch drain moved in
+   (the log signal's payload, a mic or model change mid-capture, the
+   mic-fault modal); hand-rolled-ledger.txt rules every
    symbol (82 delete, 2 replace, 99 keep) and every SPIKE it raised is
    measured in spike-notes.txt except mixed-scale monitors, a first-launch
    check on the son's laptop; qt-parity-inventory.txt matches the code.
