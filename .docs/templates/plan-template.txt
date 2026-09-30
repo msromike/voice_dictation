@@ -1,29 +1,16 @@
 VOICE DICTATION - PLAN: <TITLE>
 
-<Filename <topic>-plan.txt. The sheet that drains it is
-<topic>-build-sheet.txt, same topic, so one grep finds the pair.>
+<Filename <topic>-plan.md. The sheet that drains it is
+<topic>-build-sheet.md, same topic, so one grep finds the pair.>
 
 
 ==============================================================================
 HOUSE STYLE -- delete this block when the plan is finished
 ==============================================================================
-Audience is whoever writes the sheet. Record the fact and where to re-check
-it, never the argument for it. Saying it twice means you are arguing.
-
-Every bucket feeds a build-sheet slot. One that feeds nothing gets cut.
-GOAL is the exception: nothing reads it, it exists to be argued before
-anything gets built.
-
 No fact that needs maintaining -- derived lists only. Symbols this work
 moves, never which docs point here.
 No counts. Write how to re-derive it.
 No dates, IDs, tags or line numbers. Greppable symbols.
-
-One decision costs one doc edit or none. Flag ONE line in the plan it
-breaks, or breadcrumb it in TRUE-UP. Never both.
-
-OMIT WHEN EMPTY  GOVERNING RULE, DRAINS. SEAMS folds into DESIGN.
-NEVER OMIT       GOAL (a paragraph), EVIDENCE, SCRATCHPAD.
 
 
 ==============================================================================
@@ -89,8 +76,3 @@ MOVED SYMBOLS  <every name this work relocates, renames or deletes, derived
 BREADCRUMBS    <forward-dependent plans this probably disturbs, one line
                each. Delete at true-up, acted on or not.>
 
-
-==============================================================================
-DRAINS -- FACT
-==============================================================================
-<backlog.txt and defects.txt entries this closes, by title. Omit when none.>

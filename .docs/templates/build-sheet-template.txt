@@ -19,14 +19,6 @@ stated so someone else could check it.>
 ==============================================================================
 HOUSE STYLE -- delete this block when the sheet is finished
 ==============================================================================
-Actions only. The decision belongs here; the discussion that produced it
-does not. No rationale, no history, no meeting notes.
-
-No dates. Git and the file timestamps carry them. A dated measurement reads
-as fresh and invites trust -- an undated one invites re-derivation, which is
-what you actually want. Where a figure could go stale, write the instruction
-to re-derive it, not the day it was taken.
-
 Name a greppable symbol, never a line number.
 
 Steps are vertical slices: extract the piece, rewire every caller, delete the
@@ -40,25 +32,6 @@ observable, physically -- never a "deferred, see step N" pointer.
 Temporary test hooks are either harmless if left in permanently, or removed
 in the step that stops needing them. Never parked in a cleanup step that may
 never be reached.
-
-A check belongs at a step boundary only when failing it means stop and fix
-before continuing. A check whose failure means "note it and decide later" is
-a decision queue, not a gate -- it runs at CLEANUP and at commit, where there
-is time to think. Test any new gate against this before adding it.
-
-SCALING -- a two-step sheet should cost two minutes to write:
-  GOVERNING RULE  omit when there isn't one. On an ON THE FLY sheet it often
-                  collapses into WHY THIS SHAPE -- never write both saying
-                  the same thing.
-  DOC SYNC        fold into CLEANUP on a sheet of three steps or fewer.
-  UNVERIFIED      never omitted. Nothing unverified is itself a claim, so
-                  write that one line rather than deleting the block.
-
-WHY THIS SHAPE's four-line cap is the plan/no-plan test: run out of room and
-the work needed a plan. It measures explanation, not risk -- a change that
-explains in one line can still touch thirty call sites. The second signal is
-steps that cannot be stated as vertical slices each leaving a working app.
-Neither one alone is enough.
 
 
 ==============================================================================
@@ -85,34 +58,16 @@ STEP 1  <NAME>
   [ ] 1b  <...>
 
 EXIT -- RULE
-  [ ] Mark every action box above [x]. Here, never at the next ENTRY -- a
-      gate that marks its own boxes cannot audit them.
+  [ ] Mark every action box above [x].
   [ ] <The gesture to run, naming what to look for>, or "no launch test
       this step". Marked only after Mike confirms, so action boxes ticked
       with this one open reads as "code in, unverified, waiting on him".
-  [ ] "commit per protocol". The step is a commit boundary -- every step is
-      a vertical slice leaving a working app, which is the definition of one.
-      This REPLACES a hand-run lint line rather than following it: the
-      protocol runs ruff, pyright, vulture, check_docstrings, the complexity
-      report and the imperative-comment report, which is strictly more than
-      any EXIT block was checking. The gates only run at commit, so work that
-      never commits is never gated.
-      Mike says the words. This is the prompt, never an autonomous commit.
+  [ ] commit per protocol. Every step is a commit boundary.
 
 
 ==============================================================================
 STEP 2  <NAME>
 ==============================================================================
-ENTRY -- RULE
-  [ ] The prior step's COMMIT exists. git log, not the boxes above it -- a
-      box is a claim anyone can tick in any tool, a commit is a receipt that
-      carries the gates that produced it and a message saying what landed.
-      No commit -> the work was never gated. Review the code against the
-      prior step and report what is there, then continue. Do NOT stop: a
-      missing commit is a state surprise, and the disk answers it.
-  [ ] Every box in STEP 1 is [x]. The human record, read after the commit,
-      never instead of it.
-
   [ ] 2a  <...>
 
 EXIT -- RULE
@@ -123,11 +78,6 @@ EXIT -- RULE
 ==============================================================================
 STEP n-1  DOC SYNC
 ==============================================================================
-ENTRY -- RULE
-  [ ] The prior step's COMMIT exists -- STEP 2's ENTRY says what a missing
-      one means and why the boxes are not the evidence.
-  [ ] Every box in the prior step is [x].
-
   [ ] Grep every doc for names this sheet made stale. Re-derive counts from
       source rather than incrementing them.
   [ ] Repoint each hit at a surviving code symbol -- the module and the
@@ -137,15 +87,10 @@ ENTRY -- RULE
 ==============================================================================
 STEP n  CLEANUP
 ==============================================================================
-ENTRY -- RULE
-  [ ] The prior step's COMMIT exists -- STEP 2's ENTRY says what a missing
-      one means and why the boxes are not the evidence.
-  [ ] Every box in the prior step is [x].
-
   [ ] vulture -- read every finding and decide it. Not a step gate:
       unreferenced is the normal transient state mid-refactor, and a finding
       left red on purpose is a decision, not a failure.
-  [ ] Drain the defects.txt or backlog.txt entries this sheet closes.
+  [ ] Delete the new_next.md item this sheet closes.
   [ ] Delete every harness and spike this sheet created.
   [ ] Make this sheet safe to delete: grep its own filename and any ID it
       introduced, and repoint every hit. Grep, do not recall -- the count

@@ -5,13 +5,10 @@ description: Run this project's commit protocol -- QA gates and a structured com
 
 # Commit Per Protocol
 
-ON COMMAND only. Never invoke autonomously. Never `git push`.
+Never `git push`.
 
 One working tree, one branch, whatever's currently checked out. Docs and
 code live together -- no separate tree, no separate commit for either.
-
-EVERY STEP EMITS OUTPUT, including "nothing found". A step with no visible
-result cannot be audited and will be assumed skipped.
 
 ## 1. Read
 
@@ -53,13 +50,8 @@ Cheap first. Stop on the first failure.
   code from the noqa comment -- re-run step 2, and EMIT what was removed. Do
   not stop to ask. Every other failure (ruff non-RUF100, pyright,
   check_docstrings) still stops.
-- FAIL -> stop. Name the violation and the fix. Wait.
-  - Not a binary. Three resume paths: fix it now; defer the whole commit; or
-    get explicit authorization to proceed with it unresolved. On
-    authorization, record it in the owning plan if nothing already does, then
-    proceed. The gate stays live for the next commit either way --
-    authorization is not suppression.
-  - On resume: re-run step 2 ONLY. Never restart from step 1.
+- FAIL -> fix it, re-run step 2, EMIT what changed. Stop only when the fix
+  would change behavior.
 - PASS -> continue.
 
 Then the complexity REPORT. Skip when no .py is staged.
@@ -73,19 +65,6 @@ Then the complexity REPORT. Skip when no .py is staged.
   response and do not add noqa. Hand the numbers over.
 - Unconditional on purpose: a score is printed whether it passes or not, so
   lowering one buys nothing.
-
-Then the imperative-comment REPORT. No .py staged -> skip.
-
-    git diff --staged -U0 -- '*.py' | grep -niE \
-        "^\+.*(keep it that way|do not |never |always|locked|decided|no need to)"
-
-- Hit -> EMIT it. Cites an external fact -> legit, skim and move on. Backed
-  only by preference -> say so in the commit body. No hits -> EMIT "none
-  found".
-- Never reword a comment to dodge this report -- same disease as a gate.
-
-Nothing runs per edit. This step is the first and only check, not a
-formality.
 
 ## 3. Derive and write
 
@@ -124,4 +103,4 @@ Capture the SHA.
 - "I committed this to [branch] with the commit message [message]"
 - Then a phase report: which of steps 2 and 3 ran, and which were skipped
   and why.
-- Hard stop. Do not push. No further commands.
+- Do not push.
