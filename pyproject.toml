@@ -14,17 +14,8 @@ target-version = "py310"
 # F   pyflakes        -- undefined names, unused imports, mutable defaults
 # E   pycodestyle     -- errors only
 # B   bugbear         -- loop-variable binding, silent traps
-# C901 mccabe         -- cyclomatic complexity
-# PLR pylint refactor -- too many branches/statements/args/returns
 # RUF100              -- noqa directives that are no longer needed, so a
 #                        suppression expires instead of calcifying
-select = ["F", "E", "B", "C901", "PLR", "RUF100"]
-
-[tool.ruff.lint.mccabe]
-max-complexity = 10
-
-[tool.ruff.lint.pylint]
-max-branches = 12
-max-statements = 50
-max-args = 5
-max-returns = 6
+# Complexity (C901, PLR) is a REPORT printed by commit-per-protocol, never
+# a gate: CLAUDE.md says report the number, never restructure to pass.
+select = ["F", "E", "B", "RUF100"]

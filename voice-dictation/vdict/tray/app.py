@@ -80,7 +80,7 @@ class App:
         error_log("Tk callback", text)
 
         summary = f"{exc_type.__name__}: {exc_value}"
-        if len(summary) > 120:  # noqa: PLR2004 -- display truncation, not a contract
+        if len(summary) > 120:  # display truncation, not a contract
             summary = summary[:117] + "..."
 
         # Native, not messagebox.showerror -- a Tk-based modal risks failing

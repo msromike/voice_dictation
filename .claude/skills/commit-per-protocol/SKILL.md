@@ -111,9 +111,7 @@ One commit, on the current branch. Semantic header (`feat:`, `fix:`, `chore:`,
     [DELETED FILES]          path -- reason
     [SCHEMA SHIFTS]          tables, columns, migrations, indexes
     [STRUCTURE]              functions added, split, extracted or renamed,
-                             and why. MANDATORY whenever non-empty, against
-                             the rule above -- an extraction done to move a
-                             lint score reads exactly like tidying.
+                             and why
     [LOGIC & PATTERN SHIFTS] non-obvious decisions, architecture, gotchas
 
 No session process: no gate outcomes, no overrides, no "kept separate on

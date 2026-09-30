@@ -20,7 +20,7 @@ def _summary_line(label, value):
 def _human_size(size):
     """Format a byte count the way Explorer does -- binary steps, decimal labels"""
     for unit in ("B", "KB", "MB"):
-        if size < 1024:  # noqa: PLR2004 -- the base of the unit, not a threshold
+        if size < 1024:
             return f"{size:.0f} {unit}"
         size /= 1024
     return f"{size:.1f} GB"
