@@ -52,6 +52,15 @@ stays open rather than blocking.
       cuda and nvidia PATH entry stripped, a real GPU model load and
       transcribe on python-3.12 embeddable. spike-notes.txt, EMBEDDABLE
       PYTHON LOADS CUDA FROM THE TREE.
+  [ ] OPEN, decide before the handoff: how does an UPDATE reach a machine
+      that already has the folder -- a new app version AND new or changed
+      Whisper models? This sheet covers the first copy only. git pull
+      cannot carry it alone: models and the interpreter are gitignored, and
+      it needs git plus access to the private repo on each machine.
+      Re-running copy_usb.bat over the old folder carries everything, but
+      whether the son's userdata (config, vocabulary, transcripts, history)
+      survives a copy over an existing folder is UNVERIFIED. Raised by
+      Mike 2026-09-30.
 
 
 ==============================================================================
