@@ -77,8 +77,9 @@ a mismatch is the first line of the report, before any work.
    uses today, working the same, on Qt, existing model and compute
    dropdowns included. Built alongside the Tk tray with a throwaway
    launcher, switched at the entry point, Tk deleted at cleanup.
-   Done ahead of it: qt-port-plan.txt has no open spikes, blockers,
-   judgments or scratchpad items; hand-rolled-ledger.txt rules every
+   Done ahead of it: qt-port-plan.txt has no open spikes, blockers or
+   scratchpad items, and two JUDGMENT items the core-arch drain moved in
+   (the log signal's payload, a mic change mid-capture); hand-rolled-ledger.txt rules every
    symbol (82 delete, 2 replace, 99 keep) and every SPIKE it raised is
    measured in spike-notes.txt except mixed-scale monitors, a first-launch
    check on the son's laptop; qt-parity-inventory.txt matches the code.

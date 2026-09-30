@@ -142,6 +142,7 @@ The full 730-line design was cut from this file; git log on backlog.txt
 recovers it when that sheet is written.
 QT: the config holder with one changed signal is SETTLED. This item is the
 tier inventory: which fields make the STT engine, audio or hotkey rebuild.
+ptt.button is one: it rebuilds the PTT listener.
 
 
 ==============================================================================
@@ -600,6 +601,19 @@ because settling it may collapse items below. ASSUMED is a fact we need and
 lack; each closes by spike or by an explicit decision to build without it.
 BLOCKED waits on a named ASSUMED item and cannot close before it. The plan is
 done when all four are empty -- not when the scratchpad is.
+
+JUDGMENT  (both moved from core-arch-plan.txt, where they sat as blockers)
+  - The log signal's payload. One event has to carry both a human sentence
+    and a traceback, and each destination -- the output window, the error
+    log -- decides whether to render it. Today log() and error_log() are
+    separate calls, and error_log's screen flag splits its call sites two
+    ways; re-derive by grepping error_log( for screen=. That flag is a
+    per-call-site convention, so the capability belongs in the signal.
+  - A mic change saved in Settings while a capture is running. The config
+    holder's changed signal reaches audio mid-capture, and replacing the
+    source out from under it is a different failure from a bad transcribe().
+    Nearest measured case: spike-notes.txt UNPLUG MID-STREAM, where the
+    source stops with IOError and the app ends that capture as an error.
 
 SETTLED
   - All in on Qt, not a GUI-only port. Beat: moving only widgets, which leaves
