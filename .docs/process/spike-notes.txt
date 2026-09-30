@@ -201,6 +201,18 @@ ONLY THE LAST 223 PROMPT TOKENS REACH WHISPER. faster_whisper/transcribe.py
 :722. The 500 words encode to 1055 tokens with large-v3's tokenizer, so
 roughly the first 400 are dropped every call, silently.
 
+DOES IT WORK: A BARE WORD NO, PHRASES YES. 2026-09-30, large-v3 on CUDA,
+Mike dictating the same ten lines per round, app exited and relaunched
+between rounds (daemon start times checked). Eight lines contain Claude
+in the phrases the corpus shows failing ("clod" 26 captures, "cloud"
+about 20 of 39 by context, "Claude" right 101); two are real clouds.
+  empty vocabulary               5 of 8   rows 40759-40768
+  "Claude"                       5 of 8   rows 40771-40780
+  "Claude, CLAUDE.md, Claude Code"  8 of 8   rows 40783-40792
+The bare word fixed one miss and caused another. The phrases fixed all
+three, spelled CLAUDE.md as written, and left both clouds alone every
+round. Eight per round is small, and round 3 was the third repetition.
+
 
 QT NATIVE EVENT FILTER RECEIVES WM_HOTKEY
 
