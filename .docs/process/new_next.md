@@ -100,7 +100,9 @@ a mismatch is the first line of the report, before any work.
 6. Polish a new user hits on day one, from qt-port-plan.txt POLISH:
    B8 X hides to tray instead of killing the app; B19 mic test with a
    level meter; B14 transcript toggle and the what-this-records
-   disclosure, since the transcript log is written on every machine.
+   disclosure, since the transcript log is written on every machine;
+   B31 a Welcome dialog, because first run today explains nothing and
+   Mike won't be there to.
 
 ### v1.1 -- settings and window polish
 

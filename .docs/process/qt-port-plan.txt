@@ -387,6 +387,29 @@ this app's own active dictation), the probe stream fails to open --
 fail quietly, no bar shown, not a crash.
 
 
+==============================================================================
+B31. FIRST RUN -- ONE WELCOME DIALOG -- NEW FEATURE
+==============================================================================
+Today first run opens Settings half a second after launch and explains
+nothing; dictation has already started on defaults. A new user copying the
+folder alone has no one to tell them what to press.
+
+ONE dialog, not a sequence of message boxes, then Settings opens once:
+  - The microphone is required -- the one hard requirement; everything else
+    below already has a default.
+  - How to dictate: hold the PTT trigger, middle mouse button by default.
+  - The output window hotkey is unset by default; hiding the window leaves
+    only the tray icon to get it back, so nudge to bind one.
+  - Compute device and model have sensible defaults; Settings changes them.
+  - Minor settings (beeps and the like) -- a sentence at most.
+
+Gated on ui.first_run, independent of audio.device, so first run is
+re-tested by flipping one flag. It checks whether a device is configured,
+the same check the mic fault path uses, but never reuses that fault modal:
+a first-time user is not told "can't find your device" for a choice they
+never made. Copy and dialog structure are the build sheet's.
+
+
 B29 corpus opt-in and B30 FLAC retention are Settings controls built here
 and designed in ambient-plan.txt: one switch and one budget serve both modes.
 
@@ -727,7 +750,8 @@ Derive once DESIGN is empty of open items, spikes and judgment alike.
 
 BREADCRUMBS
   - input-device-plan.txt rests throughout on constraints this port removes.
-  - core-arch-plan.txt: the log() blocker and LIVE-READ SETTINGS both change.
+  - core-arch-plan.txt: LIVE-READ SETTINGS changes. Its log() blocker is
+    JUDGMENT above.
   - the portable-folder work adds a constraint the port must not break:
     nothing the app needs lives outside the tree. Qt's own conventions point
     the other way, so this is not automatic. QSettings defaults to the

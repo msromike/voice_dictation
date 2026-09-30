@@ -134,15 +134,13 @@ a default input device, not even once at bootstrap. The dropdown lists
 real device names only -- System Default is not, and never will be, an
 option in it.
 
-FIRST RUN IS NOT THIS PLAN'S CONCERN. core-arch-plan.txt's ARCHITECTURE
-section owns onboarding entirely -- see FIRST RUN there for the Welcome
-dialog's actual content and design. Tangential to this plan, an extension
-of it, not duplicated here.
+FIRST RUN IS NOT THIS PLAN'S CONCERN. qt-port-plan.txt B31 owns
+onboarding entirely -- the Welcome dialog's content and design are there.
+Tangential to this plan, an extension of it, not duplicated here.
 
 AT LAUNCH (see ERROR CONDITIONS below) means a RETURNING user whose
-configured device has gone missing -- not first run, which
-core-arch-plan.txt's FIRST RUN resolves before this plan's fault path is
-ever reached. That
+configured device has gone missing -- not first run, which B31 resolves
+before this plan's fault path is ever reached. That
 FAIL modal stays terse ("Microphone 'X' not found, pick another below"),
 never the first-run tour -- a returning user doesn't need PTT and hotkey
 re-explained to them.
