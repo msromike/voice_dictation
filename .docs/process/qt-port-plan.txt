@@ -179,7 +179,9 @@ VOCABULARY, live:
     how many words at the top are ignored, only when the file changed.
     Never block or trim ourselves. Tokenizing cost per read: UNVERIFIED,
     measure first. templates/vocabulary.txt gains a line: Whisper reads
-    only about the last 100 words, most important at the bottom.
+    only about the last 100 words, most important at the bottom. And its
+    examples become phrases as spoken: a bare word did nothing, phrases
+    took Claude from 5 of 8 to 8 of 8 (spike-notes.txt VOCABULARY).
 
 
 ==============================================================================
