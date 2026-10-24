@@ -7,6 +7,11 @@ the front of new_next.md. Drains to empty.
 ==============================================================================
 B6. PTT CYCLE COMPLETION -- CLIPBOARD DELIVERY, GATED RE-TRIGGER, TONE SIGNAL -- NEW FEATURE
 ==============================================================================
+SHIPPED 2026-10-24: DELIVERY and FORMAT HANDLING, as delayed rendering --
+Windows' WM_RENDERFORMAT receipt ends the wait, no fixed delay anywhere.
+Measurements in spike-notes.txt CLIPBOARD ROUND-TRIP AND DELIVERY. PTT
+GATING and TONES remain open; the text below is the original entry.
+
 DELIVERY
 Clipboard + Ctrl+V stays the delivery model. Delayed rendering replaces the
 blind sleep(0.05): register CF_UNICODETEXT with a NULL handle, send Ctrl+V,

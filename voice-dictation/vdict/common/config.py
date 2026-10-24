@@ -35,11 +35,6 @@ class PttConfig(BaseModel):
     mode: Literal["hold", "toggle"] = "hold"
 
 
-class KeyboardConfig(BaseModel):
-    model_config = ConfigDict(validate_assignment=True)
-    preserve_clipboard: bool = True
-
-
 class SttConfig(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
     model: str = "base.en"
@@ -68,7 +63,6 @@ class Config(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
     audio: AudioConfig = AudioConfig()
     ptt: PttConfig = PttConfig()
-    keyboard: KeyboardConfig = KeyboardConfig()
     stt: SttConfig = SttConfig()
     hotkey: HotkeyConfig = HotkeyConfig()
     ui: UiConfig = UiConfig()

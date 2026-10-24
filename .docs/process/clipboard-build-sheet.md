@@ -1,5 +1,13 @@
 # Build sheet: clipboard fix, then the paste-last hotkey
 
+STEPS 0-7 SHIPPED 2026-10-24, with one design change Mike called: the fixed
+RESTORE_DELAY below was replaced by delayed rendering, so the restore waits
+on Windows' WM_RENDERFORMAT receipt instead of a measured delay. A tuned
+delay is a guess about another program's speed, and losing the guess pastes
+the old clipboard silently. Spike 3's numbers are in spike-notes.txt as
+evidence for the mechanism, not as a constant. Step 8 below is untouched and
+still open; this sheet goes when Step 8 ships or Mike drops it.
+
 Written 2026-10-24 on Fable for Opus to run, with Mike at the keyboard.
 Read `.docs/agent-rules.md` first. Then this file, top to bottom. Tick boxes
 as you go; MIKE lines are his to do, everything else is yours.

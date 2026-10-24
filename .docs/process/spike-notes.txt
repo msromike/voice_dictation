@@ -471,3 +471,68 @@ Read when a plan is converted to a build sheet.
   - config.py _delete_at_path: pydantic validates whole or fails whole; no
     per-field fallback to default exists (model_validate takes no such
     option), so the per-field repair is hand-rolled.
+
+
+CLIPBOARD ROUND-TRIP AND DELIVERY (keyboard.py, 2026-10-24)
+
+Format round-trip through win32clipboard, EnumClipboardFormats order kept:
+
+  MEASURED text: CF_UNICODETEXT, CF_TEXT, CF_OEMTEXT, CF_LOCALE all
+  byte-identical after a save/replace/restore cycle.
+
+  MEASURED image: CF_DIB, CF_DIBV5, DataObject, Ole Private Data and
+  System.Drawing.Bitmap byte-identical. CF_BITMAP cannot be written back --
+  GetClipboardData returns a GDI handle, not bytes -- but Windows
+  re-synthesizes it from the restored CF_DIB and it reappears in the
+  enumeration, so skipping it loses nothing.
+
+  MEASURED rich text: HTML Format, Rich Text Format and the text formats
+  byte-identical.
+
+  MEASURED CF_HDROP: reads back as a tuple of paths, so SetClipboardData
+  raises TypeError on it. Rebuilding the DROPFILES struct restores it --
+  20-byte header (pFiles=20, pt 0,0, fNC=0, fWide=1), then each path UTF-16LE
+  null-terminated, then one more null. Windows' own GetFileDropList read the
+  restored path back correctly.
+
+  Skip set, all GDI handles: CF_BITMAP 2, CF_METAFILEPICT 3, CF_PALETTE 9,
+  CF_ENHMETAFILE 14, CF_OWNERDISPLAY 0x80, CF_DSPBITMAP 0x82,
+  CF_DSPMETAFILEPICT 0x83, CF_DSPENHMETAFILE 0x8E.
+
+History exclusion:
+
+  MEASURED: RegisterClipboardFormat("ExcludeClipboardContentFromMonitor-
+  Processing") returned 49987 here; written with four zero bytes. A control
+  string written without the flag appeared in Win+V, the string written with
+  it did not. Clipboard history was on
+  (HKCU\Software\Microsoft\Clipboard, EnableClipboardHistory = 1).
+  It matters more than it looks: the history monitor asks for the text the
+  instant it is announced, which would fire the delivery receipt before any
+  paste happened.
+
+Delivery -- why there is no delay constant:
+
+  MEASURED: announcing CF_UNICODETEXT as a null handle (delayed rendering)
+  and sending Ctrl+V, Notepad asked for the text 6.0 / 6.3 / 6.5 ms later,
+  3 runs of 3. WM_RENDERFORMAT arriving is proof the paste landed, so the
+  restore waits on an event and not on a guess about machine speed.
+
+  MEASURED: an earlier run of the same spike read 103.7 / 103.9 / 104.0 ms.
+  That was pyautogui's default 0.1s PAUSE delaying hotkey()'s return, and
+  with it the message pump -- not the paste. keyboard.py sets
+  pyautogui.PAUSE = 0.
+
+  MEASURED: the whole inject() -- snapshot, announce, paste, receipt,
+  restore -- returned in 16.8 ms with an image on the clipboard, and the
+  image was intact afterwards.
+
+  _RECEIPT_TIMEOUT = 1.0s is a backstop for "nobody ever asked" (no text
+  field focused, elevated window). Being wrong about it delays a restore;
+  it cannot cause a wrong paste, which is exactly what a fixed delay can.
+
+  CONFIRMED IN THE APP 2026-10-24, Mike at the keyboard: clipboard sentence
+  survives a dictation, screenshot survives a dictation, dictations land
+  where he is typing, and Win+V lists no dictations.
+
+  UNVERIFIED: no target other than Notepad was timed, and the numbers above
+  are from one machine. The design does not depend on either.

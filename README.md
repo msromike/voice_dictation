@@ -175,10 +175,11 @@ behind, so a YouTube video on the same desk doesn't get transcribed.
 
 ## Known limitations
 
-**It replaces your clipboard.** Text is delivered by copying it and sending
-Ctrl+V, so whatever you had copied is gone after you dictate. If you copy a
-link, dictate a sentence, then paste, you get the sentence. This is the next
-thing on the list to fix.
+**A dictation that lands nowhere is in the output window.** Text is delivered
+by Ctrl+V, so it needs somewhere to go. With no text field focused, or with an
+elevated window in front, nothing pastes and your clipboard comes back
+untouched. Raise the output window with the hotkey and copy the dictation from
+there.
 
 **It cannot type into programs running as administrator.** Windows blocks
 normal programs from sending input to elevated ones. Nothing appears and there
@@ -229,7 +230,10 @@ Audio is peak-normalized before transcription, which helps a quiet or distant
 mic, and a voice-activity filter trims silence first.
 
 Text is delivered by putting it on the clipboard and sending Ctrl+V, which is
-fast and works nearly everywhere. Its drawbacks are in Known Limitations above.
+fast and works nearly everywhere. Your own clipboard is saved first -- every
+format of it, not just text -- and put back as soon as the program you pasted
+into has taken the dictation. Windows says when that happens, so the handover
+is not a guess about timing, and dictations are kept out of clipboard history.
 
 CUDA libraries are found by scanning site-packages rather than requiring a
 system CUDA install, which is why `vdict_install.bat` can pull them in with pip. On GPU,

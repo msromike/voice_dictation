@@ -80,11 +80,10 @@ a mismatch is the first line of the report, before any work.
    Next: write the Qt build sheet from the ledger's DELETE and REPLACE
    rows plus the modularity section's nine boundaries.
 
-3. B6 clipboard delivery, from backlog.txt. Every dictation destroys the
-   clipboard today, and the restore switch only ever handled text. Save
-   and restore every format, let Windows say when the paste landed, gate a
-   re-press during a busy cycle, tones that say what happened. Deletes
-   the preserve_clipboard switch.
+3. B6 clipboard delivery, from backlog.txt. Saving and restoring every
+   format, Windows' paste receipt instead of a delay, and the
+   preserve_clipboard switch shipped 2026-10-24. What remains: gate a
+   re-press during a busy cycle, and tones that say what happened.
 
 4. Portable folder. Model directory and interpreter inside the tree,
    model loaded by path. The embeddable interpreter loads CUDA from its

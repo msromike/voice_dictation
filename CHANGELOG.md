@@ -116,6 +116,13 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- Dictating no longer destroys what you had copied. Whatever was on the
+  clipboard -- text, an image, formatting, a file copied in Explorer -- is put
+  back as soon as the program you dictated into has taken the text. Dictations
+  also stay out of the Win+V clipboard history. The old setting that was
+  supposed to control this only ever handled plain text and never ran, and it
+  is gone; nothing replaces it, because there is nothing left to switch off.
+
 - The app no longer records your voice to disk unless you deliberately turn it
   on. A development flag for collecting audio samples shipped switched on, so
   any copy of the source recorded every dictation as an audio file. Recording

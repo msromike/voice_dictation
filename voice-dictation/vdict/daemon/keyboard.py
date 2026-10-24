@@ -1,11 +1,40 @@
 """PTT trigger monitoring and text injection at the cursor."""
 
+import ctypes
+import struct
 import threading
+import time
 
+import pyautogui
+import pywintypes
 import win32api
+import win32clipboard
 import win32con
 import win32gui
 from pynput import mouse, keyboard
+
+from vdict.common.output import log
+
+# pyautogui waits 0.1s after every call it makes. The paste receipt arrives while
+# we pump messages, so that wait would only delay the restore.
+pyautogui.PAUSE = 0
+
+_user32 = ctypes.windll.user32
+_user32.SetClipboardData.restype = ctypes.c_void_p
+_user32.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
+
+# Windows' clipboard-history monitor asks for the text the instant it is announced,
+# which would fire the receipt before any paste. MEASURED: this flag stops it.
+_EXCLUDE_FORMAT = win32clipboard.RegisterClipboardFormat(
+    "ExcludeClipboardContentFromMonitorProcessing")
+
+# GDI handles. GetClipboardData hands back a handle that cannot be set back, and
+# MEASURED: Windows re-synthesizes CF_BITMAP from the restored CF_DIB anyway.
+_SKIP_FORMATS = frozenset({2, 3, 9, 14, 0x80, 0x82, 0x83, 0x8E})
+
+# Nothing asked for the text: no text field focused, or an elevated window that
+# ignores synthetic keys. A backstop, not a tuning constant -- the receipt ends the wait.
+_RECEIPT_TIMEOUT = 1.0
 
 # pynput key events carry no modifier state, and its Controller.modifiers holds
 # only keys this app synthesised. Windows reports the physical state directly.
@@ -120,42 +149,122 @@ class PTTListener:
             self.mouse_listener.stop()
 
 
-class KeyboardInjector:
-    """Text injection at cursor position via clipboard"""
+def _dropfiles(paths):
+    """CF_HDROP reads back as a tuple of paths; writing it needs the struct rebuilt.
+    20-byte header, then the paths UTF-16 and double-null terminated."""
+    header = struct.pack("<Lllll", 20, 0, 0, 0, 1)
+    return header + ("".join(p + "\0" for p in paths) + "\0").encode("utf-16-le")
 
-    def __init__(self, preserve_clipboard=False):
-        """Initialize keyboard injector"""
-        self.preserve_clipboard = preserve_clipboard
+
+class KeyboardInjector:
+    """Text injection at cursor position via clipboard, with the clipboard put back"""
+
+    def __init__(self):
+        """Creates the hidden window Windows sends the paste receipt to. Clipboard
+        calls stay on this thread, which is the daemon's capture loop."""
+        self._text = ""
+        self._served = threading.Event()
+        # The stubs declare both as read-only properties (_win32typing.pyi:2477,
+        # :2479); assigning them is how pywin32 registers a window class.
+        cls = win32gui.WNDCLASS()
+        cls.lpszClassName = "VdictClipboardOwner"  # pyright: ignore[reportAttributeAccessIssue]
+        cls.lpfnWndProc = self._wndproc  # pyright: ignore[reportAttributeAccessIssue]
+        atom = win32gui.RegisterClass(cls)
+        self._hwnd = win32gui.CreateWindow(atom, "vdict", 0, 0, 0, 0, 0, 0, 0, 0, None)
+
+    def _wndproc(self, hwnd, msg, wparam, lparam):
+        """WM_RENDERFORMAT is the paste receipt -- a target is asking for the text.
+        Never opens the clipboard here: the asking app holds it open."""
+        if msg == win32con.WM_RENDERFORMAT:
+            win32clipboard.SetClipboardText(self._text, win32con.CF_UNICODETEXT)
+            self._served.set()
+            return 0
+        if msg == win32con.WM_RENDERALLFORMATS:
+            if _user32.OpenClipboard(hwnd):
+                win32clipboard.SetClipboardText(self._text, win32con.CF_UNICODETEXT)
+                _user32.CloseClipboard()
+            return 0
+        return win32gui.DefWindowProc(hwnd, msg, wparam, lparam)
+
+    def _open_clipboard(self):
+        """Another app can hold the clipboard open for a moment at a time."""
+        for _ in range(5):
+            try:
+                win32clipboard.OpenClipboard(self._hwnd)
+                return True
+            except pywintypes.error:
+                time.sleep(0.02)
+        return False
+
+    def _snapshot(self):
+        """Every readable format, in the order Windows hands them back -- that order
+        is what a target uses to pick one, so the restore keeps it."""
+        if not self._open_clipboard():
+            log("note", "Clipboard busy -- it was not saved this time.")
+            return None
+        items = []
         try:
-            import pyperclip
-            import pyautogui
-            import time
-            self.pyperclip = pyperclip
-            self.pyautogui = pyautogui
-            self.time = time
-        except ImportError as e:
-            raise RuntimeError(
-                f"Missing dependency: {e}. "
-                f"Install: pip install pyperclip pyautogui") from e
+            fmt = win32clipboard.EnumClipboardFormats(0)
+            while fmt:
+                if fmt not in _SKIP_FORMATS:
+                    try:
+                        items.append((fmt, win32clipboard.GetClipboardData(fmt)))
+                    except Exception:
+                        pass  # a format that will not read is one we cannot restore
+                fmt = win32clipboard.EnumClipboardFormats(fmt)
+        finally:
+            win32clipboard.CloseClipboard()
+        return items
+
+    def _restore(self, items):
+        """Writes the saved formats back in their original order."""
+        if not self._open_clipboard():
+            log("note", "Clipboard busy -- it was not restored this time.")
+            return
+        try:
+            win32clipboard.EmptyClipboard()
+            for fmt, data in items:
+                try:
+                    win32clipboard.SetClipboardData(
+                        fmt, _dropfiles(data) if fmt == win32con.CF_HDROP else data)
+                except Exception as e:
+                    log("note", f"Clipboard format {fmt} not restored: {e}")
+        finally:
+            win32clipboard.CloseClipboard()
+
+    def _announce(self):
+        """Claims the clipboard with a promise of text rather than the text itself.
+        The target asking for it is what tells us the paste landed."""
+        if not self._open_clipboard():
+            return False
+        try:
+            win32clipboard.EmptyClipboard()
+            _user32.SetClipboardData(win32con.CF_UNICODETEXT, None)
+            win32clipboard.SetClipboardData(_EXCLUDE_FORMAT, b"\0\0\0\0")
+        finally:
+            win32clipboard.CloseClipboard()
+        return True
 
     def inject(self, text):
-        """Paste text at the cursor via the clipboard, appending a trailing space.
-        Restores the previous clipboard unless preserve_clipboard is set."""
+        """Pastes text at the cursor, then restores the clipboard the moment the
+        target takes it -- or after the backstop, if nothing ever asks."""
         if not text or not text.strip():
-            return  # Skip empty text
+            return
 
-        # Save current clipboard
-        try:
-            old_clipboard = self.pyperclip.paste()
-        except Exception:
-            old_clipboard = ""  # Clipboard empty or inaccessible
+        items = self._snapshot()
+        self._text = text + " "
+        self._served.clear()
+        if not self._announce():
+            log("note", "Clipboard busy -- nothing pasted. The text is in this window.")
+            return
 
-        # Add space after text for separation, then paste
-        self.pyperclip.copy(text + " ")
-        self.pyautogui.hotkey('ctrl', 'v')
+        pyautogui.hotkey('ctrl', 'v')
+        deadline = time.monotonic() + _RECEIPT_TIMEOUT
+        while not self._served.is_set() and time.monotonic() < deadline:
+            win32gui.PumpWaitingMessages()
+            time.sleep(0.001)
 
-        # Wait for paste to complete, then conditionally restore clipboard
-        self.time.sleep(0.05)  # 50ms delay
-
-        if not self.preserve_clipboard:
-            self.pyperclip.copy(old_clipboard)
+        if not self._served.is_set():
+            log("note", "Paste did not land -- the text is in this window.")
+        if items is not None:
+            self._restore(items)

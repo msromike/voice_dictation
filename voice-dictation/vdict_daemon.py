@@ -346,8 +346,7 @@ def main():
     log("loading", "Loading model")
     stt.load()
 
-    keyboard = KeyboardInjector(
-        preserve_clipboard=config.keyboard.preserve_clipboard)
+    keyboard = KeyboardInjector()
 
     session = CaptureSession(config, audio, stt, keyboard)
 

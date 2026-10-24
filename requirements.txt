@@ -6,7 +6,6 @@ soundfile
 numpy
 pynput
 pydantic
-pyperclip
 pyautogui
 pywin32
 nvidia-cublas-cu12
