@@ -79,8 +79,9 @@ during the sample pollutes it.
 The trap underneath: Windows lets CUDA allocations spill into system RAM
 rather than failing when VRAM runs out. A model that does not fit still
 runs, slowly and silently. Measured on this machine, an RTX 3070 Ti reports
-8192 MiB total with roughly 6000 MiB already held by the desktop -- so any
-timing run has to record free VRAM at its start, or a spilled run gets
+8192 MiB total, and the desktop's share swings widely: roughly 6000 MiB on
+one earlier reading, 1886 MiB with the app closed on 2026-10-22 (twice). So
+any timing run has to record free VRAM at its start, or a spilled run gets
 recorded as a slow configuration.
 
 
@@ -212,6 +213,18 @@ about 20 of 39 by context, "Claude" right 101); two are real clouds.
 The bare word fixed one miss and caused another. The phrases fixed all
 three, spelled CLAUDE.md as written, and left both clouds alone every
 round. Eight per round is small, and round 3 was the third repetition.
+The ten lines, never written down at the time. Rebuilt 2026-10-22 from
+round 3's transcripts, rows 40783-40792, which were all correct:
+  Open the CLAUDE.md file.
+  Put that in the global Claude rules.
+  Claude Code has a new extension.
+  Ask Claude what it thinks.
+  Claude said the test passed.
+  Read CLAUDE.md line by line.
+  I'm using Claude Sonnet today.
+  Is that a Claude problem or mine?
+  There's one cloud in the sky.
+  Upload it to the cloud.
 
 
 QT NATIVE EVENT FILTER RECEIVES WM_HOTKEY
@@ -312,6 +325,26 @@ case. Bare code equality is not safe: "cloud" and "clod" both collide with
 rewrites an everyday word to a name.
 
 
+OTHER ENGINES TRIED, 2026-10-22 -- FASTER-WHISPER STAYS (Mike's ruling)
+
+Cactus Whistle (16.9 MB, CPU only), 40 random dictations on this CPU,
+scored against the app's large-v3 GPU text: Whistle 9.6 errors per 100
+words at 0.75 s per clip; base.en 4.6 at 0.69 s; small.en 3.4 at 2.02 s.
+Its published "beats Whisper" figures are against multilingual base only.
+
+IBM Granite Speech 4.1 2B (leaderboard 5.33 vs large-v3 7.44, bf16,
+transformers in a throwaway venv), app closed. Load 8.4 s, 4555 MiB of GPU,
+1471 MiB left free with the desktop at 1886. 0.20 s per second of audio vs
+large-v3's 0.11, steady after warm-up. Ten random dictations: 7 identical
+after ignoring case and punctuation; three one-word splits (why/Y,
+rename/I renamed, big/baked). Mike: minimal to zero gains, stays on
+faster-whisper. Reopens if a later Granite or another engine shows a
+clear gap on his own audio; the leaderboard alone is not that evidence.
+
+Both test setups were deleted afterward; nothing was installed into the
+global Python that remains.
+
+
 WHISPER MODEL LADDER (B22, Mike's GPU testing, i7 9th gen + 3070 Ti)
 
 VRAM watched live. GPU curated three: small.en / medium.en / large-v3,
@@ -324,7 +357,7 @@ costs about what large-v3 costs. Reopens if the workload becomes
 decoder-bound, which ambient mode's long chunks would do. distil-small.en
 rejected: a distillation tradeoff to explain for marginal gain. Reopens if
 a CPU user reports small.en too slow. Per-tier speed on real hardware is
-unverified; inference tuning measures it.
+unverified.
 
 
 CAPTURE LENGTH (B28)

@@ -127,10 +127,10 @@ P2. AUTOMATED CHECKS
 ==============================================================================
 All four at zero:
 
-    venv\Scripts\ruff.exe check .
-    venv\Scripts\pyright.exe
-    venv\Scripts\vulture.exe voice-dictation tools\vulture_whitelist.py --min-confidence 60
-    venv\Scripts\python.exe tools\check_docstrings.py
+    python -m ruff check .
+    python -m pyright
+    python -m vulture voice-dictation tools\vulture_whitelist.py --min-confidence 60
+    python tools\check_docstrings.py
 
 False positives live in tools\vulture_whitelist.py.
 

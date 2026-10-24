@@ -66,13 +66,7 @@ a mismatch is the first line of the report, before any work.
    with Tk, sounddevice and the second process gone) and cost (does Qt
    make it cheaper or dearer).
 
-2. Inference tuning, both arms, from its existing sheet. The app ships
-   float32 on CPU and has never measured which compute type wins per
-   device class. Targets: this machine on GPU and on CPU (CPU while
-   gaming), the son's desktop, his laptop, his work desktop. Touches
-   stt.py only, which the port carries over unchanged.
-
-3. Qt rewrite. One process, PySide6, one QSS file. Exit gate: the app Mike
+2. Qt rewrite. One process, PySide6, one QSS file. Exit gate: the app Mike
    uses today, working the same, on Qt, existing model and compute
    dropdowns included. Built alongside the Tk tray with a throwaway
    launcher, switched at the entry point, Tk deleted at cleanup.
@@ -86,18 +80,18 @@ a mismatch is the first line of the report, before any work.
    Next: write the Qt build sheet from the ledger's DELETE and REPLACE
    rows plus the modularity section's nine boundaries.
 
-4. B6 clipboard delivery, from backlog.txt. Every dictation destroys the
+3. B6 clipboard delivery, from backlog.txt. Every dictation destroys the
    clipboard today, and the restore switch only ever handled text. Save
    and restore every format, let Windows say when the paste landed, gate a
    re-press during a busy cycle, tones that say what happened. Deletes
    the preserve_clipboard switch.
 
-5. Portable folder. Model directory and interpreter inside the tree,
+4. Portable folder. Model directory and interpreter inside the tree,
    model loaded by path. The embeddable interpreter loads CUDA from its
    own site-packages; measured, in spike-notes.txt. Capture is off in a
    handed-out copy, so nothing is retained and nothing needs a switch.
 
-6. Polish a new user hits on day one, from qt-port-plan.txt POLISH:
+5. Polish a new user hits on day one, from qt-port-plan.txt POLISH:
    B8 X hides to tray instead of killing the app; B19 mic test with a
    level meter; B14 transcript toggle and the what-this-records
    disclosure, since the transcript log is written on every machine;
@@ -106,50 +100,50 @@ a mismatch is the first line of the report, before any work.
 
 ### v1.1 -- settings and window polish
 
-7. Remaining POLISH in qt-port-plan.txt: B1 settings tiering (moving the
+6. Remaining POLISH in qt-port-plan.txt: B1 settings tiering (moving the
    Settings window reloads the model today), B11 settings and output
-   together, B20 relaunch raises the window, B17 and B22 model dropdown
-   (B22 needs inference tuning's numbers), B23 settings layout, B3 tone
+   together, B20 relaunch raises the window, B17 and B22 model dropdown,
+   B23 settings layout, B3 tone
    sliders (may be deleted: one process is one mixer entry).
 
 ### v1.2 -- dictation accuracy and the corpus
 
-8. Two corpus queries, run-ons and name misspellings, over the captures
+7. Two corpus queries, run-ons and name misspellings, over the captures
    table that exists today. Each decides whether its fix gets built.
-9. Punctuation rescue B13 and phonetic correction B21, backlog.txt, each
+8. Punctuation rescue B13 and phonetic correction B21, backlog.txt, each
    only if its query shows it is needed. B21 still needs a second signal
    designed. The Ollama tuning workflow under B13 only if its defaults
    fall short.
-10. Corpus opt-in B29 and retention budget B30, ambient-plan.txt. A corpus
+9. Corpus opt-in B29 and retention budget B30, ambient-plan.txt. A corpus
     cannot be back-filled, so the son's starts filling here; ambient
     inherits the one switch and the one budget.
 
 ### v2.0 -- ambient
 
-11. Ambient plan from ambient-plan.txt, then phase one built in the Qt
+10. Ambient plan from ambient-plan.txt, then phase one built in the Qt
     app: continuous capture in chunks, background transcription that does
     not need real time, and a day view: what got recorded today, as text,
     in a text editor.
 
 ### v2.1 -- who said it
 
-12. Attribution, per B24's three tiers in ambient-plan.txt: Speaker A/B
+11. Attribution, per B24's three tiers in ambient-plan.txt: Speaker A/B
     labels, then persistent voice GUIDs with a GUID-to-name table the user
     fills in one row at a time.
 
-13. Lookup by person and day. What Bob said, on what date, with the text.
+12. Lookup by person and day. What Bob said, on what date, with the text.
     A query on the captures table's speaker, start_time and text columns
     once tier three fills the speaker column.
 
 ### v2.2 -- talking to a model
 
-14. Voice prompt mode B26 and selection transform B27, ambient-plan.txt.
+13. Voice prompt mode B26 and selection transform B27, ambient-plan.txt.
     Both need a local model, which stays home and does not travel in the
     portable folder.
 
 ### v2.3 -- search by meaning
 
-15. Search by meaning, B28 in ambient-plan.txt. Needs ambient's corpus.
+14. Search by meaning, B28 in ambient-plan.txt. Needs ambient's corpus.
     vector-analysis-investigation.txt is its input and stays until the
     search plan drains it.
 

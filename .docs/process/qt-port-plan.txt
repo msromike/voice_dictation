@@ -377,7 +377,7 @@ before rebuilding the dropdown -- a language picker may replace the model
 picker for most users.
 
 MODEL LISTS: the measured GPU ladder and the CPU reasoning are in
-spike-notes.txt, WHISPER MODEL LADDER. Inference tuning re-measures both.
+spike-notes.txt, WHISPER MODEL LADDER.
 
 ENGLISH-ONLY VARIANTS: every size above uses its .en variant, not the
 multilingual one -- app isn't localized, Whisper's

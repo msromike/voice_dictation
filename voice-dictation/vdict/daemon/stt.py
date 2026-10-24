@@ -83,10 +83,11 @@ class STTEngine:
         if self.model is None:
             raise RuntimeError("STT model not loaded - call load() first")
 
-        # vad_filter trims non-speech segments before transcribing, which matters
-        # with a distant mic picking up room noise.
+        # vad_filter trims room noise before transcribing. language="en" skips
+        # large-v3's per-clip language guess, which costs its own encoder pass.
         segments, _ = self.model.transcribe(
-            audio_data, beam_size=5, initial_prompt=initial_prompt, vad_filter=True)
+            audio_data, beam_size=5, initial_prompt=initial_prompt, vad_filter=True,
+            language="en")
 
         # Concatenate all segments into single string
         text_parts = []

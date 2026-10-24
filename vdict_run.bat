@@ -1,6 +1,9 @@
 @echo off
 cd /d "%~dp0"
 echo Starting Voice Dictation...
-:: Direct call, never activate.bat -- that hardcodes an absolute VIRTUAL_ENV,
-:: so a relocated copy would silently run the original tree's packages.
-start "" venv\Scripts\pythonw.exe voice-dictation\vdict_tray.py
+:: No venv. Runs on the global Python (pythonw next to whatever `python` resolves to).
+for /f "delims=" %%P in ('where python') do (set "PYTHONW=%%~dpPpythonw.exe" & goto :found)
+echo [ERROR] python not found on PATH.
+exit /b 1
+:found
+start "" "%PYTHONW%" voice-dictation\vdict_tray.py

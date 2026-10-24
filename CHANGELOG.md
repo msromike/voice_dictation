@@ -50,6 +50,13 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- Speech is always transcribed as English. large-v3 no longer guesses the
+  language on every clip, which cost it an extra pass.
+
+- Install no longer creates a virtual environment. `vdict_install.bat`
+  installs the packages into the Python on PATH, and the shortcuts run that
+  Python.
+
 - Development audio recordings moved from `userdata/flac` to
   `userdata/voice_recordings_PRIVATE`, filed in one folder per day. A toggle
   recording abandoned after two minutes now keeps its audio instead of

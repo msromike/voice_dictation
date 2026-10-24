@@ -29,10 +29,10 @@ committed touches it.
 
 Cheap first. Stop on the first failure.
 
-    ./venv/Scripts/ruff.exe check .
-    ./venv/Scripts/pyright.exe
-    ./venv/Scripts/vulture.exe voice-dictation tools/vulture_whitelist.py --min-confidence 60
-    ./venv/Scripts/python.exe tools/check_docstrings.py
+    python -m ruff check .
+    python -m pyright
+    python -m vulture voice-dictation tools/vulture_whitelist.py --min-confidence 60
+    python tools/check_docstrings.py
 
 - ruff and pyright must be CLEAN.
 - vulture is a REPORT, never a stop: EMIT every finding, then continue.
@@ -56,7 +56,7 @@ Cheap first. Stop on the first failure.
 
 Then the complexity REPORT. Skip when no .py is staged.
 
-    ./venv/Scripts/ruff.exe check $(git diff --staged --name-only -- '*.py') \
+    python -m ruff check $(git diff --staged --name-only -- '*.py') \
         --select C901 --ignore-noqa --config "lint.mccabe.max-complexity=1"
 
 - Prints every touched function with its real score, suppressions included.
