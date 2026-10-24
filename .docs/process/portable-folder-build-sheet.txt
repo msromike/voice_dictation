@@ -64,8 +64,9 @@ stays open rather than blocking.
       LEADING OPTION, Mike 2026-09-30: the stick carries only a bootstrap
       -- the embeddable interpreter and enough to fetch -- which pulls the
       app from a PUBLIC GitHub repo and the Whisper models from Hugging
-      Face into the folder. Updating is the same pull. userdata is
-      gitignored (.gitignore:21), so a pull never touches it. Dictation
+      Face into the folder. Updating is the same pull. userdata must be
+      gitignored in that public repo so a pull never touches it; the
+      private repo tracks userdata since 2026-10-24 (pre-push.txt P6). Dictation
       stays offline after install. Reverses 1c (copy every model into the
       tree) and 1e (refuse downloads). Still UNVERIFIED: whether the son's
       work network allows GitHub, Hugging Face and pip.

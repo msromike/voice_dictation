@@ -1,11 +1,12 @@
 ---
 name: commit-per-protocol
-description: Run this project's commit protocol -- QA gates and a structured commit message. Invoke when the user says "commit per protocol", or asks to commit/stage work in this repo. Never pushes.
+description: Run this project's commit protocol -- QA gates and a structured commit message. Invoke when the user says "commit per protocol", or asks to commit/stage work in this repo. Pushes the current branch after committing.
 ---
 
 # Commit Per Protocol
 
-Never `git push`.
+Push after every commit. aorus and the laptop share one private GitHub repo,
+and an unpushed commit never reaches the other machine.
 
 One working tree, one branch, whatever's currently checked out. Docs and
 code live together -- no separate tree, no separate commit for either.
@@ -96,11 +97,13 @@ One commit, on the current branch. Semantic header (`feat:`, `fix:`, `chore:`,
 No session process: no gate outcomes, no overrides, no "kept separate on
 purpose", no "X is next". Deferred work lives in new_next.md.
 
-Capture the SHA.
+Capture the SHA. Then push:
+
+    git push -u origin HEAD
 
 ## 5. Terminator
 
-- "I committed this to [branch] with the commit message [message]"
+- "I committed and pushed this to [branch] with the commit message [message]"
 - Then a phase report: which of steps 2 and 3 ran, and which were skipped
   and why.
-- Do not push.
+- A failed push is reported with git's exact output, never retried silently.

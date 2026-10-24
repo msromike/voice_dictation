@@ -1,23 +1,14 @@
-# Virtual Environments
-venv/
-.env
+# Everything else is tracked: aorus and the laptop sync through the private
+# GitHub repo. Going public needs a fresh repo -- see pre-push.txt P6.
 
 # Python Cache
 __pycache__/
 *.pyc
 *.pyo
 
-# IDEs and AI Agents
-.vscode/
-.idea/
-.agents/
-.claude/settings.local.json
-.claude/settings.json.bak
-.gemini/
-*.code-workspace
-.reference/
-
-# Project Specific
-userdata/
+# Collected audio -- too big for git, stays on the machine that recorded it
+userdata/voice_recordings_PRIVATE/
 *.flac
-dev-flags.toml
+
+# Secrets
+.env

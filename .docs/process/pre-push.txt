@@ -196,8 +196,13 @@ P6. REPO HYGIENE
 ==============================================================================
 Nothing staged carrying an absolute local path or personal information.
 
-.docs is gitignored on main. The docs branch stays local -- a pre-push hook
-blocks refs/heads/docs.
+Since 2026-10-24 the private GitHub repo msromike/voice_dictation carries
+everything except collected audio: .docs, the docs branch, userdata (config,
+vocabulary, logs, dictation_history_PRIVATE.db), .reference, .vscode, .agents.
+The pre-push hook that blocked refs/heads/docs is deleted. Going public is a
+FRESH repo from a cleaned copy, never this one: its history holds the
+dictation database and config. Restore the ignores and the docs-branch hook
+there.
 
 
 ==============================================================================
