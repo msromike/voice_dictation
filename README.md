@@ -40,6 +40,27 @@ The first time you dictate, the app downloads the speech model itself (about
 140MB for the default). You get a notification when it starts and another when
 it is ready.
 
+### Installing from a USB stick
+
+For setting up someone else's computer: nothing to download there, and they
+get exactly the versions you run.
+
+1. On a computer where Voice Dictation already works, plug in a USB stick and
+   run `create_usb_stick.bat`. Give it the stick's drive letter. It copies
+   Python, every package, every speech model you have downloaded and the app
+   itself into a `VoiceDictation` folder on the stick -- about 6GB with all
+   three models. Nothing else goes on it: not your settings, history, word
+   list or logs.
+2. On the other computer, open `VoiceDictation` on the stick and run
+   `install.bat`. Python does not need to be installed there, and no internet
+   is needed. It installs to `%LOCALAPPDATA%\Programs\VoiceDictation` with its
+   own private copy of Python, so it cannot clash with any other Python on that
+   machine, and creates the Desktop and Startup shortcuts.
+
+To update, make a fresh stick the same way and run `install.bat` again. Settings
+are kept. If the app is running, the installer asks you to exit it from the tray
+first.
+
 ## Using it
 
 The default button is **middle mouse**, in **hold** mode: hold it down, speak,

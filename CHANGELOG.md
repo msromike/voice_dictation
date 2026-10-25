@@ -8,6 +8,14 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- Installing from a USB stick, with no internet on the other computer.
+  `create_usb_stick.bat` copies Python, the exact package versions you run,
+  your downloaded speech models and the app -- and none of your settings,
+  history or word list. `install.bat` on the stick installs, or updates, into
+  your user's AppData with its own private Python, so it never clashes with
+  another Python on that machine. See "Installing from a USB stick" in the
+  README.
+
 - Help > Event Log. Every yellow note and red error in the output window is
   also written to a file with the date and time, so a warning that scrolled
   past while you were working is still there later. It never holds your

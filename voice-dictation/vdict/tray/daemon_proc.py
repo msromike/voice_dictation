@@ -67,8 +67,10 @@ def start(on_started):
     _exit_reported = False
     _fault_shown = False
 
+    # A stick install runs with -s so the person's own packages never load;
+    # the engine must not lose it. Without -s here (dev machines), none is added.
     _process = subprocess.Popen(
-        [sys.executable, str(_DAEMON_PATH)],
+        [sys.executable, *(["-s"] if sys.flags.no_user_site else []), str(_DAEMON_PATH)],
         cwd=_DAEMON_DIR,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,

@@ -1,5 +1,46 @@
 # Voice Dictation: vision and next steps
 
+## Resume here (handoff, 2026-10-25)
+
+USB stick install is built and committed, NOT DONE: the real installer has
+not run end to end. Two batch files at the repo root:
+
+- `create_usb_stick.bat` -- asks for a drive letter, writes
+  `<drive>:\VoiceDictation\` with install.bat, an allowlisted app folder,
+  this machine's Python base (no site-packages), 48 pinned wheels built with
+  `pip wheel` (1.41 GB), and every cached whisper model copied as real files
+  (5.9 GB total with base.en, medium.en, large-v3).
+- `stick_install.bat` -- becomes install.bat on the stick. Installs or
+  updates into `%LOCALAPPDATA%\Programs\VoiceDictation` with a private
+  Python run with `-s`; copies userdata from the copy the registry names
+  (never recordings); Desktop and Startup shortcuts; starts the app.
+- `daemon_proc.start` passes `-s` to the engine when the tray has it.
+
+Tested in scratch only (subst drives, a test copy of install.bat with the
+running check, shortcuts and launch removed): fresh install 47 s; update
+removed stale code and kept settings; installed Python imports the app and
+loads base.en offline; deepest path 177 of 259 chars. Numbers are in the
+commit body.
+
+Next, in order:
+
+1. Make a real stick with `create_usb_stick.bat`.
+2. Second local Windows account, Wi-Fi off, run install.bat from the stick.
+   Pass: READY, a dictation lands in Notepad, a Settings save sticks.
+   Run install.bat again: settings kept.
+3. The kid's machine. His copy predates the registry entry, so no settings
+   carry over; he sets up Settings once. His old folder was already pruned
+   by hand and was not recording.
+
+Still open from the paste-last work: the one "Clipboard format N not
+restored: handle is invalid" never reproduced. Help > Event Log now keeps
+every yellow note; if it shows up there, the note carries type, length and
+clipboard owner.
+
+Per-machine, so not at home: the laptop's Claude memory note that clipboard
+test scripts print the saved clipboard before writing and restore in a
+finally block.
+
 Written 2026-09-29 after a month away. Replaces roadmap.txt and NEXT.txt
 once the doc cut lands. The cold read that produced this is in git history
 under this file's first commit.
