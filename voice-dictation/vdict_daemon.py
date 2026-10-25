@@ -14,7 +14,9 @@ from vdict import __version__
 from vdict.daemon.audio import AudioCapture
 from vdict.daemon.stt import STTEngine
 from vdict.daemon.keyboard import KeyboardInjector, PTTListener
-from vdict.common.config import load_config, load_vocabulary
+import win32event
+
+from vdict.common.config import RELOAD_EVENT_NAME, load_config, load_vocabulary
 from vdict.common.output import log, write_error_log
 from vdict.common.audio_io import write_timestamped_flac
 from vdict.common.blocks import BlockTracker
@@ -230,9 +232,28 @@ class CaptureSession:
         self.blocks = BlockTracker()
         # Held from trigger press until the paste lands; the Enter button waits on it.
         self.busy = threading.Lock()
-        self.ptt = PTTListener(
+        self.reload_event = win32event.CreateEvent(
+            None, False, False, RELOAD_EVENT_NAME)  # pyright: ignore[reportArgumentType]
+        self.ptt = self._make_listener(config)
+        self.prompt = load_vocabulary()
+
+    def _make_listener(self, config):
+        """The trigger listener for this config. Built at start and on every reload."""
+        return PTTListener(
             button=config.ptt.button, enter_button=config.ptt.enter_button,
             on_enter=self.blocks.close, on_enter_button=self._enter_button)
+
+    def _reload_if_asked(self):
+        """Between captures only. A save that leaves the model alone lands here
+        instead of a restart, so the model stays loaded."""
+        if win32event.WaitForSingleObject(self.reload_event, 0) != win32event.WAIT_OBJECT_0:
+            return
+        config = load_config()
+        self.ptt.stop()
+        self.config = config
+        # A missing mic exits here with a mic-fault, the same path as at startup.
+        self.audio = AudioCapture(required_device=config.audio.device)
+        self.ptt = self._make_listener(config)
         self.prompt = load_vocabulary()
 
     def _enter_button(self):
@@ -309,7 +330,9 @@ class CaptureSession:
 
     def run_once(self):
         """One capture, from trigger to row. Every outcome writes exactly one row."""
-        self.ptt.wait_for_press()
+        # Wakes every 0.1s to check for saved settings; nothing depends on the period.
+        while not self.ptt.wait_for_press(timeout_secs=0.1):
+            self._reload_if_asked()
 
         with self.busy:
             hwnd, pid, win_title, proc_name = get_window_context()

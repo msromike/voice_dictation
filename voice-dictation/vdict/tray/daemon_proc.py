@@ -9,7 +9,10 @@ import traceback
 from collections.abc import Callable
 from pathlib import Path
 
+import win32event
+
 from vdict.common import output
+from vdict.common.config import RELOAD_EVENT_NAME
 from vdict.tray.log import error_log, log
 
 # THREE .parent steps from vdict/tray/ to reach voice-dictation/, where
@@ -106,6 +109,17 @@ def restart(on_started):
     Internal only -- there is no user-facing restart command."""
     stop()
     start(on_started)
+
+
+def reload(on_started):
+    """Have the running daemon re-read config.json, model kept loaded. A daemon
+    that has exited -- a mic fault, say -- is started instead."""
+    if _process is None or _process.poll() is not None:
+        start(on_started)
+        return
+    win32event.SetEvent(win32event.CreateEvent(
+        None, False, False, RELOAD_EVENT_NAME))  # pyright: ignore[reportArgumentType]
+    on_started(_process.pid)
 
 
 def poll():

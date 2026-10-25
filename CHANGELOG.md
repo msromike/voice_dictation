@@ -59,6 +59,12 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- Saving Settings no longer reloads the speech engine unless you changed the
+  model or the compute device. A new button, microphone, mode, beep setting
+  or vocabulary takes effect at once, with the engine kept loaded -- no wait
+  and no second ready beep. Changing the model still reloads it, because that
+  is the one change that needs it.
+
 - The push-to-talk button now belongs to the app alone. A mouse side button
   used for dictation no longer also sends your browser Back, and a key like
   Scroll Lock no longer does its usual job while bound. Shift, Ctrl, Alt and

@@ -16,6 +16,10 @@ VOCABULARY_TEMPLATE_PATH = (
 # Single source for both processes -- the tray writes this path, the daemon reads it.
 CONFIG_PATH = Path(__file__).parent.parent.parent.parent / "userdata" / "config.json"
 
+# Named event the tray sets after a save that leaves the model alone. The daemon
+# re-reads config.json between captures instead of being restarted.
+RELOAD_EVENT_NAME = "VoiceDictationReloadEvent"
+
 
 class Pos(BaseModel):
     model_config = ConfigDict(validate_assignment=True)

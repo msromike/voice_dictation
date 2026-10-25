@@ -119,11 +119,15 @@ class App:
                                       self._register_hotkey)
 
     def _on_settings_save(self, config):
-        """What Settings hands back. The dialog reads its widgets and stops --
-        writing, closing and restarting are all here."""
+        """What Settings hands back. Only a model or compute change restarts the
+        daemon -- anything else is re-read by the running one, model kept."""
+        before, _ = load_settings()
         save_settings(config)
         settings.close()
-        daemon_proc.restart(self._log_session_block)
+        if (config.stt.model, config.stt.device) != (before.stt.model, before.stt.device):
+            daemon_proc.restart(self._log_session_block)
+        else:
+            daemon_proc.reload(self._log_session_block)
 
     def _register_hotkey(self, cfg):
         """Claim the configured combination. Records what happened for the session block
@@ -142,14 +146,15 @@ class App:
         Tk itself -- the raise is handed to the Tk thread."""
         while True:
             win32event.WaitForSingleObject(raise_event, win32event.INFINITE)
-            self.window.after(0, self._raise_window, "Launching it again")
+            self.window.after(0, self._raise_window)
 
-    def _raise_window(self, by):
+    def _raise_window(self, by=None):
         """Bring the output window up with keyboard focus. Nothing may precede these two
         calls -- the foreground grant Windows hands us is momentary."""
         self.window.deiconify()
         win32gui.SetForegroundWindow(int(self.window.wm_frame(), 0))
-        log("note", f"{by} raised the output window")
+        if by:
+            log("note", f"{by} raised the output window")
 
     def _save_state(self):
         """Persist every tracked window's geometry and the console's text size.
