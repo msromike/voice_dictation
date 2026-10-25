@@ -10,10 +10,13 @@ if sys.platform != "win32":
 
 import ctypes
 import traceback
+import winreg
+from pathlib import Path
 
 import win32api
 import win32event
 
+from vdict import __version__
 from vdict.common import output
 from vdict.tray.const import MB_ICONERROR, RAISE_EVENT_NAME
 
@@ -28,6 +31,19 @@ except Exception:
 ERROR_ALREADY_EXISTS = 183
 # AllowSetForegroundWindow's "any process" -- the running copy's PID is unknown here.
 ASFW_ANY = -1
+
+# Where an updater finds this copy. Per-user, so no admin. The one thing the app
+# writes outside userdata/, because it has to be findable without knowing the folder.
+REGISTRY_KEY = r"Software\VoiceDictation"
+APP_DIR = Path(__file__).resolve().parent.parent
+
+
+def _record_location():
+    """Write this copy's folder and version. Every launch, so a moved folder is
+    found again the first time it runs from its new place."""
+    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, REGISTRY_KEY) as key:
+        winreg.SetValueEx(key, "InstallDir", 0, winreg.REG_SZ, str(APP_DIR))
+        winreg.SetValueEx(key, "Version", 0, winreg.REG_SZ, __version__)
 
 def _log_startup_crash():
     """Write an unhandled startup exception to the error log and show it on screen"""
@@ -68,6 +84,9 @@ if __name__ == "__main__":
             win32event.SetEvent(win32event.CreateEvent(
                 None, False, False, RAISE_EVENT_NAME))  # pyright: ignore[reportArgumentType]
             sys.exit(0)
+
+        # After the mutex: a second launch from another folder must not claim the record.
+        _record_location()
 
         # Imported here, after SetProcessDpiAwareness has run.
         from vdict.tray.app import App
