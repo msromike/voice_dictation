@@ -3,6 +3,7 @@ Launched by vdict_tray.py, which writes config.json first. Requires it to exist.
 
 import sys
 import threading
+import time
 
 # Must precede the imports below -- vdict.daemon.audio is WASAPI-specific and
 # the whole app is Windows-only regardless.
@@ -14,9 +15,8 @@ from vdict import __version__
 from vdict.daemon.audio import AudioCapture
 from vdict.daemon.stt import STTEngine
 from vdict.daemon.keyboard import KeyboardInjector, PTTListener
-import win32event
 
-from vdict.common.config import RELOAD_EVENT_NAME, load_config, load_vocabulary
+from vdict.common.config import load_config, load_vocabulary
 from vdict.common.output import divider_line, log, write_error_log
 from vdict.common.audio_io import write_timestamped_flac
 from vdict.common.blocks import BlockTracker
@@ -215,12 +215,21 @@ def play_tone(tone_type, volume):
         _tone_queue.put((_TONES[tone_type] * (volume / 100) ** 4).reshape(-1, 1))
 
 
-def _play_previews():
-    """Own thread. Settings writes "<tone> <volume>" lines to stdin; each plays on
-    the same stream and device as a dictation beep, so the preview cannot differ."""
+def _read_commands(session):
+    """Own thread. One command per line from the tray: "beep <tone> <volume>" plays on
+    the dictation stream; "paste" repeats the last dictation; "reload" re-reads config."""
     for line in sys.stdin:
-        tone_type, volume = line.split()
-        play_tone(tone_type, int(volume))
+        command, *args = line.split()
+        if command == "beep":
+            play_tone(args[0], int(args[1]))
+        elif command == "paste":
+            # Straight to the clipboard thread: it pastes even mid-recording.
+            if session.last_text is None:
+                log("note", "Nothing dictated yet -- nothing to paste.")
+            else:
+                session.keyboard.paste_async(session.last_text)
+        elif command == "reload":
+            session.inbox.put("reload")
 
 
 class CaptureSession:
@@ -234,24 +243,25 @@ class CaptureSession:
         self.stt = stt
         self.keyboard = keyboard
         self.blocks = BlockTracker()
-        # Held from trigger press until the paste lands; the Enter button waits on it.
-        self.busy = threading.Lock()
-        self.reload_event = win32event.CreateEvent(
-            None, False, False, RELOAD_EVENT_NAME)  # pyright: ignore[reportArgumentType]
+        # Every wait in the engine is a get on this. The session owns it because
+        # the listener is rebuilt on reload and the inbox must outlive it.
+        self.inbox = queue.Queue()
+        # Enter and reload that arrived mid-dictation, handled once its paste lands.
+        self.deferred = []
         self.ptt = self._make_listener(config)
         self.prompt = load_vocabulary()
+        # What the paste-last hotkey pastes. Lives as long as this process.
+        self.last_text = None
 
     def _make_listener(self, config):
         """The trigger listener for this config. Built at start and on every reload."""
         return PTTListener(
             button=config.ptt.button, enter_button=config.ptt.enter_button,
-            on_enter=self.blocks.close, on_enter_button=self._enter_button)
+            on_enter=self.blocks.close, inbox=self.inbox)
 
-    def _reload_if_asked(self):
+    def _reload(self):
         """Between captures only. A save that leaves the model alone lands here
         instead of a restart, so the model stays loaded."""
-        if win32event.WaitForSingleObject(self.reload_event, 0) != win32event.WAIT_OBJECT_0:
-            return
         config = load_config()
         self.ptt.stop()
         self.config = config
@@ -260,15 +270,38 @@ class CaptureSession:
         self.ptt = self._make_listener(config)
         self.prompt = load_vocabulary()
 
-    def _enter_button(self):
-        """Hook thread: hand off at once. The Enter waits for an in-flight
-        dictation to paste, so it never sends a message without it."""
-        threading.Thread(target=self._send_enter, daemon=True).start()
+    def _await(self, kind, timeout=None):
+        """Blocks until kind arrives: True. Enter and reload seen on the way are
+        deferred; a stale press or release is dropped. False once timeout runs out."""
+        deadline = None if timeout is None else time.monotonic() + timeout
+        while True:
+            remaining = None if deadline is None else max(0.0, deadline - time.monotonic())
+            try:
+                item = self.inbox.get(timeout=remaining)
+            except queue.Empty:
+                return False
+            if item == kind:
+                return True
+            if item in ("enter", "reload"):
+                self.deferred.append(item)
 
-    def _send_enter(self):
-        """Fires the moment no dictation is between trigger and paste."""
-        with self.busy:
+    def _handle(self, item):
+        """One inbox item. A press whose button is already up again came in during a
+        dictation and is dropped, as before; a release on its own is nothing to do."""
+        if item == "press":
+            if self.ptt.pressed:
+                self._dictate()
+        elif item == "enter":
             self.keyboard.press_enter()
+        elif item == "reload":
+            self._reload()
+
+    def _drain_deferred(self):
+        """Handles what arrived mid-dictation, in order. Runs after the paste landed --
+        inject() returns only once the clipboard thread is done -- so Enter never beats it."""
+        items, self.deferred = self.deferred, []
+        for item in items:
+            self._handle(item)
 
     def stop(self):
         """Stop the trigger listener."""
@@ -279,7 +312,7 @@ class CaptureSession:
         Returns (samples, started, ended, timed_out)."""
         toggle = self.config.ptt.mode == "toggle"
         if toggle:
-            self.ptt.wait_for_release()
+            self._await("release")
 
         # play_tone() doesn't block -- swapping these two calls wouldn't
         # reduce tone bleed into the recording, it would capture the whole tone.
@@ -291,12 +324,12 @@ class CaptureSession:
         self.audio.start_capture()
 
         timed_out = False
-        if toggle and not self.ptt.wait_for_press(timeout_secs=120.0):
+        if toggle and not self._await("press", 120.0):
             timed_out = True
             play_tone("timeout", self.config.audio.stop_volume)
             log("note", "Timeout reached.")
         else:
-            self.ptt.wait_for_release()
+            self._await("release")
 
         return self.audio.stop_capture(), started, datetime.now(), timed_out
 
@@ -328,28 +361,29 @@ class CaptureSession:
             return "", "no-speech", None
 
         log("transcript", text)
+        self.last_text = text
         self.keyboard.inject(text)
         return text, "success", datetime.now()
 
     def run_once(self):
+        """One inbox item. A press is a capture, from trigger to row; Enter and
+        reload arriving between captures are handled on the spot."""
+        self._handle(self.inbox.get())
+
+    def _dictate(self):
         """One capture, from trigger to row. Every outcome writes exactly one row."""
-        # Wakes every 0.1s to check for saved settings; nothing depends on the period.
-        while not self.ptt.wait_for_press(timeout_secs=0.1):
-            self._reload_if_asked()
+        hwnd, pid, win_title, proc_name = get_window_context()
+        block_id = self.blocks.block_for(hwnd, pid)
 
-        with self.busy:
-            hwnd, pid, win_title, proc_name = get_window_context()
-            block_id = self.blocks.block_for(hwnd, pid)
+        # Fire the GPU primer to wake up CUDA cores while user is talking
+        self.stt.wake_gpu()
 
-            # Fire the GPU primer to wake up CUDA cores while user is talking
-            self.stt.wake_gpu()
+        audio_data, started, ended, timed_out = self._capture()
+        audio_path, file_timestamp = self._write_flac(audio_data)
 
-            audio_data, started, ended, timed_out = self._capture()
-            audio_path, file_timestamp = self._write_flac(audio_data)
-
-            text, outcome, inject_time = "", "timeout", None
-            if not timed_out:
-                text, outcome, inject_time = self._transcribe_and_inject(audio_data)
+        text, outcome, inject_time = "", "timeout", None
+        if not timed_out:
+            text, outcome, inject_time = self._transcribe_and_inject(audio_data)
 
         _record_corpus_row(CaptureRow(
             start_time=started, end_time=ended, inject_time=inject_time,
@@ -362,6 +396,7 @@ class CaptureSession:
             window_title=win_title, process_name=proc_name, block_id=block_id))
 
         log("done", "")
+        self._drain_deferred()
 
 
 def main():
@@ -401,7 +436,7 @@ def main():
         callback=_output_callback,
         extra_settings=sd.WasapiSettings(auto_convert=True))
     _output_stream.start()
-    threading.Thread(target=_play_previews, daemon=True).start()
+    threading.Thread(target=_read_commands, args=(session,), daemon=True).start()
 
     log("ready", f"Voice Dictation v{__version__} READY")
     log("block", divider_line())

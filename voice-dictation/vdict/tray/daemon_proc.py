@@ -9,10 +9,7 @@ import traceback
 from collections.abc import Callable
 from pathlib import Path
 
-import win32event
-
 from vdict.common import output
-from vdict.common.config import RELOAD_EVENT_NAME
 from vdict.tray.log import error_log, log
 
 # THREE .parent steps from vdict/tray/ to reach voice-dictation/, where
@@ -28,6 +25,7 @@ _process = None
 _reader_thread = None
 _exit_reported = False
 _fault_shown = False
+_stdin_lock = threading.Lock()
 
 
 def install(set_loading, drain):
@@ -127,20 +125,31 @@ def reload(on_started):
 
 def signal_reload():
     """The running daemon re-reads config.json between captures. Nothing printed."""
-    win32event.SetEvent(win32event.CreateEvent(
-        None, False, False, RELOAD_EVENT_NAME))  # pyright: ignore[reportArgumentType]
+    _send("reload")
 
 
-def preview_beep(tone_type, volume):
-    """Ask the running daemon to play one beep, through its own stream and device.
-    A daemon that is down plays nothing -- there is no other sound path to fall back on."""
+def _send(line):
+    """One command line to the running daemon's stdin. The Tk thread and hotkey.py's
+    thread both send, so writes take a lock. A daemon that is down gets nothing."""
     if _process is None or _process.poll() is not None:
         return
     try:
-        _process.stdin.write(f"{tone_type} {volume}\n")  # pyright: ignore[reportOptionalMemberAccess]
-        _process.stdin.flush()  # pyright: ignore[reportOptionalMemberAccess]
+        with _stdin_lock:
+            _process.stdin.write(line + "\n")  # pyright: ignore[reportOptionalMemberAccess]
+            _process.stdin.flush()  # pyright: ignore[reportOptionalMemberAccess]
     except OSError:
         pass  # exited between the poll and the write; poll() reports it
+
+
+def preview_beep(tone_type, volume):
+    """Ask the running daemon to play one beep, through its own stream and device --
+    there is no other sound path to fall back on."""
+    _send(f"beep {tone_type} {volume}")
+
+
+def paste_last():
+    """Ask the running daemon to paste its last dictation again. hotkey.py's thread."""
+    _send("paste")
 
 
 def poll():

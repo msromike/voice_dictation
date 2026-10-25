@@ -1,6 +1,8 @@
 """Shared output-category vocabulary: color, marker, box, and toast-eligibility per category.
 Also the error log's disk-write, since daemon and tray both need to reach it."""
 
+import sys
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import NamedTuple
@@ -40,12 +42,19 @@ CATEGORIES: dict[str, CategorySpec] = {
 }
 
 
+# The daemon logs from three threads (capture, clipboard, pipe reader). print() is
+# two writes, so without this a "ready" line once landed inside a note.
+_stdout_lock = threading.Lock()
+
+
 def log(category, text):
     """Emit one "category|text" line to stdout -- the daemon-to-tray wire format."""
     had_newline = "\n" in text
     if had_newline:
         text = text.replace("\n", " ")
-    print(f"{category}|{text}")
+    with _stdout_lock:
+        sys.stdout.write(f"{category}|{text}\n")
+        sys.stdout.flush()
     if had_newline:
         log("note", "Unexpected line break detected and removed from the "
                      "output -- if this keeps happening, it's worth a bug report.")

@@ -58,18 +58,18 @@ def format_bind(val):
     return val.title()
 
 
-def _hotkey_line(hotkey_name, hotkey_failed):
-    """The session block's Hotkey value, and whether it reads as a fault"""
+def _hotkey_line(hotkey_name, hotkey_failed, does, purpose):
+    """A session-block hotkey value, and whether it reads as a fault. does and purpose
+    are the same action two ways: "shows this window", "show this window"."""
     if hotkey_failed:
         return (f"{hotkey_name} is unavailable -- another application or "
                 f"Windows already uses it. Pick a different one in Settings."), True
     if hotkey_name is None:
-        return ("None set. Assign one in Settings to show this window "
-                "from anywhere."), False
-    return f"{hotkey_name} shows this window from anywhere.", False
+        return f"None set. Assign one in Settings to {purpose}.", False
+    return f"{hotkey_name} {does}.", False
 
 
-def log_session_block(pid, config, hotkey_name, hotkey_failed):
+def log_session_block(pid, config, hotkeys):
     """The session block, after every start and every Save. pid is None when a Save
     reloaded the running engine, so its first line says Updated, not Started."""
     ptt, stt = config.ptt, config.stt
@@ -78,7 +78,14 @@ def log_session_block(pid, config, hotkey_name, hotkey_failed):
 
     size = _model_size_on_disk(stt.model)
     model = stt.model if size is None else f"{stt.model} ({_human_size(size)})"
-    hotkey_value, is_fault = _hotkey_line(hotkey_name, hotkey_failed)
+    (window_name, window_taken), (paste_name, paste_taken) = (
+        hotkeys["window"], hotkeys["paste"])
+    window_value, window_fault = _hotkey_line(
+        window_name, window_taken, "shows this window from anywhere",
+        "show this window from anywhere")
+    paste_value, paste_fault = _hotkey_line(
+        paste_name, paste_taken, "pastes your last dictation where you are typing",
+        "paste your last dictation where you are typing")
 
     # The block owns its own blank line, so a restart is still separated
     # from the run above it with no startup header in between.
@@ -89,7 +96,8 @@ def log_session_block(pid, config, hotkey_name, hotkey_failed):
                      else "Press button once to toggle dictation.", "block"),
             ("Trigger", format_bind(ptt.button), "block"),
             ("Enter", format_bind(ptt.enter_button or ""), "block"),
-            ("Hotkey", hotkey_value, "error" if is_fault else "block"),
+            ("Hotkey", window_value, "error" if window_fault else "block"),
+            ("Paste", paste_value, "error" if paste_fault else "block"),
             ("Compute", DEVICE_LABELS[stt.device], "block"),
             ("Model", model, "block")):
         log(category, _summary_line(label, value))

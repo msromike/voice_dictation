@@ -1,4 +1,4 @@
-"""Capturing and naming one output-window hotkey combination.
+"""Capturing and naming one global hotkey combination.
 Leaf -- imports only hotkey.py, itself a leaf."""
 
 import ctypes
@@ -67,13 +67,13 @@ def _state_to_mods(state):
     return mods
 
 
-def _confirm_bare_key(parent, name):
+def _confirm_bare_key(parent, name, verb):
     """Warn before binding a key with no modifier.
     Nobody should end up here without knowing what they gave up."""
     return messagebox.askokcancel(
         "No modifier key -- Alt, Ctrl or Shift",
         f"You are binding {name} on its own.\n\n"
-        f"Pressing {name} anywhere in Windows will raise this window. "
+        f"Pressing {name} anywhere in Windows will {verb}. "
         f"Whatever {name} normally does, it stops doing.\n\n"
         f"Bind {name} anyway?",
         # The buttons cannot be relabelled, so the verb lives in the question
@@ -83,16 +83,16 @@ def _confirm_bare_key(parent, name):
         parent=parent)
 
 
-def capture(btn, display, binding):
-    """Take one combination from the picker button itself.
-    Binding on the button, not the dialog, is what lets Escape mean two things."""
+def capture(btn, display, binding, taken, verb):
+    """Take one combination from the picker button. taken is the other hotkey's binding,
+    which this one may not duplicate; verb finishes "Pressing it will ..." in the warning."""
     previous, previous_text = dict(binding), display.get()
     display.set("Press a combination...")
     btn.focus_set()
 
     # A live hotkey is swallowed by Windows before Tk sees it, so the
     # combination in use could never be rebound. _rebind_on_close puts it back.
-    hotkey.unregister()
+    hotkey.unregister_all()
 
     def restore():
         """Every abandoned capture puts the old binding back on the face"""
@@ -118,8 +118,14 @@ def capture(btn, display, binding):
         # accept path needs no binding once the dialog returns.
         mods = _state_to_mods(event.state)
         name = _combo_name(mods, event.keycode)
+        if (mods, event.keycode) == (taken["modifiers"], taken["vk"]):
+            messagebox.showwarning(
+                "Already bound", f"{name} is already the other hotkey.",
+                parent=btn.winfo_toplevel())
+            restore()
+            return "break"
         # The dialog the button lives in, rather than threaded-in state.
-        if mods == 0 and not _confirm_bare_key(btn.winfo_toplevel(), name):
+        if mods == 0 and not _confirm_bare_key(btn.winfo_toplevel(), name, verb):
             restore()
             return "break"
 

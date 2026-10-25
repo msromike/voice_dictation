@@ -1,6 +1,7 @@
 """PTT trigger monitoring and text injection at the cursor."""
 
 import ctypes
+import queue
 import struct
 import threading
 import time
@@ -10,6 +11,7 @@ import pywintypes
 import win32api
 import win32clipboard
 import win32con
+import win32event
 import win32gui
 from pynput import mouse, keyboard
 
@@ -35,6 +37,11 @@ _SKIP_FORMATS = frozenset({2, 3, 9, 14, 0x80, 0x82, 0x83, 0x8E})
 # Nothing asked for the text: no text field focused, or an elevated window that
 # ignores synthetic keys. A backstop, not a tuning constant -- the receipt ends the wait.
 _RECEIPT_TIMEOUT = 1.0
+
+# A budget, not a condition -- Windows has no event for the clipboard lock being
+# released. WinForms Clipboard.SetDataObject's defaults: 10 tries, 100 ms apart.
+CLIPBOARD_RETRIES = 10
+CLIPBOARD_RETRY_DELAY = 0.1
 
 # pynput key events carry no modifier state, and its Controller.modifiers holds
 # only keys this app synthesised. Windows reports the physical state directly.
@@ -77,6 +84,47 @@ def _modifier_held():
     return any(win32api.GetAsyncKeyState(vk) & 0x8000 for vk in MODIFIER_VKS)
 
 
+# Hook vk -> pyautogui name. The low-level hook reports left/right codes; the
+# generic three are here in case a driver sends them.
+_MODIFIER_NAMES = {
+    0xA0: "shiftleft", 0xA1: "shiftright", 0xA2: "ctrlleft", 0xA3: "ctrlright",
+    0xA4: "altleft", 0xA5: "altright", 0x5B: "winleft", 0x5C: "winright",
+    0x10: "shift", 0x11: "ctrl", 0x12: "alt"}
+_CTRL_VKS = frozenset({0xA2, 0xA3, 0x11})
+
+# Modifiers under the user's fingers right now, from the hook's physical (not
+# injected) events. GetAsyncKeyState can't say: it believes our own fake key-ups.
+_physical_down = set()
+
+
+def _track_modifier(msg, vk):
+    """Hook thread. Keeps _physical_down honest; a set add or discard, nothing slower."""
+    if msg in (win32con.WM_KEYDOWN, win32con.WM_SYSKEYDOWN):
+        _physical_down.add(vk)
+    else:
+        _physical_down.discard(vk)
+
+
+def _send_ctrl_v():
+    """Ctrl+V as the target sees it, whatever the fingers hold. A held Shift would make it
+    Ctrl+Shift+V -- the hotkey itself, and 'paste as plain text' to browsers."""
+    held = {vk: name for vk, name in _MODIFIER_NAMES.items() if vk in _physical_down}
+    lifted = {vk: name for vk, name in held.items() if vk not in _CTRL_VKS}
+    ctrl_held = len(held) > len(lifted)
+    for name in lifted.values():
+        pyautogui.keyUp(name)
+    if not ctrl_held:
+        pyautogui.keyDown("ctrl")
+    pyautogui.press("v")
+    if not ctrl_held:
+        pyautogui.keyUp("ctrl")
+    # Put back only what is still physically down, so a finger lifted meanwhile
+    # does not leave its key stuck. What AutoHotkey's Send does around a hotkey.
+    for vk, name in lifted.items():
+        if vk in _physical_down:
+            pyautogui.keyDown(name)
+
+
 def _key_vk(name):
     """config.json key name -> the virtual-key code the low-level hook reports."""
     key = getattr(keyboard.Key, name, None)
@@ -97,16 +145,12 @@ def _mouse_name(name, what):
 class PTTListener:
     """Push-to-talk trigger listener (configurable mouse button or keyboard key)"""
 
-    def __init__(self, button="middle", *, enter_button=None, on_enter, on_enter_button):
+    def __init__(self, button="middle", *, enter_button=None, on_enter, inbox):
         """Swallow the PTT trigger and the optional Enter mouse button. on_enter(hwnd)
-        fires on every unmodified Enter; on_enter_button() on the hook thread."""
+        fires on every unmodified Enter; "press", "release" and "enter" go on inbox."""
         self.pressed = False
         self.on_enter = on_enter
-        self.on_enter_button = on_enter_button
-
-        # Threading events for blocking waits
-        self.press_event = threading.Event()
-        self.release_event = threading.Event()
+        self.inbox = inbox
 
         self.ptt_vk = None
         self.ptt_mouse = None
@@ -129,22 +173,21 @@ class PTTListener:
             self.mouse_listener.start()
 
     def _set_pressed(self, pressed):
-        """PTT state change. Hook thread -- nothing slower than setting a flag,
+        """PTT state change. Hook thread -- nothing slower than a queue put,
         or Windows drops the hook."""
         if pressed == self.pressed:
             return  # key auto-repeat
         self.pressed = pressed
-        if pressed:
-            self.press_event.set()
-            self.release_event.clear()
-        else:
-            self.release_event.set()
-            self.press_event.clear()
+        self.inbox.put("press" if pressed else "release")
 
     def _key_filter(self, msg, data):
         """Inside Windows' keyboard hook. Takes the PTT key; every other key, and
         every key this app sends itself, passes through untouched."""
-        if data.vkCode != self.ptt_vk or data.flags & LLKHF_INJECTED:
+        if data.flags & LLKHF_INJECTED:
+            return True
+        if data.vkCode in _MODIFIER_NAMES:
+            _track_modifier(msg, data.vkCode)
+        if data.vkCode != self.ptt_vk:
             return True
         self._set_pressed(msg in (win32con.WM_KEYDOWN, win32con.WM_SYSKEYDOWN))
         if data.vkCode not in _MODIFIER_VKS:
@@ -164,7 +207,7 @@ class PTTListener:
             self._set_pressed(pressed)
         elif name == self.enter_mouse:
             if pressed:
-                self.on_enter_button()
+                self.inbox.put("enter")
         else:
             return True
         self.mouse_listener.suppress_event()  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
@@ -173,23 +216,6 @@ class PTTListener:
         """Internal callback for keyboard press events (runs in background thread)"""
         if key == keyboard.Key.enter and not _modifier_held():
             self.on_enter(win32gui.GetForegroundWindow())
-
-    def wait_for_press(self, timeout_secs=None):
-        """Block until the PTT trigger is pressed, returning True.
-        Returns False if timeout_secs elapses; None waits forever."""
-        import time
-        start_time = time.time()
-
-        while not self.press_event.wait(timeout=0.1):
-            if timeout_secs is not None and (
-                    time.time() - start_time) >= timeout_secs:
-                return False
-        return True
-
-    def wait_for_release(self):
-        """Block until PTT button is released"""
-        while not self.release_event.wait(timeout=0.1):
-            pass  # Loop allows KeyboardInterrupt to be raised
 
     def stop(self):
         """Stop both listeners (cleanup)"""
@@ -206,13 +232,25 @@ def _dropfiles(paths):
 
 
 class KeyboardInjector:
-    """Text injection at cursor position via clipboard, with the clipboard put back"""
+    """Text injection at the cursor via the clipboard, with the clipboard put back.
+    Every clipboard call runs on this object's own thread; callers queue pastes."""
 
     def __init__(self):
-        """Creates the hidden window Windows sends the paste receipt to. Clipboard
-        calls stay on this thread, which is the daemon's capture loop."""
+        """Starts the clipboard thread and waits for its window to exist, so the
+        first paste has somewhere for the receipt to go."""
         self._text = ""
         self._served = threading.Event()
+        self._queue = queue.Queue()
+        # Set after every put. The clipboard thread waits on it and on the window's
+        # messages in one call, so the thread answers Windows while idle too.
+        self._wake = win32event.CreateEvent(None, False, False, None)
+        self._ready = threading.Event()
+        threading.Thread(target=self._run, daemon=True).start()
+        self._ready.wait()
+
+    def _run(self):
+        """The clipboard thread. The window is made here because WM_RENDERFORMAT goes
+        to the thread that created it, and only while that thread pumps."""
         # The stubs declare both as read-only properties (_win32typing.pyi:2477,
         # :2479); assigning them is how pywin32 registers a window class.
         cls = win32gui.WNDCLASS()
@@ -220,6 +258,31 @@ class KeyboardInjector:
         cls.lpfnWndProc = self._wndproc  # pyright: ignore[reportAttributeAccessIssue]
         atom = win32gui.RegisterClass(cls)
         self._hwnd = win32gui.CreateWindow(atom, "vdict", 0, 0, 0, 0, 0, 0, 0, 0, None)
+        self._ready.set()
+        while True:
+            # MEASURED: this window owns the restored clipboard, and an owner that is
+            # not pumping stalls every other app's copy 5 s. So the idle wait pumps.
+            win32event.MsgWaitForMultipleObjects(
+                [self._wake], False, win32event.INFINITE, win32con.QS_ALLINPUT)
+            win32gui.PumpWaitingMessages()
+            self._drain()
+
+    def _drain(self):
+        """Every queued paste, in order. A done-signal, when there is one, is set
+        after the clipboard is back."""
+        while True:
+            try:
+                text, done = self._queue.get_nowait()
+            except queue.Empty:
+                return
+            self._paste(text)
+            if done is not None:
+                done.set()
+
+    def _submit(self, text, done):
+        """Any thread. The put is what carries the paste; the event is what wakes."""
+        self._queue.put((text, done))
+        win32event.SetEvent(self._wake)
 
     def _wndproc(self, hwnd, msg, wparam, lparam):
         """WM_RENDERFORMAT is the paste receipt -- a target is asking for the text.
@@ -237,12 +300,12 @@ class KeyboardInjector:
 
     def _open_clipboard(self):
         """Another app can hold the clipboard open for a moment at a time."""
-        for _ in range(5):
+        for _ in range(CLIPBOARD_RETRIES):
             try:
                 win32clipboard.OpenClipboard(self._hwnd)
                 return True
             except pywintypes.error:
-                time.sleep(0.02)
+                time.sleep(CLIPBOARD_RETRY_DELAY)
         return False
 
     def _snapshot(self):
@@ -271,13 +334,17 @@ class KeyboardInjector:
             log("note", "Clipboard busy -- it was not restored this time.")
             return
         try:
+            # Seen once, unreproduced: text formats refused with "handle is invalid".
+            # The note carries what the next occurrence needs to be explained.
+            owner = "ours" if win32clipboard.GetClipboardOwner() == self._hwnd else "not ours"
             win32clipboard.EmptyClipboard()
             for fmt, data in items:
                 try:
                     win32clipboard.SetClipboardData(
                         fmt, _dropfiles(data) if fmt == win32con.CF_HDROP else data)
                 except Exception as e:
-                    log("note", f"Clipboard format {fmt} not restored: {e}")
+                    log("note", f"Clipboard format {fmt} not restored: {e} "
+                                f"({type(data).__name__} of {len(data)}, owner {owner})")
         finally:
             win32clipboard.CloseClipboard()
 
@@ -294,12 +361,22 @@ class KeyboardInjector:
             win32clipboard.CloseClipboard()
         return True
 
-    def inject(self, text):
-        """Pastes text at the cursor, then restores the clipboard the moment the
-        target takes it -- or after the backstop, if nothing ever asks."""
-        if not text or not text.strip():
-            return
+    def _await_receipt(self):
+        """Pumps until the target asks for the text, or the backstop runs out.
+        QS_ALLINPUT covers sent messages, which is what WM_RENDERFORMAT is."""
+        deadline = time.monotonic() + _RECEIPT_TIMEOUT
+        while not self._served.is_set():
+            remaining_ms = int((deadline - time.monotonic()) * 1000)
+            if remaining_ms <= 0:
+                return
+            rc = win32event.MsgWaitForMultipleObjects(
+                [], False, remaining_ms, win32con.QS_ALLINPUT)
+            if rc == win32event.WAIT_OBJECT_0:
+                win32gui.PumpWaitingMessages()
 
+    def _paste(self, text):
+        """Clipboard thread. Pastes text at the cursor, then restores the clipboard
+        the moment the target takes it -- or after the backstop, if nothing ever asks."""
         items = self._snapshot()
         self._text = text + " "
         self._served.clear()
@@ -307,16 +384,25 @@ class KeyboardInjector:
             log("note", "Clipboard busy -- nothing pasted. The text is in this window.")
             return
 
-        pyautogui.hotkey('ctrl', 'v')
-        deadline = time.monotonic() + _RECEIPT_TIMEOUT
-        while not self._served.is_set() and time.monotonic() < deadline:
-            win32gui.PumpWaitingMessages()
-            time.sleep(0.001)
+        _send_ctrl_v()
+        self._await_receipt()
 
-        if not self._served.is_set():
-            log("note", "Paste did not land -- the text is in this window.")
         if items is not None:
             self._restore(items)
+
+    def inject(self, text):
+        """Any thread. Pastes text at the cursor and returns once the clipboard is
+        back, so what follows -- a corpus row, a deferred Enter -- comes after it."""
+        if not text or not text.strip():
+            return
+        done = threading.Event()
+        self._submit(text, done)
+        done.wait()
+
+    def paste_async(self, text):
+        """Any thread. Pastes text and returns at once -- the paste-last hotkey,
+        which must land even while a recording holds the main thread."""
+        self._submit(text, None)
 
     def press_enter(self):
         """A real Enter keystroke, for the Enter mouse button."""

@@ -106,7 +106,7 @@ class App:
         """What daemon_proc calls once the subprocess is up. Hotkey state and
         config are app's, so the subprocess never learns about either."""
         config, _ = load_settings()
-        log_session_block(pid, config, self.hotkey_name, self.hotkey_failed)
+        log_session_block(pid, config, self.hotkeys)
 
     def show_window(self, icon=None, item=None):
         """Show output window"""
@@ -116,7 +116,7 @@ class App:
     def open_settings(self, icon=None, item=None):
         """Open the Settings dialog. Signature keeps icon/item for pystray."""
         return settings.open_settings(self.window, self._on_settings_save,
-                                      self._register_hotkey, self._on_beep_volume)
+                                      self._register_hotkeys, self._on_beep_volume)
 
     def _on_settings_save(self, config):
         """What Settings hands back. Only a model or compute change restarts the
@@ -141,13 +141,20 @@ class App:
         daemon_proc.signal_reload()
         daemon_proc.preview_beep(tone_type, volume)
 
-    def _register_hotkey(self, cfg):
-        """Claim the configured combination. Records what happened for the session block
-        to report -- unset and already-taken are both states, never failures."""
-        self.hotkey_name = cfg.name
-        self.hotkey_failed = (
-            cfg.vk is not None
-            and not hotkey.register(cfg.modifiers, cfg.vk, self._on_hotkey))
+    def _register_hotkeys(self, config):
+        """Claim both configured combinations. Records (name, taken) for each, for the
+        session block -- unset and already-taken are both states, never failures."""
+        self.hotkeys = {
+            "window": self._claim(hotkey.OUTPUT_WINDOW, config.hotkey, self._on_hotkey),
+            "paste": self._claim(hotkey.PASTE_LAST, config.paste_hotkey,
+                                 daemon_proc.paste_last),
+        }
+
+    def _claim(self, hotkey_id, cfg, callback):
+        """(name, taken) for one hotkey, registering it when one is set."""
+        taken = (cfg.vk is not None
+                 and not hotkey.register(hotkey_id, cfg.modifiers, cfg.vk, callback))
+        return cfg.name, taken
 
     def _on_hotkey(self):
         """Runs on hotkey.py's owning thread, which must never touch Tk itself."""
@@ -257,7 +264,7 @@ class App:
         log("header", "=" * 60)
 
         # Before the daemon starts, so the session block has a true Hotkey line.
-        self._register_hotkey(config.hotkey)
+        self._register_hotkeys(config)
         if MIC_FAULT_FLAG_PATH.exists():
             reason = MIC_FAULT_FLAG_PATH.read_text()
             MIC_FAULT_FLAG_PATH.unlink()

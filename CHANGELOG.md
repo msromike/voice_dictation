@@ -8,6 +8,12 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- A hotkey that pastes your last dictation again, wherever you are typing.
+  For the dictation that landed nowhere -- no text field had focus -- or in
+  the wrong window: click where you meant it to go and press the hotkey,
+  instead of copying it out of the output window. Bind it in Settings under
+  "Paste Last Dictation Hotkey"; nothing is bound out of the box.
+
 - A mouse button can press Enter, so a dictation can be sent without
   reaching for the keyboard. Bind it in Settings under "Mouse Button for
   Enter"; nothing is bound out of the box. If you press it while a
@@ -142,6 +148,11 @@ All notable changes to this project are documented here. Format follows
   own display code, which a toast or a styled dialog could not guarantee.
 
 ### Fixed
+
+- Copying in any app right after a dictation no longer freezes that app for
+  five seconds. The engine owned the clipboard after putting your text back
+  but was not listening for Windows' notice that you had replaced it, so
+  Windows waited for a reply and gave up. It listens now.
 
 - Dictating no longer destroys what you had copied. Whatever was on the
   clipboard -- text, an image, formatting, a file copied in Explorer -- is put

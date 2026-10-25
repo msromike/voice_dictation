@@ -7,8 +7,9 @@ import win32api
 import win32con
 import win32gui
 
-# RegisterHotKey ids must fall in 0x0000-0xBFFF. One hotkey, one id.
-_HOTKEY_ID = 1
+# RegisterHotKey ids must fall in 0x0000-0xBFFF. One id per hotkey.
+OUTPUT_WINDOW = 1
+PASTE_LAST = 2
 
 _CMD_REGISTER = win32con.WM_APP + 1
 _CMD_UNREGISTER = win32con.WM_APP + 2
@@ -17,29 +18,26 @@ _lock = threading.Lock()
 _queue_ready = threading.Event()
 _replied = threading.Event()
 
-def _noop():
-    """Stand-in so the pump has something callable before the first register()"""
-
-
 _thread = None
 _thread_id = None
-_callback = _noop
-_registered = False
+_callbacks = {}
+_registered = set()
 _result = False
 
 
-def register(mods, vk, callback):
+def register(hotkey_id, mods, vk, callback):
     """Claim a system-wide hotkey, returning True on success and False when it is taken.
     Callable from any thread. callback runs on the owning thread, not the caller's."""
-    global _callback
     with _lock:
         _start()
-        _callback = callback
-        return _command(_CMD_REGISTER, mods | win32con.MOD_NOREPEAT, vk)
+        _callbacks[hotkey_id] = callback
+        # A thread message carries two numbers, so the id rides above the modifiers.
+        return _command(_CMD_REGISTER,
+                        (hotkey_id << 16) | mods | win32con.MOD_NOREPEAT, vk)
 
 
-def unregister():
-    """Release the hotkey. Does nothing when none is held."""
+def unregister_all():
+    """Release every hotkey held. Does nothing when none is."""
     with _lock:
         if _thread is None:
             return
@@ -81,32 +79,29 @@ def _pump():
     while True:
         msg = win32gui.GetMessage(None, 0, 0)[1]  # pyright: ignore[reportArgumentType]
         if msg[1] == win32con.WM_HOTKEY:
-            _callback()
+            _callbacks[msg[2]]()  # WM_HOTKEY's wParam is the id
         elif msg[1] == _CMD_REGISTER:
-            _result = _claim(msg[2], msg[3])
+            _result = _claim(msg[2] >> 16, msg[2] & 0xFFFF, msg[3])
             _replied.set()
         elif msg[1] == _CMD_UNREGISTER:
-            _release()
+            _release_all()
             _result = True
             _replied.set()
 
 
-def _claim(mods, vk):
+def _claim(hotkey_id, mods, vk):
     """Owning thread only. False when Windows or another process already holds the combination.
     Callers release first; claiming over a live registration collides on the id and fails."""
-    global _registered
     try:
-        win32gui.RegisterHotKey(None, _HOTKEY_ID, mods, vk)
+        win32gui.RegisterHotKey(None, hotkey_id, mods, vk)
     except win32gui.error:
         return False
-    _registered = True
+    _registered.add(hotkey_id)
     return True
 
 
-def _release():
-    """Owning thread only. UnregisterHotKey raises when nothing is registered."""
-    global _registered
-    if not _registered:
-        return
-    win32gui.UnregisterHotKey(None, _HOTKEY_ID)
-    _registered = False
+def _release_all():
+    """Owning thread only. UnregisterHotKey raises for an id not registered."""
+    for hotkey_id in _registered:
+        win32gui.UnregisterHotKey(None, hotkey_id)
+    _registered.clear()

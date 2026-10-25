@@ -208,22 +208,28 @@ def _build_console_boot_row(parent, config):
     return open_console_var
 
 
-def _build_hotkey_row(parent):
-    """Label and picker button for the output-window hotkey.
-    Returns the mutable binding the capture writes into and Save reads back."""
+def _build_hotkey_rows(parent):
+    """Label and picker for each global hotkey. Returns the two mutable bindings the
+    captures write into and Save reads back: (output window, paste last)."""
     cfg, _ = load_settings()
-    binding = cfg.hotkey.model_dump()
+    window = cfg.hotkey.model_dump()
+    paste = cfg.paste_hotkey.model_dump()
 
-    tk.Label(parent, text="Output Window Hotkey:").pack()
-    display = tk.StringVar(value=binding["name"] or "None")
-    btn = tk.Button(parent, textvariable=display, width=20)
-    btn.config(command=lambda: hotkey_capture.capture(btn, display, binding))
-    btn.pack(pady=(0, scale(15)))
-    return binding
+    for label, binding, taken, verb in (
+            ("Output Window Hotkey:", window, paste, "raise this window"),
+            ("Paste Last Dictation Hotkey:", paste, window,
+             "paste your last dictation")):
+        tk.Label(parent, text=label).pack()
+        display = tk.StringVar(value=binding["name"] or "None")
+        btn = tk.Button(parent, textvariable=display, width=20)
+        btn.config(command=lambda b=btn, d=display, bd=binding, t=taken, v=verb:
+                   hotkey_capture.capture(b, d, bd, t, v))
+        btn.pack(pady=(0, scale(15)))
+    return window, paste
 
 
-def _rebind_on_close(event, settings_win, register_hotkey):
-    """Settings is gone -- put the hotkey back from whatever is on disk now.
+def _rebind_on_close(event, settings_win, register_hotkeys):
+    """Settings is gone -- put both hotkeys back from whatever is on disk now.
     Saved or abandoned, disk already holds the right answer."""
     # <Destroy> fires for every descendant; the guard keeps this to one call.
     if event.widget is not settings_win:
@@ -231,11 +237,11 @@ def _rebind_on_close(event, settings_win, register_hotkey):
     # Silent. A Save reprints the session block anyway, and closing
     # without saving changed nothing on disk to announce.
     cfg, _ = load_settings()
-    hotkey.unregister()
-    register_hotkey(cfg.hotkey)
+    hotkey.unregister_all()
+    register_hotkeys(cfg)
 
 
-def open_settings(root, on_save, register_hotkey, on_beep_volume):
+def open_settings(root, on_save, register_hotkeys, on_beep_volume):
     """Open the dialog, or raise the one already open and return it. on_save(config)
     owns writing and closing; on_beep_volume(tone, volume) saves one slider live."""
     global _win
@@ -261,7 +267,7 @@ def open_settings(root, on_save, register_hotkey, on_beep_volume):
     start_volume_var, stop_volume_var = _build_beeps_row(
         main_frame, config, on_beep_volume)
     open_console_var = _build_console_boot_row(main_frame, config)
-    hotkey_binding = _build_hotkey_row(main_frame)
+    hotkey_binding, paste_binding = _build_hotkey_rows(main_frame)
 
     def save():
         # The console writes geometry and font to this file while Settings is
@@ -280,6 +286,7 @@ def open_settings(root, on_save, register_hotkey, on_beep_volume):
         fresh.stt.device = cast(
             Literal["cpu", "cuda"], reverse_device_mapping[device_var.get()])
         fresh.hotkey = HotkeyConfig(**hotkey_binding)
+        fresh.paste_hotkey = HotkeyConfig(**paste_binding)
 
         fresh.ui.open_console_on_boot = open_console_var.get()
 
@@ -295,7 +302,7 @@ def open_settings(root, on_save, register_hotkey, on_beep_volume):
     # <Destroy>, not the close protocol: a save destroys directly, and
     # destroy() never fires the WM_DELETE_WINDOW handler.
     settings_win.bind("<Destroy>",
-                      lambda e: _rebind_on_close(e, settings_win, register_hotkey),
+                      lambda e: _rebind_on_close(e, settings_win, register_hotkeys),
                       add="+")
     tk.Button(main_frame, text="Save", command=save).pack(
         pady=(scale(5), 0))

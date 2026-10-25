@@ -39,11 +39,12 @@ by format ID without preserving insertion order, no sorting, no
 set-based dedup.
 
 PTT GATING
-press_event/release_event are level flags, nothing consumes them -- a
-press-release during a busy transcription/delivery window leaves the same
-flag state as if nothing happened, so it's silently dropped. Shared busy
-flag: set on cycle start, cleared on this item's completion signal. Clear
-also drains both events before the next wait_for_press.
+Since 2026-10-25 the engine consumes an inbox queue (vdict_daemon.py,
+CaptureSession._await and _handle): a press-and-hold that arrives during
+transcription or delivery starts the next capture as soon as the paste
+lands; a press whose release also arrived meanwhile is dropped, because
+_handle checks ptt.pressed. No level flags, no busy lock. Still open: the
+user is not told a press was dropped -- the "busy" tone row below.
 
 TONES -- four conditions, existing high/low/double-low tones only, no new
 asset, no new slider:

@@ -126,6 +126,7 @@ alt="The Settings window, showing microphone, push-to-talk button and mode, mode
 | Stop & Alert Beep Volume | The low beeps: recording stopped, ready, too short, timeout. 0 to 100, 0 is off. Two sliders because small speakers make the high beep sound much louder than the low one |
 | Show Output Window on Startup | Whether the output window opens on launch |
 | Output Window Hotkey | Click it, then press a combination to raise the output window from anywhere. Unset by default |
+| Paste Last Dictation Hotkey | Click it, then press a combination. Pressing it pastes your last dictation wherever you are typing -- for when one landed nowhere, or in the wrong window. Hold the modifiers and tap the key to paste it again. If a modifier key ever feels stuck after a paste, tap it once. Unset by default. Avoid Ctrl+Shift+V: browsers and Windows Terminal use it |
 
 Click **Save** to apply. Only a new model or compute device reloads the speech
 engine; everything else takes effect at once. The beep sliders don't wait for

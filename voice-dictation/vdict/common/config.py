@@ -16,10 +16,6 @@ VOCABULARY_TEMPLATE_PATH = (
 # Single source for both processes -- the tray writes this path, the daemon reads it.
 CONFIG_PATH = Path(__file__).parent.parent.parent.parent / "userdata" / "config.json"
 
-# Named event the tray sets after a save that leaves the model alone. The daemon
-# re-reads config.json between captures instead of being restarted.
-RELOAD_EVENT_NAME = "VoiceDictationReloadEvent"
-
 
 class Pos(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
@@ -81,6 +77,7 @@ class Config(BaseModel):
     ptt: PttConfig = PttConfig()
     stt: SttConfig = SttConfig()
     hotkey: HotkeyConfig = HotkeyConfig()
+    paste_hotkey: HotkeyConfig = HotkeyConfig()
     ui: UiConfig = UiConfig()
 
 
@@ -182,6 +179,9 @@ FIELD_LABELS: dict[tuple[str, ...], str] = {
     ("hotkey", "modifiers"): "Output window hotkey",
     ("hotkey", "vk"): "Output window hotkey",
     ("hotkey", "name"): "Output window hotkey",
+    ("paste_hotkey", "modifiers"): "Paste-last hotkey",
+    ("paste_hotkey", "vk"): "Paste-last hotkey",
+    ("paste_hotkey", "name"): "Paste-last hotkey",
     ("ui", "open_console_on_boot"): "Show output on startup",
 }
 
