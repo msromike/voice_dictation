@@ -11,6 +11,7 @@ from vdict.common import output
 from vdict.common.config import (
     VOCABULARY_PATH, VOCABULARY_RESET_MESSAGE, reseed_vocabulary_if_missing)
 from vdict.tray.const import PROJECT_URL
+from vdict.tray import events
 from vdict.tray.log import log
 
 # Declared, deliberately unbound. _sync_help_menu only ever fires as the
@@ -19,15 +20,19 @@ _help_menu: tk.Menu
 
 
 def _sync_help_menu():
-    """Grey out Error Log when no log file exists."""
-    _help_menu.entryconfig(
-        "Error Log",
-        state=tk.NORMAL if output.ERROR_LOG_PATH.exists() else tk.DISABLED)
+    """Grey out Error Log and Event Log when their file does not exist."""
+    for label, path in (("Error Log", output.ERROR_LOG_PATH), ("Event Log", events.PATH)):
+        _help_menu.entryconfig(label, state=tk.NORMAL if path.exists() else tk.DISABLED)
 
 
 def _open_error_log():
     """Open the error log in the default text editor"""
     os.startfile(output.ERROR_LOG_PATH)
+
+
+def _open_event_log():
+    """Open today's event log in the default text editor"""
+    os.startfile(events.PATH)
 
 
 def open_docs(event=None):
@@ -107,6 +112,8 @@ def build(root, cb):
                           accelerator="F1", command=open_docs)
     help_menu.add_command(label="Error Log", underline=0,
                           command=_open_error_log)
+    help_menu.add_command(label="Event Log", underline=1,
+                          command=_open_event_log)
     help_menu.add_separator()
     help_menu.add_command(label="About", underline=0,
                           command=lambda: _show_about(root))

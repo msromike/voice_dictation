@@ -8,6 +8,11 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- Help > Event Log. Every yellow note and red error in the output window is
+  also written to a file with the date and time, so a warning that scrolled
+  past while you were working is still there later. It never holds your
+  dictated text or anything you copied. One file per day, kept 30 days.
+
 - A hotkey that pastes your last dictation again, wherever you are typing.
   For the dictation that landed nowhere -- no text field had focus -- or in
   the wrong window: click where you meant it to go and press the hotkey,

@@ -11,7 +11,7 @@ from datetime import datetime
 from tkinter import filedialog, scrolledtext
 
 from vdict.common import output
-from vdict.tray import transcript
+from vdict.tray import events, transcript
 from vdict.tray.log import error_log, install_screen, output_queue
 
 # CategorySpec.color -> the Tk tag that renders it. "none" has no entry --
@@ -205,6 +205,10 @@ class Console:
                 if category == "transcript" and transcript.ENABLED:
                     transcript.write(text)
                     transcript.write("")
+
+                # Swallowed from the screen or not -- the file is for later.
+                if spec and category in events.CATEGORIES:
+                    events.write(spec.marker, text)
 
                 if spec and spec.toast and self.root.state() != 'normal':
                     self.icon.notify(text, "Voice Dictation")

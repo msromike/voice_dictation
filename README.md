@@ -105,6 +105,7 @@ Right-clicking in the log also gives you Copy.
 |---|---|
 | Documentation | Opens this page in your browser (F1) |
 | Error Log | Opens the error log. Greyed out when there is nothing to show |
+| Event Log | Opens today's event log: every yellow note and red error, with the date and time, so one you missed on screen is still there. Never your dictated text or anything you copied. One file per day, kept 30 days. Greyed out when there is nothing to show |
 | About | Version number and project link |
 
 The window's size, position, and text size are remembered between runs.
