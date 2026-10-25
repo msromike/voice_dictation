@@ -119,7 +119,7 @@ def reload(on_started):
         start(on_started)
         return
     signal_reload()
-    on_started(_process.pid)
+    on_started(None)  # nothing started -- the block says Updated
     # No startup follows to close the block, so the line that would comes from here.
     log("block", output.divider_line())
     log("block", "")

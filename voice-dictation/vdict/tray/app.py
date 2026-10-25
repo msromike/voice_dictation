@@ -151,7 +151,7 @@ class App:
 
     def _on_hotkey(self):
         """Runs on hotkey.py's owning thread, which must never touch Tk itself."""
-        self.window.after(0, self._raise_window, self.hotkey_name)
+        self.window.after(0, self._raise_window)
 
     def _wait_for_relaunch(self, raise_event):
         """Own thread, blocked until a second launch sets the event. Never touches
@@ -160,13 +160,11 @@ class App:
             win32event.WaitForSingleObject(raise_event, win32event.INFINITE)
             self.window.after(0, self._raise_window)
 
-    def _raise_window(self, by=None):
+    def _raise_window(self):
         """Bring the output window up with keyboard focus. Nothing may precede these two
         calls -- the foreground grant Windows hands us is momentary."""
         self.window.deiconify()
         win32gui.SetForegroundWindow(int(self.window.wm_frame(), 0))
-        if by:
-            log("note", f"{by} raised the output window")
 
     def _save_state(self):
         """Persist every tracked window's geometry and the console's text size.

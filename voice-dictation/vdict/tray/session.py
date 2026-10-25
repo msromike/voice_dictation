@@ -70,9 +70,11 @@ def _hotkey_line(hotkey_name, hotkey_failed):
 
 
 def log_session_block(pid, config, hotkey_name, hotkey_failed):
-    """The session block. Called only by start_vdict, so first launch and every
-    engine restart print the identical thing and cannot drift apart."""
+    """The session block, after every start and every Save. pid is None when a Save
+    reloaded the running engine, so its first line says Updated, not Started."""
     ptt, stt = config.ptt, config.stt
+    first = (("Started", f"vdict_daemon.py (PID {pid})") if pid is not None
+             else ("Updated", "settings applied, model kept loaded."))
 
     size = _model_size_on_disk(stt.model)
     model = stt.model if size is None else f"{stt.model} ({_human_size(size)})"
@@ -82,7 +84,7 @@ def log_session_block(pid, config, hotkey_name, hotkey_failed):
     # from the run above it with no startup header in between.
     log("block", "")
     for label, value, category in (
-            ("Started", f"vdict_daemon.py (PID {pid})", "block"),
+            (*first, "block"),
             ("Mode", "Hold button down to dictate." if ptt.mode == "hold"
                      else "Press button once to toggle dictation.", "block"),
             ("Trigger", format_bind(ptt.button), "block"),

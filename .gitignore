@@ -6,12 +6,10 @@ __pycache__/
 *.pyc
 *.pyo
 
-# Each machine's own settings -- mic, buttons, beep volumes, window positions.
-# A missing file is rebuilt from the Config model's defaults at launch.
-userdata/config.json
-
-# Collected audio -- too big for git, stays on the machine that recorded it
-userdata/voice_recordings_PRIVATE/
+# Everything the app writes is per machine -- settings, history, logs, recordings.
+# vocabulary.txt is the exception: the same terms are wanted on every machine.
+userdata/*
+!userdata/vocabulary.txt
 *.flac
 
 # Secrets
