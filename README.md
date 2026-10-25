@@ -134,21 +134,21 @@ The window's size, position, and text size are remembered between runs.
 ### Settings
 
 <a href="images/settings.png"><img src="images/settings.png" width="300"
-alt="The Settings window, showing microphone, push-to-talk button and mode, model size, compute device, and the audio and output checkboxes"></a>
+alt="The Settings window in four boxes: Recording, Speech engine, Shortcuts, and Sounds and startup"></a>
 
-| Setting | Options |
-|---|---|
-| Microphone | Pick yours by name from the list -- no "system default" option |
-| PTT Button Trigger | Click it, then press any key or mouse button to bind it -- left-click excepted. The app takes that button for itself, so a mouse side button stops going Back in your browser. Shift, Ctrl, Alt and Windows keys are the exception: they still trigger dictation but keep working as normal, because taking them would break every shortcut that uses them |
-| Mouse Button for Enter | Optional. A mouse button that presses Enter, so you can dictate and send without touching the keyboard. If a dictation is still being typed, the Enter waits until it has landed. Clear unbinds it |
-| PTT Recording Mode | **Hold** (hold to talk) or **Toggle** (click to start, click to stop) |
-| AI Model Size | tiny.en, base.en, small.en, medium.en, large-v3 |
-| Compute Device | CPU or GPU -- GPU is greyed out if you have no NVIDIA card |
-| Start Beep Volume | The high beep when recording starts, 0 to 100. 0 is off |
-| Stop & Alert Beep Volume | The low beeps: recording stopped, ready, too short, timeout. 0 to 100, 0 is off. Two sliders because small speakers make the high beep sound much louder than the low one |
-| Show Output Window on Startup | Whether the output window opens on launch |
-| Output Window Hotkey | Click it, then press a combination to raise the output window from anywhere. Unset by default |
-| Paste Last Dictation Hotkey | Click it, then press a combination. Pressing it pastes your last dictation wherever you are typing -- for when one landed nowhere, or in the wrong window. Hold the modifiers and tap the key to paste it again. If a modifier key ever feels stuck after a paste, tap it once. Unset by default. Avoid Ctrl+Shift+V: browsers and Windows Terminal use it |
+| Box | Setting | Options |
+|---|---|---|
+| Recording | Microphone | System Default, or pick yours by name from the list |
+| | PTT mode | **Hold** (hold to talk) or **Toggle** (click to start, click to stop) |
+| | PTT button | Click it, then press any key or mouse button to bind it -- left-click excepted. The app takes that button for itself, so a mouse side button stops going Back in your browser. Shift, Ctrl, Alt and Windows keys are the exception: they still trigger dictation but keep working as normal, because taking them would break every shortcut that uses them. Reset puts it back to middle mouse |
+| Speech engine | Compute device | CPU or GPU -- GPU is greyed out if you have no NVIDIA card |
+| | Model size | tiny.en, base.en, small.en, medium.en, large-v3 |
+| Shortcuts | Mouse button for Enter | Optional. A mouse button that presses Enter, so you can dictate and send without touching the keyboard. If a dictation is still being typed, the Enter waits until it has landed. Clear unbinds it |
+| | Paste last dictation | Click it, then press a combination. Pressing it pastes your last dictation wherever you are typing -- for when one landed nowhere, or in the wrong window. Hold the modifiers and tap the key to paste it again. If a modifier key ever feels stuck after a paste, tap it once. Unset by default; Clear unsets it. Avoid Ctrl+Shift+V: browsers and Windows Terminal use it |
+| | Raise output window | Click it, then press a combination to raise the output window from anywhere. Unset by default; Clear unsets it |
+| Sounds and startup | Start beep volume | The high beep when recording starts, 0 to 100. 0 is off |
+| | Stop & alert beep volume | The low beeps: recording stopped, ready, too short, timeout. 0 to 100, 0 is off. Two sliders because small speakers make the high beep sound much louder than the low one |
+| | Show output window on startup | Whether the output window opens on launch |
 
 Click **Save** to apply. Only a new model or compute device reloads the speech
 engine; everything else takes effect at once. The beep sliders don't wait for
@@ -237,7 +237,7 @@ written when something actually fails, so if it exists, its last entry is your
 answer. If that menu item is greyed out, no error has ever been recorded.
 
 **Transcription is slow.** You are probably on CPU with a large model. Check the
-Compute Device and AI Model Size settings.
+Compute device and Model size settings, under Speech engine.
 
 **It typed something I did not say.** Whisper guesses when audio is unclear.
 Check `vocabulary.txt` -- words listed there get favored, so a long list can

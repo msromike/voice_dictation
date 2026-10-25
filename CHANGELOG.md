@@ -25,10 +25,10 @@ All notable changes to this project are documented here. Format follows
   For the dictation that landed nowhere -- no text field had focus -- or in
   the wrong window: click where you meant it to go and press the hotkey,
   instead of copying it out of the output window. Bind it in Settings under
-  "Paste Last Dictation Hotkey"; nothing is bound out of the box.
+  "Paste last dictation"; nothing is bound out of the box.
 
 - A mouse button can press Enter, so a dictation can be sent without
-  reaching for the keyboard. Bind it in Settings under "Mouse Button for
+  reaching for the keyboard. Bind it in Settings under "Mouse button for
   Enter"; nothing is bound out of the box. If you press it while a
   dictation is still being typed, the Enter waits until the text has landed,
   so a message never goes out without it.
@@ -44,7 +44,7 @@ All notable changes to this project are documented here. Format follows
   time is visible at a glance when scanning back through the output window.
 
 - A hotkey that raises the output window from any application. Bind it in
-  Settings under "Output Window Hotkey". Nothing is bound out of the box --
+  Settings under "Raise output window". Nothing is bound out of the box --
   any combination shipped as a default would collide on somebody's machine and
   look broken on first launch. Binding a key with no modifier is allowed, but
   warns first, because that key stops doing whatever it normally did.
@@ -78,6 +78,12 @@ All notable changes to this project are documented here. Format follows
   written.
 
 ### Changed
+
+- Settings is grouped into four boxes -- Recording, Speech engine, Shortcuts,
+  and Sounds and startup -- with each label beside its control instead of
+  above it, so the window is about a third shorter. Paste last dictation and
+  Raise output window each get a Clear button to turn the hotkey off, and PTT
+  button gets Reset, back to middle mouse.
 
 - The beeps on/off checkbox is replaced by two volume sliders, 0 to 100:
   one for the high start beep, one for the low stop, ready and alert beeps.

@@ -2,9 +2,10 @@
 a Config and hands that to on_save; writing, closing and restarting are app's."""
 
 import tkinter as tk
+from tkinter import messagebox
 from typing import Literal, cast
 
-from vdict.common.config import HotkeyConfig, load_settings
+from vdict.common.config import HotkeyConfig, PttConfig, load_settings
 from vdict.tray import hotkey, hotkey_capture
 from vdict.tray.dpi import scale
 from vdict.tray.geometry import POS, manage
@@ -19,6 +20,10 @@ DEFAULT_MIC_LABEL = "System Default"
 # nothing outside this module reaches for it.
 _win = None
 
+# The PTT button's blank spacer image. Tk holds no Python reference to an
+# image, so without this one it is collected and the spacer vanishes.
+_arrow_space = None
+
 
 def close():
     """Destroy the dialog if one is open. app calls this after a save."""
@@ -29,7 +34,7 @@ def close():
 
 
 def _build_window(root):
-    """Toplevel, its frame, and the title banner. Withdrawn until placement is set.
+    """Toplevel and its frame. Withdrawn until placement is set.
     Returns (settings_win, main_frame)."""
     settings_win = tk.Toplevel(root)
     settings_win.withdraw()  # Hide immediately to prevent position flash
@@ -41,22 +46,36 @@ def _build_window(root):
     main_frame = tk.Frame(
         settings_win, padx=scale(20), pady=scale(10))
     main_frame.pack(fill=tk.BOTH, expand=True)
-
-    from tkinter import ttk
-
-    # Add a professional banner to stretch the window width and look clean
-    title_label = tk.Label(main_frame, text="Voice Dictation Settings",
-                           font=("Segoe UI", 12, "bold"))
-    title_label.pack(pady=(0, scale(5)))
-
-    separator = ttk.Separator(main_frame, orient='horizontal')
-    separator.pack(fill='x', pady=(0, scale(15)))
-
     return settings_win, main_frame
 
 
+def _section(parent, title):
+    """A titled box whose rows put the label left of its control."""
+    box = tk.LabelFrame(parent, text=title, padx=scale(10), pady=scale(2))
+    box.pack(fill=tk.X, pady=(0, scale(6)))
+    _columns(box)
+    return box
+
+
+def _columns(frame):
+    """One label width and one control width in every box, so all controls match.
+    Column 2 holds the Clear and Reset buttons, one width for both."""
+    frame.grid_columnconfigure(0, minsize=scale(160))
+    frame.grid_columnconfigure(1, minsize=scale(125))
+    frame.grid_columnconfigure(2, minsize=scale(40))
+
+
+def _row(section, text, widget, label_sticky="w"):
+    """Grid text and widget as the section's next row. Returns the row index."""
+    row = section.grid_size()[1]
+    tk.Label(section, text=text).grid(
+        row=row, column=0, sticky=label_sticky, padx=(0, scale(10)), pady=scale(1))
+    widget.grid(row=row, column=1, sticky="ew", pady=scale(1))
+    return row
+
+
 def _build_microphone_row(parent, config):
-    """Label and dropdown for the input device. Returns the picked Tk StringVar."""
+    """Dropdown for the input device. Returns the picked Tk StringVar."""
     import sounddevice as sd
 
     # Enumerate WASAPI only. The legacy PortAudio backends list each mic
@@ -78,58 +97,68 @@ def _build_microphone_row(parent, config):
     if saved_mic and saved_mic not in mic_names:
         mic_names.append(saved_mic)
 
-    tk.Label(parent, text="Microphone:").pack()
     mic_var = tk.StringVar(
         value=saved_mic if saved_mic else DEFAULT_MIC_LABEL)
-    tk.OptionMenu(
-        parent, mic_var, DEFAULT_MIC_LABEL, *mic_names).pack(
-        pady=(0, scale(15)))
+    _row(parent, "Microphone:",
+         tk.OptionMenu(parent, mic_var, DEFAULT_MIC_LABEL, *mic_names))
     return mic_var
 
 
-def _build_ptt_row(root, parent, config):
-    """Button-trigger picker, Enter-button picker and recording-mode dropdown.
+def _build_ptt_rows(root, recording, shortcuts, config):
+    """PTT button and mode go in recording, the Enter button in shortcuts.
     Returns (button_var, enter_var, mode_var); enter_var is "" when unset."""
-    tk.Label(parent, text="PTT Button Trigger:").pack()
     button_var = tk.StringVar(value=config.ptt.button)
     enter_var = tk.StringVar(value=config.ptt.enter_button or "")
     button_display_var = tk.StringVar(value=format_bind(button_var.get()))
     enter_display_var = tk.StringVar(value=format_bind(enter_var.get()))
 
+    mode_var = tk.StringVar(value=config.ptt.mode.capitalize())
+    _row(recording, "PTT mode:",
+         tk.OptionMenu(recording, mode_var, "Toggle", "Hold"))
+
+    # A blank image where a dropdown's arrow would be, so the text centers
+    # under the PTT mode dropdown's text.
+    global _arrow_space
+    _arrow_space = tk.PhotoImage(width=scale(27), height=1)
     bind_btn = tk.Button(
-        parent,
+        recording,
         textvariable=button_display_var,
-        width=20,
+        image=_arrow_space,
+        compound=tk.RIGHT,
         command=lambda: PTTCapture(
             root, button_var, button_display_var, bind_btn, taken=enter_var).start()
     )
-    bind_btn.pack(pady=(0, scale(15)))
+    row = _row(recording, "PTT button:", bind_btn)
+
+    # Reset, not Clear: with no PTT button there is no way to dictate.
+    def reset_ptt():
+        default = PttConfig().button
+        if enter_var.get() == default:
+            messagebox.showwarning(
+                "Already bound", "That is already bound to the other row.",
+                parent=bind_btn.winfo_toplevel())
+            return
+        button_var.set(default)
+        button_display_var.set(format_bind(default))
+    tk.Button(recording, text="Reset", command=reset_ptt).grid(
+        row=row, column=2, sticky="ew", padx=(scale(5), 0))
 
     # Swallowed like the trigger and replaced by a real Enter, so a dictation
     # can be sent without reaching for the keyboard.
-    tk.Label(parent, text="Mouse Button for Enter:").pack()
-    enter_row = tk.Frame(parent)
-    enter_row.pack(pady=(0, scale(15)))
     enter_btn = tk.Button(
-        enter_row,
+        shortcuts,
         textvariable=enter_display_var,
-        width=20,
         command=lambda: PTTCapture(
             root, enter_var, enter_display_var, enter_btn,
             taken=button_var, mouse_only=True).start()
     )
-    enter_btn.pack(side=tk.LEFT)
+    row = _row(shortcuts, "Mouse button for Enter:", enter_btn)
 
     def clear_enter():
         enter_var.set("")
         enter_display_var.set(format_bind(""))
-    tk.Button(enter_row, text="Clear", command=clear_enter).pack(
-        side=tk.LEFT, padx=(scale(5), 0))
-
-    tk.Label(parent, text="PTT Recording Mode:").pack()
-    mode_var = tk.StringVar(value=config.ptt.mode.capitalize())
-    tk.OptionMenu(
-        parent, mode_var, "Toggle", "Hold").pack(pady=(0, scale(15)))
+    tk.Button(shortcuts, text="Clear", command=clear_enter).grid(
+        row=row, column=2, sticky="ew", padx=(scale(5), 0))
     return button_var, enter_var, mode_var
 
 
@@ -158,18 +187,6 @@ def _has_cuda():
 
 def _build_model_row(parent, config):
     """Model-size and compute-device pickers. Returns (ai_model_var, device_var)."""
-    tk.Label(parent, text="AI Model Size:").pack()
-    ai_model_var = tk.StringVar(value=config.stt.model)
-    tk.OptionMenu(parent,
-                  ai_model_var,
-                  "tiny.en",
-                  "base.en",
-                  "small.en",
-                  "medium.en",
-                  "large-v3").pack(pady=(0,
-                                         scale(15)))
-
-    tk.Label(parent, text="Compute Device:").pack()
     device_var = tk.StringVar(value=DEVICE_LABELS[config.stt.device])
 
     dev_menu = tk.OptionMenu(parent, device_var, "CPU", "GPU (CUDA)")
@@ -178,7 +195,17 @@ def _build_model_row(parent, config):
         dev_menu["menu"].entryconfigure("GPU (CUDA)", state="disabled")
         if device_var.get() == "GPU (CUDA)":
             device_var.set("CPU")
-    dev_menu.pack(pady=(0, scale(15)))
+    _row(parent, "Compute device:", dev_menu)
+
+    ai_model_var = tk.StringVar(value=config.stt.model)
+    _row(parent, "Model size:",
+         tk.OptionMenu(parent,
+                       ai_model_var,
+                       "tiny.en",
+                       "base.en",
+                       "small.en",
+                       "medium.en",
+                       "large-v3"))
     return ai_model_var, device_var
 
 
@@ -187,12 +214,12 @@ def _build_beeps_row(parent, config, on_beep_volume):
     The start beep is the high tone, every other beep the low one."""
     start_var = tk.IntVar(value=config.audio.start_volume)
     stop_var = tk.IntVar(value=config.audio.stop_volume)
-    for text, tone, var in (("Start Beep Volume:", "start", start_var),
-                            ("Stop & Alert Beep Volume:", "stop", stop_var)):
-        tk.Label(parent, text=text).pack()
+    for text, tone, var in (("Start beep volume:", "start", start_var),
+                            ("Stop & alert beep volume:", "stop", stop_var)):
         slider = tk.Scale(parent, from_=0, to=100, orient=tk.HORIZONTAL,
-                          variable=var, length=scale(200))
-        slider.pack(pady=(0, scale(10)))
+                          variable=var)
+        # Tk draws the number above the bar; the label sits down with the bar.
+        _row(parent, text, slider, label_sticky="sw")
         # Letting go saves the level and plays it -- live like a fader, no Save needed.
         slider.bind("<ButtonRelease-1>",
                     lambda _e, t=tone, v=var: on_beep_volume(t, v.get()))
@@ -203,28 +230,32 @@ def _build_console_boot_row(parent, config):
     """"Show output window on startup" checkbox. Returns the Tk BooleanVar."""
     open_console_var = tk.BooleanVar(value=config.ui.open_console_on_boot)
     tk.Checkbutton(
-        parent, text="Show Output Window on Startup", variable=open_console_var).pack(
-        pady=(0, scale(15)))
+        parent, text="Show output window on startup", variable=open_console_var).grid(
+        row=parent.grid_size()[1], column=0, columnspan=2, sticky="w", pady=scale(1))
     return open_console_var
 
 
 def _build_hotkey_rows(parent):
-    """Label and picker for each global hotkey. Returns the two mutable bindings the
+    """Picker for each global hotkey. Returns the two mutable bindings the
     captures write into and Save reads back: (output window, paste last)."""
     cfg, _ = load_settings()
     window = cfg.hotkey.model_dump()
     paste = cfg.paste_hotkey.model_dump()
 
     for label, binding, taken, verb in (
-            ("Output Window Hotkey:", window, paste, "raise this window"),
-            ("Paste Last Dictation Hotkey:", paste, window,
-             "paste your last dictation")):
-        tk.Label(parent, text=label).pack()
+            ("Paste last dictation:", paste, window,
+             "paste your last dictation"),
+            ("Raise output window:", window, paste, "raise this window")):
         display = tk.StringVar(value=binding["name"] or "None")
-        btn = tk.Button(parent, textvariable=display, width=20)
+        btn = tk.Button(parent, textvariable=display)
         btn.config(command=lambda b=btn, d=display, bd=binding, t=taken, v=verb:
                    hotkey_capture.capture(b, d, bd, t, v))
-        btn.pack(pady=(0, scale(15)))
+        row = _row(parent, label, btn)
+        # Unset is the shipped state, so Save writes it like any other binding.
+        tk.Button(parent, text="Clear",
+                  command=lambda d=display, bd=binding: (
+                      bd.update(modifiers=None, vk=None, name=None), d.set("None"))
+                  ).grid(row=row, column=2, sticky="ew", padx=(scale(5), 0))
     return window, paste
 
 
@@ -260,14 +291,18 @@ def open_settings(root, on_save, register_hotkeys, on_beep_volume):
 
     config, _ = load_settings()
 
-    mic_var = _build_microphone_row(main_frame, config)
-    button_var, enter_var, mode_var = _build_ptt_row(
-        root, main_frame, config)
-    ai_model_var, device_var = _build_model_row(main_frame, config)
+    recording, engine, shortcuts, sounds = [
+        _section(main_frame, title) for title in
+        ("Recording", "Speech engine", "Shortcuts", "Sounds and startup")]
+
+    mic_var = _build_microphone_row(recording, config)
+    button_var, enter_var, mode_var = _build_ptt_rows(
+        root, recording, shortcuts, config)
+    ai_model_var, device_var = _build_model_row(engine, config)
+    hotkey_binding, paste_binding = _build_hotkey_rows(shortcuts)
     start_volume_var, stop_volume_var = _build_beeps_row(
-        main_frame, config, on_beep_volume)
-    open_console_var = _build_console_boot_row(main_frame, config)
-    hotkey_binding, paste_binding = _build_hotkey_rows(main_frame)
+        sounds, config, on_beep_volume)
+    open_console_var = _build_console_boot_row(sounds, config)
 
     def save():
         # The console writes geometry and font to this file while Settings is
@@ -304,8 +339,12 @@ def open_settings(root, on_save, register_hotkeys, on_beep_volume):
     settings_win.bind("<Destroy>",
                       lambda e: _rebind_on_close(e, settings_win, register_hotkeys),
                       add="+")
-    tk.Button(main_frame, text="Save", command=save).pack(
-        pady=(scale(5), 0))
+    # Same columns as the boxes, so Save sits under the controls at their width.
+    save_row = tk.Frame(main_frame, padx=scale(10), bd=2)
+    save_row.pack(fill=tk.X, pady=(scale(4), 0))
+    _columns(save_row)
+    tk.Button(save_row, text="Save", command=save).grid(
+        row=0, column=1, sticky="ew", ipady=scale(3))
 
     # Tk already scales point sizes by DPI. Do not pass this through scale().
     version_label = tk.Label(main_frame, text=f"v{__version__}", fg="gray", font=("Arial", 7))
