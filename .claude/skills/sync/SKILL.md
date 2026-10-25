@@ -6,8 +6,8 @@ description: Sync this repo with its private GitHub copy so aorus and the laptop
 # Sync
 
 GitHub is robocopy in the cloud with versioning. Mike runs this when he sits
-down at a machine and when he leaves it. Everything is tracked except collected
-audio (.gitignore). He never uses the app on both machines at once.
+down at a machine and when he leaves it. Everything is tracked except userdata/,
+which is per machine (.gitignore). He never uses the app on both machines at once.
 
 No QA gates: a sync commit is a snapshot, not a code commit. Code commits still
 go through commit-per-protocol.
@@ -28,6 +28,17 @@ Nothing to commit -> continue. The app may stay running.
 
 ## 3. Download
 
+A commit that untracks a file reaches this machine as a delete, and the pull
+removes it from disk. List incoming deletes:
+
+    git diff --name-only --diff-filter=D HEAD...origin/<current branch>
+
+Each one that exists here and the incoming .gitignore now ignores
+(`git show origin/<branch>:.gitignore`) is an untrack, not a delete: run
+`git rm --cached <path>` and commit "sync: <COMPUTERNAME> untracks <what>"
+before pulling. Any other delete of a file that differs from HEAD -> show it
+to Mike and ask.
+
 Find this checkout's app. voice_dictation-stable also matches "vdict" and is
 not this app; the path match below excludes it.
 
@@ -40,10 +51,7 @@ Wait for his answer. Never kill without it.
 
     git pull --no-rebase origin <current branch>
 
-Conflict in userdata/ only -> ask Mike which machine's copy to keep. This one:
-`git checkout --ours <path>`. The other: `git checkout --theirs <path>`. Then
-`git add <path>` and `git commit --no-edit`. Any other conflict -> stop, show
-`git status`, ask.
+Any conflict -> stop, show `git status`, ask.
 
 ## 4. Push
 

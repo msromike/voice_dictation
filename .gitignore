@@ -6,10 +6,9 @@ __pycache__/
 *.pyc
 *.pyo
 
-# Everything the app writes is per machine -- settings, history, logs, recordings.
-# vocabulary.txt is the exception: the same terms are wanted on every machine.
-userdata/*
-!userdata/vocabulary.txt
+# Everything the app writes is per machine -- settings, history, logs,
+# vocabulary, recordings. A missing vocabulary.txt reseeds from templates/.
+userdata/
 *.flac
 
 # Secrets
