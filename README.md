@@ -63,8 +63,10 @@ first.
 
 ## Using it
 
-The default button is **middle mouse**, in **hold** mode: hold it down, speak,
-let go. The text appears a moment later.
+On first launch, Settings opens and asks you to pick your push-to-talk button:
+click the PTT button box, then press the key or mouse button you want. The app
+does not listen until you have. In **hold** mode, the default: hold it down,
+speak, let go. The text appears a moment later.
 
 You will hear a short high beep when recording starts and a lower one when it
 stops. Those are your cue that the app actually heard the button.
@@ -140,7 +142,7 @@ alt="The Settings window in four boxes: Recording, Speech engine, Shortcuts, and
 |---|---|---|
 | Recording | Microphone | System Default, or pick yours by name from the list |
 | | PTT mode | **Hold** (hold to talk) or **Toggle** (click to start, click to stop) |
-| | PTT button | Click it, then press any key or mouse button to bind it -- left-click excepted. The app takes that button for itself, so a mouse side button stops going Back in your browser. Shift, Ctrl, Alt and Windows keys are the exception: they still trigger dictation but keep working as normal, because taking them would break every shortcut that uses them. Reset puts it back to middle mouse |
+| | PTT button | Click it, then press any key or mouse button to bind it -- left-click excepted. The app takes that button for itself, so a mouse side button stops going Back in your browser. Shift, Ctrl, Alt and Windows keys are the exception: they still trigger dictation but keep working as normal, because taking them would break every shortcut that uses them. There is no default; Save will not go through until one is set |
 | Speech engine | Compute device | CPU or GPU -- GPU is greyed out if you have no NVIDIA card |
 | | Model size | tiny.en, base.en, small.en, medium.en, large-v3 |
 | Shortcuts | Mouse button for Enter | Optional. A mouse button that presses Enter, so you can dictate and send without touching the keyboard. If a dictation is still being typed, the Enter waits until it has landed. Clear unbinds it |

@@ -42,7 +42,9 @@ class AudioConfig(BaseModel):
 
 class PttConfig(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
-    button: str = "middle"
+    # Unset until the person captures one: no default fits every mouse. The tray
+    # starts no daemon while it is "", and Settings will not save it empty.
+    button: str = ""
     mode: Literal["hold", "toggle"] = "hold"
     enter_button: str | None = None
 
@@ -187,13 +189,13 @@ FIELD_LABELS: dict[tuple[str, ...], str] = {
 
 
 def _format_value(config, loc):
-    """The value at loc, read off the healed Config, for display.
-    "" -> System Default, None -> Not set; everything else uppercased."""
+    """The value at loc, read off the healed Config, for display. "" is System Default
+    for the microphone, Not set elsewhere; None -> Not set; everything else uppercased."""
     node = config
     for key in loc:
         node = getattr(node, key)
     if node == "":
-        return "SYSTEM DEFAULT"
+        return "SYSTEM DEFAULT" if loc == ("audio", "device") else "NOT SET"
     if node is None:
         return "NOT SET"
     return str(node).upper()

@@ -270,6 +270,11 @@ class App:
             MIC_FAULT_FLAG_PATH.unlink()
             log("note", f"Settings reopened -- {reason}")
             self.open_settings()
+        elif not config.ptt.button:
+            # Nothing to listen for. The first Save starts it: reload starts a daemon
+            # that is not running.
+            log("note", "No PTT button yet -- choose one in Settings to start dictating.")
+            self.open_settings()
         else:
             daemon_proc.start(self._log_session_block)
 

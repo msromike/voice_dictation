@@ -2,16 +2,22 @@
 a Config and hands that to on_save; writing, closing and restarting are app's."""
 
 import tkinter as tk
+import winsound
+from pathlib import Path
 from tkinter import messagebox
 from typing import Literal, cast
 
-from vdict.common.config import HotkeyConfig, PttConfig, load_settings
+from vdict.common.config import HotkeyConfig, load_settings
 from vdict.tray import hotkey, hotkey_capture
 from vdict.tray.dpi import scale
 from vdict.tray.geometry import POS, manage
+from vdict.tray.log import log
 from vdict.tray.ptt_capture import PTTCapture
 from vdict.tray.session import DEVICE_LABELS, format_bind
 from vdict import __version__
+
+# The daemon's alert beep, played here when there is no daemon to play it.
+ALERT_BEEP_PATH = Path(__file__).parent.parent / "sounds" / "low_double.wav"
 
 # config.json audio.device's empty-string value, shown as a real option here.
 DEFAULT_MIC_LABEL = "System Default"
@@ -130,17 +136,11 @@ def _build_ptt_rows(root, recording, shortcuts, config):
     )
     row = _row(recording, "PTT button:", bind_btn)
 
-    # Reset, not Clear: with no PTT button there is no way to dictate.
-    def reset_ptt():
-        default = PttConfig().button
-        if enter_var.get() == default:
-            messagebox.showwarning(
-                "Already bound", "That is already bound to the other row.",
-                parent=bind_btn.winfo_toplevel())
-            return
-        button_var.set(default)
-        button_display_var.set(format_bind(default))
-    tk.Button(recording, text="Reset", command=reset_ptt).grid(
+    # Safe to clear: Save refuses an empty PTT button.
+    def clear_ptt():
+        button_var.set("")
+        button_display_var.set(format_bind(""))
+    tk.Button(recording, text="Clear", command=clear_ptt).grid(
         row=row, column=2, sticky="ew", padx=(scale(5), 0))
 
     # Swallowed like the trigger and replaced by a real Enter, so a dictation
@@ -265,11 +265,16 @@ def _rebind_on_close(event, settings_win, register_hotkeys):
     # <Destroy> fires for every descendant; the guard keeps this to one call.
     if event.widget is not settings_win:
         return
-    # Silent. A Save reprints the session block anyway, and closing
-    # without saving changed nothing on disk to announce.
+    # A Save reprints the session block anyway, and closing without saving
+    # changed nothing on disk to announce -- unless that leaves no way to dictate.
     cfg, _ = load_settings()
     hotkey.unregister_all()
     register_hotkeys(cfg)
+    if not cfg.ptt.button:
+        log("note", "Settings closed with no PTT button -- dictation is off until you "
+                    "choose one in Settings.")
+        # Full file volume: with no daemon, the beep sliders have nothing to scale.
+        winsound.PlaySound(str(ALERT_BEEP_PATH), winsound.SND_FILENAME | winsound.SND_ASYNC)
 
 
 def open_settings(root, on_save, register_hotkeys, on_beep_volume):
@@ -305,6 +310,17 @@ def open_settings(root, on_save, register_hotkeys, on_beep_volume):
     open_console_var = _build_console_boot_row(sounds, config)
 
     def save():
+        # Capturing the button is what proves this machine has it, so there is
+        # no default to fall back on -- the person picks one before anything runs.
+        if not button_var.get():
+            messagebox.showinfo(
+                "Choose your PTT button",
+                "Pick the button you will hold while you talk.\n\n"
+                "Click the PTT button box, then press the key or mouse "
+                "button you want.",
+                parent=settings_win)
+            return
+
         # The console writes geometry and font to this file while Settings is
         # open -- re-read, never stamp onto the dialog's own copy.
         fresh, _ = load_settings()

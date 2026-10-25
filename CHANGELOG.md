@@ -82,8 +82,13 @@ All notable changes to this project are documented here. Format follows
 - Settings is grouped into four boxes -- Recording, Speech engine, Shortcuts,
   and Sounds and startup -- with each label beside its control instead of
   above it, so the window is about a third shorter. Paste last dictation and
-  Raise output window each get a Clear button to turn the hotkey off, and PTT
-  button gets Reset, back to middle mouse.
+  Raise output window each get a Clear button to turn the hotkey off.
+
+- There is no default push-to-talk button any more. Not every mouse has a
+  middle button -- some wheels do not click -- so a fresh install asks you to
+  pick yours, and the app does not listen until you have. Save will not go
+  through with no PTT button, and closing Settings without one says so in
+  the output window with the alert beep. Existing settings keep their button.
 
 - The beeps on/off checkbox is replaced by two volume sliders, 0 to 100:
   one for the high start beep, one for the low stop, ready and alert beeps.
