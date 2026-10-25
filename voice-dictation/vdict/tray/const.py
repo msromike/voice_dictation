@@ -16,5 +16,8 @@ MIC_FAULT_FLAG_PATH = _ROOT / "userdata" / "mic_fault.flag"
 # About box, and the Help menu.
 PROJECT_URL = "https://github.com/msromike/voice_dictation"
 
+# Named event a second launch sets so the running copy raises its window.
+RAISE_EVENT_NAME = "VoiceDictationRaiseEvent"
+
 # MessageBoxW icon flag, used where Tk itself could be the thing that's broken.
 MB_ICONERROR = 0x10

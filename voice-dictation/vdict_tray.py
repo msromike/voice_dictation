@@ -15,7 +15,7 @@ import win32api
 import win32event
 
 from vdict.common import output
-from vdict.tray.const import MB_ICONERROR
+from vdict.tray.const import MB_ICONERROR, RAISE_EVENT_NAME
 
 try:
     # Must run before any Tk root exists or any GetDpiForSystem call -- which
@@ -26,6 +26,8 @@ except Exception:
 
 # Win32 GetLastError value returned when the single-instance mutex exists.
 ERROR_ALREADY_EXISTS = 183
+# AllowSetForegroundWindow's "any process" -- the running copy's PID is unknown here.
+ASFW_ANY = -1
 
 def _log_startup_crash():
     """Write an unhandled startup exception to the error log and show it on screen"""
@@ -60,14 +62,12 @@ if __name__ == "__main__":
         mutex = win32event.CreateMutex(
             None, False, "VoiceDictationTrayMutex")  # pyright: ignore[reportArgumentType]
         if win32api.GetLastError() == ERROR_ALREADY_EXISTS:
-            import tkinter as tk
-            from tkinter import messagebox
-            root = tk.Tk()
-            root.withdraw()
-            messagebox.showinfo(
-                "Voice Dictation",
-                "Voice Dictation is already running in your system tray.")
-            sys.exit(1)
+            # Launched again: the running copy raises its window. Windows gave this
+            # process the foreground for the launch; it is handed on before exit.
+            ctypes.windll.user32.AllowSetForegroundWindow(ASFW_ANY)
+            win32event.SetEvent(win32event.CreateEvent(
+                None, False, False, RAISE_EVENT_NAME))  # pyright: ignore[reportArgumentType]
+            sys.exit(0)
 
         # Imported here, after SetProcessDpiAwareness has run.
         from vdict.tray.app import App

@@ -2,21 +2,29 @@
 Leaf -- imports no vdict.tray module beyond log."""
 
 import traceback
+from tkinter import messagebox
 
 from vdict.tray.log import error_log, log
+
+
+def _same_button(a, b):
+    """config.json spells mouse x2 two ways."""
+    return {"side": "x2"}.get(a, a) == {"side": "x2"}.get(b, b)
 
 
 class PTTCapture:
     """One push-to-talk rebind. Every exit routes through end(), the only place
     the button is re-enabled and the global hooks are dropped."""
 
-    def __init__(self, root, btn_var, disp_var, tk_btn):
+    def __init__(self, root, btn_var, disp_var, tk_btn, *, taken, mouse_only=False):
         """Hold the widgets the capture writes back into, and the face to restore.
-        root is only ever used to marshal pynput callbacks onto the Tk thread."""
+        taken is the other row's binding, which this one may not duplicate."""
         self.root = root
         self.btn_var = btn_var
         self.disp_var = disp_var
         self.tk_btn = tk_btn
+        self.taken = taken
+        self.mouse_only = mouse_only
         self.previous = disp_var.get()
         self.listeners = []
         self.done = False
@@ -55,6 +63,12 @@ class PTTCapture:
         """Write the binding back and close the capture"""
         if self.done:
             return
+        if _same_button(val, self.taken.get()):
+            messagebox.showwarning(
+                "Already bound", "That is already bound to the other row.",
+                parent=self.tk_btn.winfo_toplevel())
+            self.end(self.previous)
+            return
         self.btn_var.set(val)
         self.end(disp)
 
@@ -75,6 +89,8 @@ class PTTCapture:
                 # Cancels. Settings closes on Escape too, from its own binding.
                 self.root.after(0, lambda: self.end(self.previous))
                 return False
+            if self.mouse_only:
+                return None  # a keyboard already has an Enter key
             if name is None:
                 val, disp = f"key:{key.char}", key.char.upper()
             else:

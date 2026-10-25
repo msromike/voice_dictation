@@ -33,6 +33,7 @@ class PttConfig(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
     button: str = "middle"
     mode: Literal["hold", "toggle"] = "hold"
+    enter_button: str | None = None
 
 
 class SttConfig(BaseModel):
@@ -159,6 +160,7 @@ FIELD_LABELS: dict[tuple[str, ...], str] = {
     ("audio", "feedback"): "Audio beeps",
     ("ptt", "button"): "Push-to-talk button",
     ("ptt", "mode"): "Push-to-talk mode",
+    ("ptt", "enter_button"): "Enter button",
     ("stt", "model"): "Whisper model",
     ("stt", "device"): "Compute device",
     ("hotkey", "modifiers"): "Output window hotkey",

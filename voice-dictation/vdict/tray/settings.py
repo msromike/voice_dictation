@@ -88,26 +88,49 @@ def _build_microphone_row(parent, config):
 
 
 def _build_ptt_row(root, parent, config):
-    """Button-trigger picker and recording-mode dropdown.
-    Returns (button_var, button_display_var, mode_var)."""
+    """Button-trigger picker, Enter-button picker and recording-mode dropdown.
+    Returns (button_var, enter_var, mode_var); enter_var is "" when unset."""
     tk.Label(parent, text="PTT Button Trigger:").pack()
     button_var = tk.StringVar(value=config.ptt.button)
+    enter_var = tk.StringVar(value=config.ptt.enter_button or "")
     button_display_var = tk.StringVar(value=format_bind(button_var.get()))
+    enter_display_var = tk.StringVar(value=format_bind(enter_var.get()))
 
     bind_btn = tk.Button(
         parent,
         textvariable=button_display_var,
         width=20,
         command=lambda: PTTCapture(
-            root, button_var, button_display_var, bind_btn).start()
+            root, button_var, button_display_var, bind_btn, taken=enter_var).start()
     )
     bind_btn.pack(pady=(0, scale(15)))
+
+    # Swallowed like the trigger and replaced by a real Enter, so a dictation
+    # can be sent without reaching for the keyboard.
+    tk.Label(parent, text="Mouse Button for Enter:").pack()
+    enter_row = tk.Frame(parent)
+    enter_row.pack(pady=(0, scale(15)))
+    enter_btn = tk.Button(
+        enter_row,
+        textvariable=enter_display_var,
+        width=20,
+        command=lambda: PTTCapture(
+            root, enter_var, enter_display_var, enter_btn,
+            taken=button_var, mouse_only=True).start()
+    )
+    enter_btn.pack(side=tk.LEFT)
+
+    def clear_enter():
+        enter_var.set("")
+        enter_display_var.set(format_bind(""))
+    tk.Button(enter_row, text="Clear", command=clear_enter).pack(
+        side=tk.LEFT, padx=(scale(5), 0))
 
     tk.Label(parent, text="PTT Recording Mode:").pack()
     mode_var = tk.StringVar(value=config.ptt.mode.capitalize())
     tk.OptionMenu(
         parent, mode_var, "Toggle", "Hold").pack(pady=(0, scale(15)))
-    return button_var, button_display_var, mode_var
+    return button_var, enter_var, mode_var
 
 
 def _has_cuda():
@@ -224,7 +247,7 @@ def open_settings(root, on_save, register_hotkey):
     config, _ = load_settings()
 
     mic_var = _build_microphone_row(main_frame, config)
-    button_var, _button_display_var, mode_var = _build_ptt_row(
+    button_var, enter_var, mode_var = _build_ptt_row(
         root, main_frame, config)
     ai_model_var, device_var = _build_model_row(main_frame, config)
     audio_var = _build_beeps_row(main_frame, config)
@@ -239,6 +262,7 @@ def open_settings(root, on_save, register_hotkey):
         mic = mic_var.get()
         fresh.audio.device = "" if mic == DEFAULT_MIC_LABEL else mic
         fresh.ptt.button = button_var.get()
+        fresh.ptt.enter_button = enter_var.get() or None
         fresh.ptt.mode = cast(Literal["hold", "toggle"], mode_var.get().lower())
         fresh.audio.feedback = audio_var.get()
         fresh.stt.model = ai_model_var.get()

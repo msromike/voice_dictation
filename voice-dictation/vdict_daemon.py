@@ -2,6 +2,7 @@
 Launched by vdict_tray.py, which writes config.json first. Requires it to exist."""
 
 import sys
+import threading
 
 # Must precede the imports below -- vdict.daemon.audio is WASAPI-specific and
 # the whole app is Windows-only regardless.
@@ -227,8 +228,22 @@ class CaptureSession:
         self.stt = stt
         self.keyboard = keyboard
         self.blocks = BlockTracker()
-        self.ptt = PTTListener(button=config.ptt.button, on_enter=self.blocks.close)
+        # Held from trigger press until the paste lands; the Enter button waits on it.
+        self.busy = threading.Lock()
+        self.ptt = PTTListener(
+            button=config.ptt.button, enter_button=config.ptt.enter_button,
+            on_enter=self.blocks.close, on_enter_button=self._enter_button)
         self.prompt = load_vocabulary()
+
+    def _enter_button(self):
+        """Hook thread: hand off at once. The Enter waits for an in-flight
+        dictation to paste, so it never sends a message without it."""
+        threading.Thread(target=self._send_enter, daemon=True).start()
+
+    def _send_enter(self):
+        """Fires the moment no dictation is between trigger and paste."""
+        with self.busy:
+            self.keyboard.press_enter()
 
     def stop(self):
         """Stop the trigger listener."""
@@ -296,18 +311,19 @@ class CaptureSession:
         """One capture, from trigger to row. Every outcome writes exactly one row."""
         self.ptt.wait_for_press()
 
-        hwnd, pid, win_title, proc_name = get_window_context()
-        block_id = self.blocks.block_for(hwnd, pid)
+        with self.busy:
+            hwnd, pid, win_title, proc_name = get_window_context()
+            block_id = self.blocks.block_for(hwnd, pid)
 
-        # Fire the GPU primer to wake up CUDA cores while user is talking
-        self.stt.wake_gpu()
+            # Fire the GPU primer to wake up CUDA cores while user is talking
+            self.stt.wake_gpu()
 
-        audio_data, started, ended, timed_out = self._capture()
-        audio_path, file_timestamp = self._write_flac(audio_data)
+            audio_data, started, ended, timed_out = self._capture()
+            audio_path, file_timestamp = self._write_flac(audio_data)
 
-        text, outcome, inject_time = "", "timeout", None
-        if not timed_out:
-            text, outcome, inject_time = self._transcribe_and_inject(audio_data)
+            text, outcome, inject_time = "", "timeout", None
+            if not timed_out:
+                text, outcome, inject_time = self._transcribe_and_inject(audio_data)
 
         _record_corpus_row(CaptureRow(
             start_time=started, end_time=ended, inject_time=inject_time,

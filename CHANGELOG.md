@@ -8,6 +8,15 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- A mouse button can press Enter, so a dictation can be sent without
+  reaching for the keyboard. Bind it in Settings under "Mouse Button for
+  Enter"; nothing is bound out of the box. If you press it while a
+  dictation is still being typed, the Enter waits until the text has landed,
+  so a message never goes out without it.
+
+- Launching the app while it is already running brings the output window to
+  the front, instead of a box saying it is already running.
+
 - A double beep when the speech engine finishes loading, so you know it is ready
   without watching the output window. It also sounds after Save & Restart.
 
@@ -49,6 +58,13 @@ All notable changes to this project are documented here. Format follows
   written.
 
 ### Changed
+
+- The push-to-talk button now belongs to the app alone. A mouse side button
+  used for dictation no longer also sends your browser Back, and a key like
+  Scroll Lock no longer does its usual job while bound. Shift, Ctrl, Alt and
+  the Windows keys still trigger dictation without being taken, because
+  taking them would break every shortcut that uses them. No separate
+  remapping tool such as AutoHotkey is needed to get a clean button.
 
 - Speech is always transcribed as English. large-v3 no longer guesses the
   language on every clip, which cost it an extra pass.

@@ -46,7 +46,9 @@ def _model_size_on_disk(model_name):
 
 def format_bind(val):
     """Turn a config.json ptt.button value into a display name.
-    "key:f13" -> "F13", "x2" -> "Mouse Side (X2)"."""
+    "key:f13" -> "F13", "x2" -> "Mouse Side (X2)", "" -> "Not set"."""
+    if not val:
+        return "Not set"
     if val.startswith("key:"):
         return val[4:].replace('_', ' ').title()
     if val in ["left", "right", "middle"]:
@@ -84,6 +86,7 @@ def log_session_block(pid, config, hotkey_name, hotkey_failed):
             ("Mode", "Hold button down to dictate." if ptt.mode == "hold"
                      else "Press button once to toggle dictation.", "block"),
             ("Trigger", format_bind(ptt.button), "block"),
+            ("Enter", format_bind(ptt.enter_button or ""), "block"),
             ("Hotkey", hotkey_value, "error" if is_fault else "block"),
             ("Compute", DEVICE_LABELS[stt.device], "block"),
             ("Model", model, "block")):

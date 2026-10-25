@@ -117,7 +117,8 @@ alt="The Settings window, showing microphone, push-to-talk button and mode, mode
 | Setting | Options |
 |---|---|
 | Microphone | Pick yours by name from the list -- no "system default" option |
-| PTT Button Trigger | Click it, then press any key or mouse button to bind it -- left-click excepted |
+| PTT Button Trigger | Click it, then press any key or mouse button to bind it -- left-click excepted. The app takes that button for itself, so a mouse side button stops going Back in your browser. Shift, Ctrl, Alt and Windows keys are the exception: they still trigger dictation but keep working as normal, because taking them would break every shortcut that uses them |
+| Mouse Button for Enter | Optional. A mouse button that presses Enter, so you can dictate and send without touching the keyboard. If a dictation is still being typed, the Enter waits until it has landed. Clear unbinds it |
 | PTT Recording Mode | **Hold** (hold to talk) or **Toggle** (click to start, click to stop) |
 | AI Model Size | tiny.en, base.en, small.en, medium.en, large-v3 |
 | Compute Device | CPU or GPU -- GPU is greyed out if you have no NVIDIA card |

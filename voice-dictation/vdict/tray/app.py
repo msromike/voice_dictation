@@ -7,6 +7,7 @@ import traceback
 from tkinter import messagebox
 
 import ctypes
+import win32event
 import win32gui
 
 from vdict.common import output
@@ -16,7 +17,7 @@ from vdict.common.config import (
 from vdict.tray import daemon_proc, faults, hotkey, icon, menu, settings
 from vdict.tray.console import Console
 from vdict.tray.const import (
-    ICON_PATH, MB_ICONERROR, MIC_FAULT_FLAG_PATH, PROJECT_URL)
+    ICON_PATH, MB_ICONERROR, MIC_FAULT_FLAG_PATH, PROJECT_URL, RAISE_EVENT_NAME)
 from vdict.tray.dpi import scale
 from vdict.tray.geometry import GEOMETRY, manage, save_all, set_flush
 from vdict.tray.log import error_log, log
@@ -134,14 +135,21 @@ class App:
 
     def _on_hotkey(self):
         """Runs on hotkey.py's owning thread, which must never touch Tk itself."""
-        self.window.after(0, self._raise_window)
+        self.window.after(0, self._raise_window, self.hotkey_name)
 
-    def _raise_window(self):
+    def _wait_for_relaunch(self, raise_event):
+        """Own thread, blocked until a second launch sets the event. Never touches
+        Tk itself -- the raise is handed to the Tk thread."""
+        while True:
+            win32event.WaitForSingleObject(raise_event, win32event.INFINITE)
+            self.window.after(0, self._raise_window, "Launching it again")
+
+    def _raise_window(self, by):
         """Bring the output window up with keyboard focus. Nothing may precede these two
-        calls -- the foreground grant Windows hands us on the keypress is momentary."""
+        calls -- the foreground grant Windows hands us is momentary."""
         self.window.deiconify()
         win32gui.SetForegroundWindow(int(self.window.wm_frame(), 0))
-        log("note", f"{self.hotkey_name} raised the output window")
+        log("note", f"{by} raised the output window")
 
     def _save_state(self):
         """Persist every tracked window's geometry and the console's text size.
@@ -268,6 +276,12 @@ class App:
 
         # Start periodic output update
         self.window.after(100, self._tick)
+
+        # Created here, not in the thread, so it exists before anything can set it.
+        raise_event = win32event.CreateEvent(
+            None, False, False, RAISE_EVENT_NAME)  # pyright: ignore[reportArgumentType]
+        threading.Thread(target=self._wait_for_relaunch, args=(raise_event,),
+                         daemon=True).start()
 
         # Run tray icon in background thread
         icon_thread = threading.Thread(target=self.icon.run, daemon=True)

@@ -51,79 +51,128 @@ BUTTON_MAP = {
 }
 
 
+# Low-level hook values win32con does not define (pynput/mouse/_win32.py:159-160).
+WM_XBUTTONDOWN = 0x020B
+WM_XBUTTONUP = 0x020C
+LLKHF_INJECTED = 0x10
+LLMHF_INJECTED = 0x01
+
+# Hook message -> (button name, pressed). X buttons say which one in mouseData.
+_MOUSE_MESSAGES = {
+    win32con.WM_RBUTTONDOWN: ("right", True),
+    win32con.WM_RBUTTONUP: ("right", False),
+    win32con.WM_MBUTTONDOWN: ("middle", True),
+    win32con.WM_MBUTTONUP: ("middle", False),
+    WM_XBUTTONDOWN: (None, True),
+    WM_XBUTTONUP: (None, False),
+}
+
+# Swallowing a modifier would break every shortcut that uses it. Bound to PTT,
+# these still trigger it but reach Windows too.
+_MODIFIER_VKS = frozenset({0x10, 0x11, 0x12, 0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0x5B, 0x5C})
+
+
 def _modifier_held():
     """True while Shift, Ctrl or Alt is physically down."""
     return any(win32api.GetAsyncKeyState(vk) & 0x8000 for vk in MODIFIER_VKS)
 
 
+def _key_vk(name):
+    """config.json key name -> the virtual-key code the low-level hook reports."""
+    key = getattr(keyboard.Key, name, None)
+    if key is not None:
+        return key.value.vk
+    if len(name) == 1 and win32api.VkKeyScan(name) != -1:
+        return win32api.VkKeyScan(name) & 0xFF
+    raise ValueError(f"Unsupported PTT key: '{name}'")
+
+
+def _mouse_name(name, what):
+    """config.json mouse name -> the hook's name for it ("side" is x2)."""
+    if name not in BUTTON_MAP:
+        raise ValueError(f"Unsupported {what}: '{name}'. Supported: {list(BUTTON_MAP)}")
+    return BUTTON_MAP[name].name
+
+
 class PTTListener:
     """Push-to-talk trigger listener (configurable mouse button or keyboard key)"""
 
-    def __init__(self, button="middle", *, on_enter):
-        """Start listening for the PTT trigger. button is a BUTTON_MAP mouse name
-        or "key:<name>"; on_enter(hwnd) fires on every unmodified Enter."""
+    def __init__(self, button="middle", *, enter_button=None, on_enter, on_enter_button):
+        """Swallow the PTT trigger and the optional Enter mouse button. on_enter(hwnd)
+        fires on every unmodified Enter; on_enter_button() on the hook thread."""
         self.pressed = False
         self.on_enter = on_enter
+        self.on_enter_button = on_enter_button
 
         # Threading events for blocking waits
         self.press_event = threading.Event()
         self.release_event = threading.Event()
 
+        self.ptt_vk = None
+        self.ptt_mouse = None
         if button.startswith("key:"):
-            key_name = button[len("key:"):]
-            self.target_key = getattr(keyboard.Key, key_name, None)
-            if self.target_key is None:
-                if len(key_name) == 1:
-                    self.target_key = keyboard.KeyCode.from_char(key_name)
-                else:
-                    raise ValueError(f"Unsupported PTT key: '{key_name}'")
-            self.button = None
-            self.mouse_listener = None
+            self.ptt_vk = _key_vk(button[len("key:"):])
         else:
-            self.button = BUTTON_MAP.get(button)
-            if self.button is None:
-                raise ValueError(
-                    f"Unsupported PTT button: '{button}'. "
-                    f"Supported: {list(BUTTON_MAP)}")
-            self.target_key = None
-            self.mouse_listener = mouse.Listener(on_click=self._on_click)
+            self.ptt_mouse = _mouse_name(button, "PTT button")
+        self.enter_mouse = (None if enter_button is None
+                            else _mouse_name(enter_button, "Enter button"))
 
         # Always on, whatever the PTT is -- Enter closes a dictation block.
         self.key_listener = keyboard.Listener(
-            on_press=self._on_key_press,
-            on_release=self._on_key_release)
+            on_press=self._on_key_press, win32_event_filter=self._key_filter)
+        self.mouse_listener = None
+        if self.ptt_mouse or self.enter_mouse:
+            self.mouse_listener = mouse.Listener(win32_event_filter=self._mouse_filter)
 
         self.key_listener.start()
         if self.mouse_listener is not None:
             self.mouse_listener.start()
 
-    def _on_click(self, x, y, button, pressed):
-        """Internal callback for mouse events. Runs on the pynput background thread."""
-        if button == self.button:
-            self.pressed = pressed
+    def _set_pressed(self, pressed):
+        """PTT state change. Hook thread -- nothing slower than setting a flag,
+        or Windows drops the hook."""
+        if pressed == self.pressed:
+            return  # key auto-repeat
+        self.pressed = pressed
+        if pressed:
+            self.press_event.set()
+            self.release_event.clear()
+        else:
+            self.release_event.set()
+            self.press_event.clear()
+
+    def _key_filter(self, msg, data):
+        """Inside Windows' keyboard hook. Takes the PTT key; every other key, and
+        every key this app sends itself, passes through untouched."""
+        if data.vkCode != self.ptt_vk or data.flags & LLKHF_INJECTED:
+            return True
+        self._set_pressed(msg in (win32con.WM_KEYDOWN, win32con.WM_SYSKEYDOWN))
+        if data.vkCode not in _MODIFIER_VKS:
+            # Raises; the hook returns 1 and no program sees the key (win32.py:306).
+            self.key_listener.suppress_event()  # pyright: ignore[reportAttributeAccessIssue]
+        return True
+
+    def _mouse_filter(self, msg, data):
+        """Inside Windows' mouse hook. Takes the PTT and Enter buttons, press and
+        release both, so the program under the cursor never sees either."""
+        if msg not in _MOUSE_MESSAGES or data.flags & LLMHF_INJECTED:
+            return True
+        name, pressed = _MOUSE_MESSAGES[msg]
+        if name is None:
+            name = "x1" if data.mouseData >> 16 == 1 else "x2"
+        if name == self.ptt_mouse:
+            self._set_pressed(pressed)
+        elif name == self.enter_mouse:
             if pressed:
-                self.press_event.set()
-                self.release_event.clear()
-            else:
-                self.release_event.set()
-                self.press_event.clear()
+                self.on_enter_button()
+        else:
+            return True
+        self.mouse_listener.suppress_event()  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
 
     def _on_key_press(self, key):
         """Internal callback for keyboard press events (runs in background thread)"""
         if key == keyboard.Key.enter and not _modifier_held():
             self.on_enter(win32gui.GetForegroundWindow())
-
-        if key == self.target_key and not self.pressed:
-            self.pressed = True
-            self.press_event.set()
-            self.release_event.clear()
-
-    def _on_key_release(self, key):
-        """Internal callback for keyboard release events (runs in background thread)"""
-        if key == self.target_key:
-            self.pressed = False
-            self.release_event.set()
-            self.press_event.clear()
 
     def wait_for_press(self, timeout_secs=None):
         """Block until the PTT trigger is pressed, returning True.
@@ -268,3 +317,7 @@ class KeyboardInjector:
             log("note", "Paste did not land -- the text is in this window.")
         if items is not None:
             self._restore(items)
+
+    def press_enter(self):
+        """A real Enter keystroke, for the Enter mouse button."""
+        pyautogui.press("enter")
