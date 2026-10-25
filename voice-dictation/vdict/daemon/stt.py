@@ -50,7 +50,7 @@ class STTEngine:
             log("model-fault",
                 f"Failed to load Whisper model '{self.model_name}': {e}. "
                 f"Pick a different model or switch to CPU in Settings, "
-                f"then Save & Restart.")
+                f"then Save.")
             sys.exit(1)
 
     def wake_gpu(self):

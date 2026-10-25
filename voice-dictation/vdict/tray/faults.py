@@ -56,7 +56,7 @@ def show_mic_fault(text):
 
 
 def show_model_fault(text):
-    """model-fault's dispatch bundle -- OK just closes the modal; Save & Restart
+    """model-fault's dispatch bundle -- OK just closes the modal; Save
     (existing, unchanged) is the recovery."""
     modal = _build_modal("Model Load Failed", text)
     tk.Button(modal, text="OK", command=modal.destroy).pack(

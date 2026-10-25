@@ -182,13 +182,21 @@ def _build_model_row(parent, config):
     return ai_model_var, device_var
 
 
-def _build_beeps_row(parent, config):
-    """Audio-feedback checkbox. Returns the Tk BooleanVar."""
-    audio_var = tk.BooleanVar(value=config.audio.feedback)
-    tk.Checkbutton(
-        parent, text="Enable Audio Beeps", variable=audio_var).pack(
-        pady=(0, scale(15)))
-    return audio_var
+def _build_beeps_row(parent, config, on_beep_volume):
+    """Two beep-volume sliders, 0 to 100; 0 is off. Returns (start_var, stop_var).
+    The start beep is the high tone, every other beep the low one."""
+    start_var = tk.IntVar(value=config.audio.start_volume)
+    stop_var = tk.IntVar(value=config.audio.stop_volume)
+    for text, tone, var in (("Start Beep Volume:", "start", start_var),
+                            ("Stop & Alert Beep Volume:", "stop", stop_var)):
+        tk.Label(parent, text=text).pack()
+        slider = tk.Scale(parent, from_=0, to=100, orient=tk.HORIZONTAL,
+                          variable=var, length=scale(200))
+        slider.pack(pady=(0, scale(10)))
+        # Letting go saves the level and plays it -- live like a fader, no Save needed.
+        slider.bind("<ButtonRelease-1>",
+                    lambda _e, t=tone, v=var: on_beep_volume(t, v.get()))
+    return start_var, stop_var
 
 
 def _build_console_boot_row(parent, config):
@@ -220,16 +228,16 @@ def _rebind_on_close(event, settings_win, register_hotkey):
     # <Destroy> fires for every descendant; the guard keeps this to one call.
     if event.widget is not settings_win:
         return
-    # Silent. A Save & Restart reprints the session block anyway, and closing
+    # Silent. A Save reprints the session block anyway, and closing
     # without saving changed nothing on disk to announce.
     cfg, _ = load_settings()
     hotkey.unregister()
     register_hotkey(cfg.hotkey)
 
 
-def open_settings(root, on_save, register_hotkey):
-    """Open the dialog, or raise the one already open and return it.
-    on_save(config) receives the picked values; it owns writing and closing."""
+def open_settings(root, on_save, register_hotkey, on_beep_volume):
+    """Open the dialog, or raise the one already open and return it. on_save(config)
+    owns writing and closing; on_beep_volume(tone, volume) saves one slider live."""
     global _win
     # Several independent paths reach this -- the tray menu, the first-run
     # tutorial, and missing-microphone recovery -- so never stack windows.
@@ -250,7 +258,8 @@ def open_settings(root, on_save, register_hotkey):
     button_var, enter_var, mode_var = _build_ptt_row(
         root, main_frame, config)
     ai_model_var, device_var = _build_model_row(main_frame, config)
-    audio_var = _build_beeps_row(main_frame, config)
+    start_volume_var, stop_volume_var = _build_beeps_row(
+        main_frame, config, on_beep_volume)
     open_console_var = _build_console_boot_row(main_frame, config)
     hotkey_binding = _build_hotkey_row(main_frame)
 
@@ -264,7 +273,8 @@ def open_settings(root, on_save, register_hotkey):
         fresh.ptt.button = button_var.get()
         fresh.ptt.enter_button = enter_var.get() or None
         fresh.ptt.mode = cast(Literal["hold", "toggle"], mode_var.get().lower())
-        fresh.audio.feedback = audio_var.get()
+        fresh.audio.start_volume = start_volume_var.get()
+        fresh.audio.stop_volume = stop_volume_var.get()
         fresh.stt.model = ai_model_var.get()
         reverse_device_mapping = {v: k for k, v in DEVICE_LABELS.items()}
         fresh.stt.device = cast(
@@ -287,7 +297,7 @@ def open_settings(root, on_save, register_hotkey):
     settings_win.bind("<Destroy>",
                       lambda e: _rebind_on_close(e, settings_win, register_hotkey),
                       add="+")
-    tk.Button(main_frame, text="Save & Restart", command=save).pack(
+    tk.Button(main_frame, text="Save", command=save).pack(
         pady=(scale(5), 0))
 
     # Tk already scales point sizes by DPI. Do not pass this through scale().

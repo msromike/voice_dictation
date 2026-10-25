@@ -122,12 +122,15 @@ alt="The Settings window, showing microphone, push-to-talk button and mode, mode
 | PTT Recording Mode | **Hold** (hold to talk) or **Toggle** (click to start, click to stop) |
 | AI Model Size | tiny.en, base.en, small.en, medium.en, large-v3 |
 | Compute Device | CPU or GPU -- GPU is greyed out if you have no NVIDIA card |
-| Enable Audio Beeps | The start/stop tones |
+| Start Beep Volume | The high beep when recording starts, 0 to 100. 0 is off |
+| Stop & Alert Beep Volume | The low beeps: recording stopped, ready, too short, timeout. 0 to 100, 0 is off. Two sliders because small speakers make the high beep sound much louder than the low one |
 | Show Output Window on Startup | Whether the output window opens on launch |
 | Output Window Hotkey | Click it, then press a combination to raise the output window from anywhere. Unset by default |
 
-Click **Save & Restart** to apply. Changing the model downloads it the first
-time you use it.
+Click **Save** to apply. Only a new model or compute device reloads the speech
+engine; everything else takes effect at once. The beep sliders don't wait for
+Save -- letting go of one sets that level and plays it. Changing the model
+downloads it the first time you use it.
 
 In Toggle mode, a recording you forget about stops itself after two minutes and
 plays a double beep.
@@ -203,7 +206,7 @@ tray and watch while you press it. If nothing appears, the button binding is not
 what you think -- rebind it in Settings.
 
 **"No Microphone Detected".** The mic it was set to use is gone. The Settings
-window opens automatically; pick a different one and click Save & Restart.
+window opens automatically; pick a different one and click Save.
 
 **The app will not start.** Check `userdata\logs\tray_error.log`, or open it from
 **Help > Error Log** if you can get the output window up. It is only

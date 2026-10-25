@@ -17,13 +17,13 @@ from vdict.daemon.keyboard import KeyboardInjector, PTTListener
 import win32event
 
 from vdict.common.config import RELOAD_EVENT_NAME, load_config, load_vocabulary
-from vdict.common.output import log, write_error_log
+from vdict.common.output import divider_line, log, write_error_log
 from vdict.common.audio_io import write_timestamped_flac
 from vdict.common.blocks import BlockTracker
 from pathlib import Path
-import wave
 import os
 import queue
+import wave
 import traceback
 from datetime import datetime
 from typing import NamedTuple
@@ -196,27 +196,31 @@ def _resolve_output_device():
     return default_id
 
 
-TONE_VOLUME_HIGH = 0.22275
-TONE_VOLUME_LOW = 0.18225
+# The start beep is the high tone; every other beep is a low one.
+_TONES = {
+    "start": TONE_HIGH,
+    "stop": TONE_LOW,
+    "ready": TONE_LOW_DOUBLE,
+    "timeout": TONE_LOW_DOUBLE,
+    "too_short": TONE_LOW_DOUBLE,
+}
 
 
-def play_tone(tone_type, enabled=True, volume=1.0):
-    """Play the requested tone 100% asynchronously. enabled silences every
-    tone -- ready still reaches the console line and its tray toast."""
-    if not enabled:
-        return
-    if tone_type in ("timeout", "ready"):
-        tone, reference_volume = TONE_LOW_DOUBLE, TONE_VOLUME_LOW
-    elif tone_type == "start":
-        tone, reference_volume = TONE_HIGH, TONE_VOLUME_HIGH
-    elif tone_type == "stop":
-        tone, reference_volume = TONE_LOW, TONE_VOLUME_LOW
-    elif tone_type == "too_short":
-        tone, reference_volume = TONE_LOW_DOUBLE, TONE_VOLUME_LOW
-    else:
-        return
-    scaled = (tone * (reference_volume * volume)).reshape(-1, 1)
-    _tone_queue.put(scaled)
+def play_tone(tone_type, volume):
+    """Play the requested tone 100% asynchronously. volume is a Settings slider, 0-100;
+    the tone files peak at 1.0, so 100 never clips."""
+    # x^4 spans about 60 dB and reaches silence at 0 by itself -- the power-law
+    # volume curve from dr-lex.be/info-stuff/volumecontrols.html.
+    if volume:
+        _tone_queue.put((_TONES[tone_type] * (volume / 100) ** 4).reshape(-1, 1))
+
+
+def _play_previews():
+    """Own thread. Settings writes "<tone> <volume>" lines to stdin; each plays on
+    the same stream and device as a dictation beep, so the preview cannot differ."""
+    for line in sys.stdin:
+        tone_type, volume = line.split()
+        play_tone(tone_type, int(volume))
 
 
 class CaptureSession:
@@ -273,14 +277,13 @@ class CaptureSession:
     def _capture(self):
         """Record until the trigger releases, or toggle mode times out at 120s.
         Returns (samples, started, ended, timed_out)."""
-        feedback = self.config.audio.feedback
         toggle = self.config.ptt.mode == "toggle"
         if toggle:
             self.ptt.wait_for_release()
 
         # play_tone() doesn't block -- swapping these two calls wouldn't
         # reduce tone bleed into the recording, it would capture the whole tone.
-        play_tone("start", enabled=feedback)
+        play_tone("start", self.config.audio.start_volume)
         log("rec", "")
         # Stamped before the stream opens, so start_time runs ahead of the first
         # sample -- about 50ms, and about 600ms on the first capture after launch.
@@ -290,7 +293,7 @@ class CaptureSession:
         timed_out = False
         if toggle and not self.ptt.wait_for_press(timeout_secs=120.0):
             timed_out = True
-            play_tone("timeout", enabled=feedback)
+            play_tone("timeout", self.config.audio.stop_volume)
             log("note", "Timeout reached.")
         else:
             self.ptt.wait_for_release()
@@ -308,11 +311,11 @@ class CaptureSession:
         # Short captures can make Whisper hallucinate plausible-but-false
         # text instead of returning empty -- see spike_notes.txt.
         if len(audio_data) < MIN_RECORDING_SAMPLES:
-            play_tone("too_short", enabled=self.config.audio.feedback)
+            play_tone("too_short", self.config.audio.stop_volume)
             log("note", "Not transcribed -- hold the button at least 0.4s.")
             return "", "too-short", None
 
-        play_tone("stop", enabled=self.config.audio.feedback)
+        play_tone("stop", self.config.audio.stop_volume)
         try:
             text = self.stt.transcribe(audio_data, initial_prompt=self.prompt)
         except Exception as e:
@@ -398,14 +401,12 @@ def main():
         callback=_output_callback,
         extra_settings=sd.WasapiSettings(auto_convert=True))
     _output_stream.start()
+    threading.Thread(target=_play_previews, daemon=True).start()
 
-    # Closes the session block. Dashes, not the startup header's equals signs --
-    # this divides sections, it does not open the log. Blank line after.
     log("ready", f"Voice Dictation v{__version__} READY")
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    log("block", f" {timestamp} ".center(60, "-"))
+    log("block", divider_line())
     log("block", "")
-    play_tone("ready", enabled=config.audio.feedback)
+    play_tone("ready", config.audio.stop_volume)
 
     try:
         while True:

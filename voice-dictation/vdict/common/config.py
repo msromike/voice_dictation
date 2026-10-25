@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 from typing import Literal, cast
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 # User-editable word list, seeded from the tracked template when absent.
 VOCABULARY_PATH = Path(__file__).parent.parent.parent.parent / "userdata" / "vocabulary.txt"
@@ -30,7 +30,18 @@ class Pos(BaseModel):
 class AudioConfig(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
     device: str = ""
-    feedback: bool = True
+    # 0-100 on a loudness curve (x^4 in play_tone), 0 is off, 100 is full scale.
+    start_volume: int = Field(default=50, ge=0, le=100)
+    stop_volume: int = Field(default=50, ge=0, le=100)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _beeps_off_carries_over(cls, data):
+        """config.json from before the sliders had an on/off switch. Off becomes
+        both sliders at zero; the old key is dropped on the next save."""
+        if isinstance(data, dict) and data.get("feedback") is False and "start_volume" not in data:
+            data = {**data, "start_volume": 0, "stop_volume": 0}
+        return data
 
 
 class PttConfig(BaseModel):
@@ -161,7 +172,8 @@ def _wholesale_reset_message(exc):
 # Absent means app-managed state (position/size/font/first-run) -- silent.
 FIELD_LABELS: dict[tuple[str, ...], str] = {
     ("audio", "device"): "Microphone",
-    ("audio", "feedback"): "Audio beeps",
+    ("audio", "start_volume"): "Start beep volume",
+    ("audio", "stop_volume"): "Stop and alert beep volume",
     ("ptt", "button"): "Push-to-talk button",
     ("ptt", "mode"): "Push-to-talk mode",
     ("ptt", "enter_button"): "Enter button",

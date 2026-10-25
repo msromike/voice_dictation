@@ -65,13 +65,14 @@ def start(on_started):
     env["HF_HUB_DISABLE_TELEMETRY"] = "1"
 
     # Clear the previous run's exit report, or a daemon that dies again
-    # after Save & Restart would fail silently.
+    # after a Save would fail silently.
     _exit_reported = False
     _fault_shown = False
 
     _process = subprocess.Popen(
         [sys.executable, str(_DAEMON_PATH)],
         cwd=_DAEMON_DIR,
+        stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -117,9 +118,29 @@ def reload(on_started):
     if _process is None or _process.poll() is not None:
         start(on_started)
         return
+    signal_reload()
+    on_started(_process.pid)
+    # No startup follows to close the block, so the line that would comes from here.
+    log("block", output.divider_line())
+    log("block", "")
+
+
+def signal_reload():
+    """The running daemon re-reads config.json between captures. Nothing printed."""
     win32event.SetEvent(win32event.CreateEvent(
         None, False, False, RELOAD_EVENT_NAME))  # pyright: ignore[reportArgumentType]
-    on_started(_process.pid)
+
+
+def preview_beep(tone_type, volume):
+    """Ask the running daemon to play one beep, through its own stream and device.
+    A daemon that is down plays nothing -- there is no other sound path to fall back on."""
+    if _process is None or _process.poll() is not None:
+        return
+    try:
+        _process.stdin.write(f"{tone_type} {volume}\n")  # pyright: ignore[reportOptionalMemberAccess]
+        _process.stdin.flush()  # pyright: ignore[reportOptionalMemberAccess]
+    except OSError:
+        pass  # exited between the poll and the write; poll() reports it
 
 
 def poll():

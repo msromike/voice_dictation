@@ -116,7 +116,7 @@ class App:
     def open_settings(self, icon=None, item=None):
         """Open the Settings dialog. Signature keeps icon/item for pystray."""
         return settings.open_settings(self.window, self._on_settings_save,
-                                      self._register_hotkey)
+                                      self._register_hotkey, self._on_beep_volume)
 
     def _on_settings_save(self, config):
         """What Settings hands back. Only a model or compute change restarts the
@@ -128,6 +128,18 @@ class App:
             daemon_proc.restart(self._log_session_block)
         else:
             daemon_proc.reload(self._log_session_block)
+
+    def _on_beep_volume(self, tone_type, volume):
+        """A beep slider was let go. The level is saved and live at once, then played --
+        dictation and the preview read the same saved value, so they cannot disagree."""
+        config, _ = load_settings()
+        if tone_type == "start":
+            config.audio.start_volume = volume
+        else:
+            config.audio.stop_volume = volume
+        save_settings(config)
+        daemon_proc.signal_reload()
+        daemon_proc.preview_beep(tone_type, volume)
 
     def _register_hotkey(self, cfg):
         """Claim the configured combination. Records what happened for the session block

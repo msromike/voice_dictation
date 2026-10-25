@@ -1,8 +1,15 @@
 """Shared output-category vocabulary: color, marker, box, and toast-eligibility per category.
 Also the error log's disk-write, since daemon and tray both need to reach it."""
 
+from datetime import datetime
 from pathlib import Path
 from typing import NamedTuple
+
+def divider_line():
+    """The dashed, timestamped line that closes a session block. Dashes, not the
+    header's equals signs -- it divides sections, it does not open the log."""
+    return f" {datetime.now():%Y-%m-%d %H:%M:%S} ".center(60, "-")
+
 
 # Created at import so the log is writable before anything can fail.
 LOG_DIR = Path(__file__).parent.parent.parent.parent / "userdata" / "logs"

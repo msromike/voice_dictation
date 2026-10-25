@@ -18,7 +18,8 @@ All notable changes to this project are documented here. Format follows
   the front, instead of a box saying it is already running.
 
 - A double beep when the speech engine finishes loading, so you know it is ready
-  without watching the output window. It also sounds after Save & Restart.
+  without watching the output window. It also sounds after a Save that changes
+  the model, since that reloads the engine.
 
 - A timestamp centered in the divider line under READY, so a restart's start
   time is visible at a glance when scanning back through the output window.
@@ -44,8 +45,8 @@ All notable changes to this project are documented here. Format follows
 
 - A clear error when the AI model fails to load, instead of a crash. A popup
   and the output window name the model and the actual error; Settings stays
-  open underneath so you can pick a different model and Save & Restart
-  without relaunching the app.
+  open underneath so you can pick a different model and Save without
+  relaunching the app.
 
 - A capture history, for development builds only. With the development
   recording flag on, every press of the button writes one row to
@@ -58,6 +59,15 @@ All notable changes to this project are documented here. Format follows
   written.
 
 ### Changed
+
+- The beeps on/off checkbox is replaced by two volume sliders, 0 to 100:
+  one for the high start beep, one for the low stop, ready and alert beeps.
+  Laptop speakers make the high beep far louder than the low one, so each
+  gets its own level, and beeps no longer force you to change the Windows
+  volume. Turning both to 0 silences every tone, the ready and timeout double
+  beeps included; the output window still reports the engine coming up and a
+  toggle recording abandoned after two minutes, so nothing is lost. If you had
+  beeps switched off, both sliders start at 0; otherwise both start at 50.
 
 - Saving Settings no longer reloads the speech engine unless you changed the
   model or the compute device. A new button, microphone, mode, beep setting
@@ -91,11 +101,6 @@ All notable changes to this project are documented here. Format follows
   file. Nothing to run and nothing to configure -- old days drop off on their
   own.
 
-- Enable Audio Beeps now silences every tone, the ready and timeout double beeps
-  included. Off means silent. The output window still reports the engine coming
-  up and a toggle recording abandoned after two minutes, so nothing is lost by
-  turning them off -- it just stops being announced.
-
 - A broken config.json now resets only the affected setting, not the whole
   file. The output window names exactly what changed and what it reset to,
   for example "Push-to-talk mode - HOLD" -- everything else you configured is
@@ -108,7 +113,7 @@ All notable changes to this project are documented here. Format follows
   broken app; naming it makes clear which one to reconnect.
 
 - The failed-to-load-model message now says what to do about it -- pick a
-  different model or switch to CPU in Settings, then Save & Restart --
+  different model or switch to CPU in Settings, then Save --
   instead of just naming the underlying error.
 
 - The output window opens with a header naming the push-to-talk mode and
@@ -116,7 +121,7 @@ All notable changes to this project are documented here. Format follows
   carries its real size on disk, which is what tells you a large model will not
   fit in your GPU; it reads bare until that model has been downloaded.
 
-- Save & Restart no longer reprints the welcome banner, which made the log look
+- Saving Settings no longer reprints the welcome banner, which made the log look
   as though it had been wiped. It reprints the header instead, so a changed
   model or compute device shows up in the log rather than being taken on trust.
 
@@ -154,9 +159,9 @@ All notable changes to this project are documented here. Format follows
 - Closing Settings no longer undoes changes made while it was open. The
   dialog used to write back a copy of your settings taken the moment it
   opened, so anything altered in the meantime was silently reverted --
-  resize the output window, hide it to the tray, then Save & Restart, and
+  resize the output window, hide it to the tray, then Save, and
   it came back at its old size and text size. Every way of closing Settings
-  was affected: Save & Restart, Escape, and the X.
+  was affected: Save, Escape, and the X.
 
 - Settings no longer stays pinned above every other window for as long as
   it's open. It still pops to the front the moment it appears, but releases
@@ -201,7 +206,7 @@ All notable changes to this project are documented here. Format follows
   successfully. It now shows the same "Configured microphone not found"
   message already used when the microphone can't be found at launch, and the
   tray still opens Settings so you can pick another device or reconnect and
-  Save & Restart.
+  Save.
 
 - The daemon no longer crashes when a transcription contains a character
   outside the Windows ANSI codepage -- curly quotes, em-dashes, and accented
