@@ -20,5 +20,5 @@ Windows push-to-talk dictation: tray (vdict_tray.py) and engine
 ## Docs
 - .docs/ is Markdown: todo.md (started, not finished; deleted when empty),
   backlog.md (ideas by class), spike-notes.md (measurements), pre-push.md
-  (going public), vector-analysis-investigation.md (outside write-up).
+  (going public).
 - Git is the archive. A deleted doc is named in the commit that deleted it.

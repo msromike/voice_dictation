@@ -147,5 +147,8 @@ column and a speaker column for them.
   Ask a question and get back what you said about it months ago, from a
   corpus that never left the machine. Embeddings in SQLite, a local LLM
   reading the matches. The hard part is not storage but the retrievable
-  unit: a seven-second utterance means nothing alone. Outside design in
-  vector-analysis-investigation.md, unmeasured here.
+  unit: a seven-second utterance means nothing alone. Pick the embedding
+  model late: vectors from two models do not share a space, so a change
+  discards every vector stored. Vectorize in a background batch, never on
+  the dictation path. On an 8 GB card Whisper and the model take turns.
+  sqlite-vec loads here; see spike-notes.md.

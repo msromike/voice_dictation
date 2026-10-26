@@ -14,15 +14,12 @@ loads offline.
 
 To do, in order:
   1. Make a real stick with create_usb_stick.bat.
-  2. Second local Windows account, Wi-Fi off, run install.bat from the stick.
-     Pass: READY, a dictation lands in Notepad, a Settings save sticks. Run
-     install.bat again: settings kept.
+  2. Run install.bat from the stick on a machine that does not have the app,
+     or a second Windows account on this one. Pass: READY, a dictation lands
+     in Notepad, a Settings save sticks. Run install.bat again: settings kept.
   3. The kid's machine. His copy predates the registry entry, so no settings
      carry over; he sets up Settings once.
 
 Still open from the paste-last work: one "Clipboard format N not restored:
 handle is invalid" never reproduced. Help > Event Log keeps every yellow
 note; if it recurs, the note carries type, length and clipboard owner.
-
-Distribution, until further notice: clone the repo and run vdict_install.bat,
-or a stick made from a working install. Nothing else.

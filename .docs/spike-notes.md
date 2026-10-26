@@ -10,18 +10,13 @@ Clips of 140-180 ms of real mic audio can come back as confident false text
 does not do it; only real transients. That is why MIN_RECORDING_SAMPLES in
 vdict_daemon.py is 6400 (0.4 s): it filters exactly that range.
 
-transcribe() takes 190-200 ms whether the clip is 10 ms or 2 s, after a
-one-time 500-700 ms warm-up on the first call. Two concurrent calls on one
-model serialize, no speedup.
-
 ## DISPLAY DPI (Windows, Tk)
 
-A process that has not declared DPI awareness reads the system DPI as 96,
-whatever the display is set to, and Tk's own figures say ~96 there too. So
-a probe must run under the same awareness as the app or its number is
-fiction. With awareness set, Windows and Tk still disagree by a hair (168
-vs 167.876); vdict/tray/dpi.py reads Windows through ctypes so nothing
-depends on a live Tk root.
+A process that has not declared DPI awareness reads the system DPI as 96
+whatever the display is set to, and Tk reports ~96 there too. So a probe
+must run under the same awareness as the app or its number is fiction. With
+awareness set, Windows and Tk disagree by a hair (168 vs 167.876);
+vdict/tray/dpi.py reads Windows through ctypes so nothing depends on Tk.
 
 ## TONES CLICK FOR TWO REASONS (sounddevice/WASAPI)
 
@@ -33,13 +28,6 @@ step; audible only on a good chain, masked on cheap speakers, so a no-click
 result on cheap equipment is not evidence. A cosine fade over the last 1 ms
 removes it; the shipped WAVs' fade stops ~0.05% short of zero, worth fixing
 whenever they are regenerated.
-
-WASAPI auto_convert resamples a 192 kHz source to a 48 kHz device correctly.
-A crashed process does not lock the output device; Windows reclaims it.
-
-Still unexplained: a brief burst of white noise right after a tone, which
-feeding the stream continuous silence did not cure. Underrun, not
-discontinuity, is the leading theory. Not confirmed.
 
 ## DICTATION CAPTURE RATE
 
@@ -53,8 +41,8 @@ worth rotating, and nobody has measured how much of it voice-ID needs.
 
 initial_prompt is a per-call argument to STTEngine.transcribe(), not baked
 into the model, so reading vocabulary.txt on every dictation is cheap:
-measured 2026-09-30, a real 581-byte file reads in 0.13 ms median, 0.41 max
-over 1000 reads; with 500 office words added, 0.28 median, 0.63 max.
+a real 581-byte file reads in 0.13 ms median, 0.41 max, over 1000 reads;
+with 500 office words added, 0.28 median, 0.63 max.
 
 Only the last 223 prompt tokens reach Whisper: faster_whisper keeps
 previous_tokens[-(max_length // 2 - 1):] with max_length 448. 500 words
@@ -119,33 +107,29 @@ under fifteen. Utterances, not documents.
 
 ## MICROPHONE DEVICES (sounddevice/PortAudio/WASAPI)
 
-Read from PortAudio's and sounddevice's source (github.com/PortAudio/portaudio,
-github.com/spatialaudio/python-sounddevice), then confirmed on real
-hardware: PDP mic, a Behringer mixer input, a webcam mic, all through
-vdict/daemon/portaudio_io.py.
+Read from PortAudio's and sounddevice's source, then confirmed on real
+hardware with a PDP mic, a Behringer mixer input and a webcam mic through
+vdict/daemon/portaudio_io.py. These four decide the mic handling entry in
+backlog.md.
 
-  - Pa_Initialize's WASAPI backend does a fresh IMMDeviceEnumerator query
-    every call -- reinit sees whatever is connected now, not a cached
-    answer. CONFIRMED: the mixer appeared and disappeared correctly across
-    enable/disable cycles. reinit latency 0.02-0.03 s over 5 runs.
+  - Re-initializing PortAudio does a fresh device query every time, in
+    0.02-0.03 s. Enumerating without it returns stale data.
   - A failed stream never says why. Sixteen WASAPI failure paths collapse
-    into one generic thread-death signal; PortAudio's real-time callback
-    contract forbids the slow work needed to preserve which one occurred.
-    CONFIRMED: stream.active goes False on its own when the device
-    disappears mid-stream, no exception, no status flag. That flag is the
-    only detection signal there is.
-  - A failed open or start always raises PortAudioError, whatever the
-    cause, including another app holding the device in WASAPI exclusive
-    mode. Traced through sounddevice's single _check() and CONFIRMED with
-    a real exclusive-mode hog process.
-  - Pa_Initialize/Pa_Terminate must be called from the same thread (COM
-    apartment affinity; get it wrong and cleanup silently leaks). sounddevice
-    auto-initializes on import, on whatever thread imports it first.
-    SOURCE-ONLY, never tested: no tooling here isolates a silent leak.
-  - Three devices enabled at once each resolved to the right index by
-    name, no cross-matching.
+    into one signal: stream.active goes False on its own, no exception, no
+    status flag. That is the only detection there is.
+  - A failed open always raises PortAudioError, whatever the cause,
+    including another app holding the device in exclusive mode.
   - Windows' default input does not reflect user intent: the webcam
     promoted itself to Default Device unprompted, twice.
+
+## SQLITE-VEC LOADS
+
+sqlite3.enable_load_extension is present and sqlite-vec loads under this
+machine's Python 3.12.10 with SQLite 3.49.1. Not checked under the private
+Python the stick installs; a build without extension loading needs a
+different mechanism for search by meaning. At the measured capture rate,
+two years is well under half a million vectors, small enough that scanning
+every one beats indexing.
 
 ## LIBRARY GAPS
 
@@ -160,145 +144,46 @@ site. Read before "simplifying" either.
     per-field fallback to default exists (model_validate takes no such
     option), so the per-field repair is hand-rolled.
 
-## CLIPBOARD ROUND-TRIP AND DELIVERY (keyboard.py, 2026-10-24)
+## CLIPBOARD ROUND-TRIP AND DELIVERY (keyboard.py)
 
-Format round-trip through win32clipboard, EnumClipboardFormats order kept:
+Every line here is a constant or a design choice in keyboard.py.
 
-  MEASURED text: CF_UNICODETEXT, CF_TEXT, CF_OEMTEXT, CF_LOCALE all
-  byte-identical after a save/replace/restore cycle.
+Formats. Text, rich text (HTML Format, Rich Text Format) and image formats
+(CF_DIB, CF_DIBV5, DataObject, Ole Private Data, System.Drawing.Bitmap) all
+round-trip byte-identical through win32clipboard when written back in
+EnumClipboardFormats order. The GDI-handle formats cannot be written back
+and are _SKIP_FORMATS; CF_BITMAP among them costs nothing, because Windows
+re-synthesizes it from the restored CF_DIB. CF_HDROP reads back as a tuple
+of paths and must be rebuilt as a DROPFILES struct (20-byte header, paths
+UTF-16LE null-terminated, one more null), which _dropfiles does.
 
-  MEASURED image: CF_DIB, CF_DIBV5, DataObject, Ole Private Data and
-  System.Drawing.Bitmap byte-identical. CF_BITMAP cannot be written back --
-  GetClipboardData returns a GDI handle, not bytes -- but Windows
-  re-synthesizes it from the restored CF_DIB and it reappears in the
-  enumeration, so skipping it loses nothing.
+History exclusion. Writing the ExcludeClipboardContentFromMonitorProcessing
+format with four zero bytes keeps the dictation out of Win+V. It matters
+more than it looks: the history monitor asks for the text the instant it
+is announced, which would fire the delivery receipt before any paste.
 
-  MEASURED rich text: HTML Format, Rich Text Format and the text formats
-  byte-identical.
+Receipt, not delay. The text is announced with a null handle (delayed
+rendering) and Ctrl+V is sent; the target asks for it 6-7 ms later, and
+that WM_RENDERFORMAT is proof the paste landed, so the restore waits on an
+event rather than a guess about machine speed. _RECEIPT_TIMEOUT of 1 s is
+the backstop for nobody asking (no text field, elevated window); being
+wrong about it delays a restore and cannot cause a wrong paste. pyautogui
+PAUSE must be 0 or its default 0.1 s delays the message pump and the
+receipt reads 100 ms.
 
-  MEASURED CF_HDROP: reads back as a tuple of paths, so SetClipboardData
-  raises TypeError on it. Rebuilding the DROPFILES struct restores it --
-  20-byte header (pFiles=20, pt 0,0, fNC=0, fWide=1), then each path UTF-16LE
-  null-terminated, then one more null. Windows' own GetFileDropList read the
-  restored path back correctly.
+The owner must pump. After a restore the hidden window owns the clipboard,
+and if its thread is not pumping messages, the next copy in any app stalls
+that app 5 s while Windows waits for WM_DESTROYCLIPBOARD. The owner idles
+in MsgWaitForMultipleObjects and wakes for any input; the same copy then
+takes 0.2 ms.
 
-  Skip set, all GDI handles: CF_BITMAP 2, CF_METAFILEPICT 3, CF_PALETTE 9,
-  CF_ENHMETAFILE 14, CF_OWNERDISPLAY 0x80, CF_DSPBITMAP 0x82,
-  CF_DSPMETAFILEPICT 0x83, CF_DSPENHMETAFILE 0x8E.
+Modifiers. A fake Ctrl+V that releases Ctrl at the end tells Windows the
+user's physically held Ctrl is up too, so Ctrl+Shift+V held across a paste
+typed "vvvvvvv". The keyboard hook records physical modifier state from
+non-injected events (_track_modifier); _send_ctrl_v lifts the modifiers
+that would change Ctrl+V's meaning, presses Ctrl only if it is not held,
+sends V, and puts back what is still physically down.
 
-History exclusion:
-
-  MEASURED: RegisterClipboardFormat("ExcludeClipboardContentFromMonitor-
-  Processing") returned 49987 here; written with four zero bytes. A control
-  string written without the flag appeared in Win+V, the string written with
-  it did not. Clipboard history was on
-  (HKCU\Software\Microsoft\Clipboard, EnableClipboardHistory = 1).
-  It matters more than it looks: the history monitor asks for the text the
-  instant it is announced, which would fire the delivery receipt before any
-  paste happened.
-
-Delivery -- why there is no delay constant:
-
-  MEASURED: announcing CF_UNICODETEXT as a null handle (delayed rendering)
-  and sending Ctrl+V, Notepad asked for the text 6.0 / 6.3 / 6.5 ms later,
-  3 runs of 3. WM_RENDERFORMAT arriving is proof the paste landed, so the
-  restore waits on an event and not on a guess about machine speed.
-
-  MEASURED: an earlier run of the same spike read 103.7 / 103.9 / 104.0 ms.
-  That was pyautogui's default 0.1s PAUSE delaying hotkey()'s return, and
-  with it the message pump -- not the paste. keyboard.py sets
-  pyautogui.PAUSE = 0.
-
-  MEASURED: the whole inject() -- snapshot, announce, paste, receipt,
-  restore -- returned in 16.8 ms with an image on the clipboard, and the
-  image was intact afterwards.
-
-  _RECEIPT_TIMEOUT = 1.0s is a backstop for "nobody ever asked" (no text
-  field focused, elevated window). Being wrong about it delays a restore;
-  it cannot cause a wrong paste, which is exactly what a fixed delay can.
-
-  CONFIRMED IN THE APP 2026-10-24, Mike at the keyboard: clipboard sentence
-  survives a dictation, screenshot survives a dictation, dictations land
-  where he is typing, and Win+V lists no dictations.
-
-  UNVERIFIED: no target other than Notepad was timed, and the numbers above
-  are from one machine. The design does not depend on either.
-
-Clipboard owner on its own thread (keyboard.py, 2026-10-25):
-
-  MEASURED: after _restore the hidden window owns the clipboard. With that
-  window's thread not pumping, another process's EmptyClipboard took
-  5003.6 / 5007.7 / 5011.2 ms -- Windows gives up on WM_DESTROYCLIPBOARD
-  after 5 s -- and the owner never saw the message. a8f7255's main loop did
-  not pump between captures, so after any dictation the next copy in any
-  app stalled that app 5 s (5003.6 ms with a8f7255's KeyboardInjector).
-  With the owner idling in MsgWaitForMultipleObjects([wake], INFINITE,
-  QS_ALLINPUT) and pumping on wake, the same copy took 0.2 ms and the
-  owner saw WM_DESTROYCLIPBOARD.
-
-  MEASURED: WM_RENDERFORMAT reaches an owner waiting in
-  MsgWaitForMultipleObjects([], ms, QS_ALLINPUT) -- pywin32 accepts the
-  empty handle list -- from a reader on another thread of the same process
-  and from another process alike, 0.7 ms each, the same as the
-  PumpWaitingMessages + sleep(0.001) poll it replaces.
-
-  MEASURED, Win32 EDIT control as target: inject() from a non-owner thread
-  107 ms on the first call; 100 paste_async in a burst landed 99 in
-  11.65 s; receipt wait median 0.5 ms; one paste hit the 1 s backstop and
-  did not land. UNVERIFIED why: the likeliest is the EDIT's single
-  OpenClipboard colliding with a clipboard listener woken by the previous
-  restore, which a8f7255 would lose the same way. Shift held (injected)
-  before a paste was up after it, and the paste landed.
-
-  MEASURED: a Tk Text widget fires <<Paste>> on the fake Ctrl+V but never
-  sends WM_RENDERFORMAT, so delayed-rendered text does not land in Tk. The
-  app has no Tk paste target; test scripts use an EDIT control instead.
-
-Modifiers around the fake Ctrl+V (keyboard.py, 2026-10-25, after Step 6):
-
-  CONFIRMED IN THE APP, Mike at the keyboard: with the one-way fake Shift
-  release, holding Ctrl+Shift and tapping V typed "vvvvvvvv" after the
-  first paste. The fake Ctrl+V's trailing Ctrl key-up had told Windows
-  Ctrl was up as well, so the following taps were bare letters.
-
-  Built instead: the keyboard hook records physical modifier state from
-  non-injected events (_track_modifier); _send_ctrl_v lifts the modifiers
-  that would change Ctrl+V's meaning, presses Ctrl only if it is not held,
-  sends V, and puts back what is still physically down. MEASURED, recorded
-  pyautogui calls: Ctrl+Shift held -> up shiftleft, press v, down
-  shiftleft; nothing held -> down ctrl, press v, up ctrl; Shift lifted
-  mid-paste -> not put back. Hook ignores an injected Shift key-up and
-  tracks WM_SYSKEYDOWN. Same EDIT burst on this build: 100 of 100 landed
-  in 10.8 s, receipt median 0.4 ms, max 2.4 ms, clipboard text identical
-  before and after.
-
-  UNVERIFIED by script, by design: a physical key cannot be injected, so
-  the hook -> set -> lift -> restore path end to end is Step 6 Test 4.
-
-Three threads, one stdout (output.py, 2026-10-25):
-
-  CONFIRMED IN THE APP: the output window showed
-  "[NOTE] Nothing dictated yet -- nothing to paste.ready|Voice Dictation
-  v1.0.0 READY" as one line, then blank lines, then a dot a second for the
-  rest of the session. The pipe-reader thread and the main thread printed
-  at the same instant; print() is two writes (text, then newline), so the
-  READY line landed inside the note. The console clears its loading state
-  only on a clean "ready" category (console.py drain), so the loading dots
-  never stopped. Fix: log() takes a lock and makes one write.
-
-Restore refused with "handle is invalid" (keyboard.py _restore, 2026-10-25):
-
-  CONFIRMED IN THE APP, once: after copying a word in Windows 11 Notepad
-  and dictating into VS Code's chat box, formats 13, 1 and 7 all failed
-  to restore with (6, 'SetClipboardData', 'The handle is invalid.'); the
-  copied word was lost. 16 (CF_LOCALE) was not reported.
-
-  MEASURED, not reproduced: 30 cycles each of a plain owner and a
-  delayed-render owner in another process, pasting into a Win32 EDIT
-  control; then the same 60 into a Chromium textarea (Edge app mode).
-  120 restores, every clipboard text intact, no note. str for 13 and bytes
-  for 1 and 7 both write fine from the clipboard thread.
-
-  UNVERIFIED cause. The restore path is a8f7255's, moved to the clipboard
-  thread. The note now carries the data type and length and whether the
-  clipboard owner at restore time was still our window.
+Test targets. A Tk Text widget fires its paste event on the fake Ctrl+V but
+never sends WM_RENDERFORMAT, so delayed-rendered text does not land in Tk.
+Test scripts use a Win32 EDIT control or a Chromium textarea.
