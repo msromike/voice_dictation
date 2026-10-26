@@ -88,6 +88,19 @@ gap is the silent dropped press, under tones.
   elevated window). The existing high, low and double-low tones can cover
   both; no new sound, no new slider.
 
+### TYPE INSTEAD OF PASTE, FOR APPS THAT MISHANDLE PASTE
+  Google Chat in Chrome sometimes inserts a stale copy of an earlier paste,
+  before the user's edits, in place of the new dictation; our clipboard never
+  holds that text, so it is Chat's own draft memory (2026-10-26). For apps
+  like that, send the text as Unicode keystrokes instead of Ctrl+V, so the
+  target's paste code never runs. Which apps: a plain text file in userdata,
+  opened from the File menu in Notepad like vocabulary.txt, one line per app,
+  program name then words in the window title ("chrome.exe  Google Chat").
+  The foreground program and title are already captured per dictation for
+  the history database. Cost: long dictations type in visibly, and
+  autocomplete-heavy apps may react to typed text. Build it when a second app
+  shows the problem.
+
 ### MODEL DOWNLOAD PROGRESS
   A model download shows one line, "Initiating download: <model>", then
   nothing until it's done; the Windows notification fires only when the
