@@ -46,6 +46,10 @@ popd
 set "TARGET=%~dp0"
 set "TARGET=%TARGET:~0,-1%"
 set "TRAY=%TARGET%\voice-dictation\vdict_tray.py"
+:: The shortcut step quotes these for PowerShell with single quotes; '' is a literal '.
+set "Q_PYW=%PYW:'=''%"
+set "Q_TRAY=%TRAY:'=''%"
+set "Q_TARGET=%TARGET:'=''%"
 
 echo.
 echo == Shortcuts: Desktop and Startup
@@ -88,7 +92,7 @@ exit /b 0
 
 :shortcut
 :: %1 is a special folder name (Desktop, Startup); %2 the shortcut's file name.
-powershell -NoProfile -Command "$s = (New-Object -ComObject WScript.Shell).CreateShortcut([Environment]::GetFolderPath('%~1') + '\%~2'); $s.TargetPath = '%PYW%'; $s.Arguments = '\"%TRAY%\"'; $s.WorkingDirectory = '%TARGET%'; $s.IconLocation = '%TARGET%\images\vdict.ico'; $s.Save()"
+powershell -NoProfile -Command "$s = (New-Object -ComObject WScript.Shell).CreateShortcut([Environment]::GetFolderPath('%~1') + '\%~2'); $s.TargetPath = '%Q_PYW%'; $s.Arguments = '\"%Q_TRAY%\"'; $s.WorkingDirectory = '%Q_TARGET%'; $s.IconLocation = '%Q_TARGET%\images\vdict.ico'; $s.Save()"
 exit /b %errorlevel%
 
 :fail
