@@ -8,7 +8,7 @@ that per-process VRAM cannot be read at all on Windows consumer cards, so the
 obvious way to check the first one does not exist. Read it as a considered
 opinion. It sits beside measured documents and has not earned their weight.
 
-Backlog entry: B28. Corrections made against this repo are marked LOCAL
+Backlog entry: SEARCH BY MEANING. Corrections made against this repo are marked LOCAL
 CORRECTION and are the authority where they contradict the text.
 
  ==============================================================================

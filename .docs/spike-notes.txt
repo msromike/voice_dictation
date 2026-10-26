@@ -185,7 +185,7 @@ not baked into the loaded model. Vocabulary is therefore the cheapest setting
 to make live, not the most expensive -- it only looks expensive because it is
 hoisted into a local before the daemon's loop starts.
 
-Read while B1 was written. Re-check against STTEngine.transcribe's signature
+Read while the live-vocabulary idea was written. Re-check against STTEngine.transcribe's signature
 rather than trusting this line.
 
 Reading it per dictation, measured 2026-09-30. Real 581-byte file, zero
@@ -249,7 +249,7 @@ create_usb_stick.bat copies every cached snapshot as real files, so a machine
 installed from the stick never downloads one.
 
 
-PUNCTUATION RESTORATION (B13)
+PUNCTUATION RESTORATION
 
 rpunct is a dead end: it hard-pins pandas==1.2.4 and torch==1.8.1, 2021
 exact versions with no Python 3.12 wheels, and the source build fails
@@ -263,7 +263,7 @@ already prevent the run-ons this targets. Toggle mode has no such
 discipline.
 
 
-PHONETIC CODES COLLIDE ON ORDINARY WORDS (B21)
+PHONETIC CODES COLLIDE ON ORDINARY WORDS
 
 jellyfish (maintained, MIT, prebuilt wheels, Rust-backed) gives metaphone,
 soundex, nysiis and match_rating_codex as pure algorithms. "Trey" and
@@ -293,7 +293,7 @@ Both test setups were deleted afterward; nothing was installed into the
 global Python that remains.
 
 
-WHISPER MODEL LADDER (B22, Mike's GPU testing, i7 9th gen + 3070 Ti)
+WHISPER MODEL LADDER (Mike's GPU testing, i7 9th gen + 3070 Ti)
 
 VRAM watched live. GPU curated three: small.en / medium.en / large-v3,
 one per card tier (4GB+/6GB+/8GB+), biggest-that-fits. large-v3-turbo is
@@ -308,9 +308,9 @@ a CPU user reports small.en too slow. Per-tier speed on real hardware is
 unverified.
 
 
-CAPTURE LENGTH (B28)
+CAPTURE LENGTH
 
-Over the corpus as of the B28 entry: median capture 7.3 seconds, 85
+Over the corpus as of 2026-09-30: median capture 7.3 seconds, 85
 percent under fifteen. Utterances, not documents.
 
 
