@@ -316,7 +316,8 @@ percent under fifteen. Utterances, not documents.
 
 MICROPHONE DEVICES (sounddevice/PortAudio/WASAPI, from the retired input-device plan)
 
-Read from PortAudio's and sounddevice's source (.reference/), then confirmed
+Read from PortAudio's and sounddevice's source (github.com/PortAudio/portaudio,
+github.com/spatialaudio/python-sounddevice), then confirmed
 on real hardware: PDP mic, a Behringer mixer input, a webcam mic, all
 exercised through vdict/daemon/portaudio_io.py.
 
