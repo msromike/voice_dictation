@@ -2,4 +2,3 @@
 #   pip install -r requirements-dev.txt
 ruff
 pyright
-vulture

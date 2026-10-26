@@ -1,19 +1,33 @@
 VOICE DICTATION - PRE-PUSH CHECKLIST
 
-Run in order before the first push, and again before any release tag after it.
+Run in order before the repo goes public, and again before any release tag.
+
+GOING PUBLIC IS A FRESH REPO from a cleaned copy, never this one. This
+repo's history holds config.json and the dictation database (userdata was
+tracked 2026-10-24 to 2026-10-25). The public repo is the code and what a
+user needs to run it. Nothing else.
+
+  SHIPS      voice-dictation/, tools/check_docstrings.py, images/,
+             templates/, every .bat at the root, README.md, CHANGELOG.md,
+             LICENSE, requirements.txt, requirements-dev.txt,
+             pyproject.toml, pyrightconfig.json, .gitignore
+  STAYS HERE .docs/, .agents/, .claude/, CLAUDE.md, GEMINI.md,
+             .reference/, .vscode/, dev-flags.toml, userdata/
+
+Distribution for a novice: clone, run vdict_install.bat, launch once so the
+model downloads, then create_usb_stick.bat for any machine without internet
+or Python. LATER, NOT NOW: publish the stick folder as a zip on the repo's
+Releases page so nobody needs a working install first. GitHub caps a
+release file at 2 GB; the folder with one model is right around that.
 
 
 ==============================================================================
 P1. README, MEDIA AND DISCOVERABILITY
 ==============================================================================
-Consolidates the old B5 (demo capture), B7 (GitHub discoverability), and B16
-(README accuracy) into one item. Exact final shape (a real pre-push design
-doc) is separate, later work -- this just keeps it in one place instead of
-three. Sub-items drain individually.
-
 SCREENSHOTS -- DONE
   images/tray.png and images/settings.png, wired into README.md as clickable
-  HTML thumbnails in the "Using it" section.
+  HTML thumbnails in the "Using it" section. Re-check both against the
+  current UI; Settings changed on 2026-10-25.
 
 DEMO CLIP -- OUTSTANDING
   images/demo.gif is still the orange placeholder, referenced right after
@@ -61,7 +75,7 @@ SEO FINDING
   offline and privacy without ever saying either word -- naming the thing
   accurately, not inflating it, every missing term is literally true.
 
-PUSH-DAY ACTIONS (blocked: no remote, repo does not exist yet)
+PUSH-DAY ACTIONS (blocked: the public repo does not exist yet)
   - Repo topics: single biggest lever, github.com/topics/<x> browsing plus
     weighted in GitHub's own search. Limit 20, currently zero. Proposed 19:
     speech-to-text, dictation, whisper, faster-whisper, push-to-talk,
@@ -74,9 +88,9 @@ PUSH-DAY ACTIONS (blocked: no remote, repo does not exist yet)
     and shown in search results. Currently unset.
   - A tagged release: indexed separately from the repo, gives people a
     download target instead of a clone.
-  - PROJECT_URL is a 404 (github.com/msromike/voice_dictation) --
-    Help > Documentation, F1, and the About box all open a
-    dead link today. Resolves itself on push if the repo name matches
+  - PROJECT_URL (github.com/msromike/voice_dictation) is private today --
+    Help > Documentation, F1, and the About box all open a dead link for
+    anyone else. Resolves itself on push if the public repo name matches
     exactly -- verify after pushing.
 
 README CHANGES (do-able now, deliberately deferred)
@@ -100,39 +114,25 @@ EXPLICITLY REJECTED
   Awesome-list submissions reopen once the repo has real history. The other
   three do not reopen on any condition anyone has named.
 
-ACCURACY CATCHALL (from the old B16, still draining individually)
-  - Multilingual dictation: Whisper/large-v3 is multilingual and the code
-    already auto-detects language, but nobody has tested it end to end.
-    Don't claim it until verified.
+ACCURACY CATCHALL
+  - Multilingual dictation: the engine is pinned to English since c6329bc.
+    Do not claim multilingual.
   - Exclusive-mode conflict: Known Limitations should note that another
     app holding the mic in WASAPI exclusive mode blocks dictation until
-    released or a different device is picked. Gated on the input-device
-    rebuild shipping -- documents real behavior, not written in ahead of it.
-  - Windows-default-device recommendation: once input-device-plan.txt's
-    NO SYSTEM DEFAULT design ships, the README's advice to set your mic
-    as Windows default becomes actively wrong, not just stale. Same gate.
+    released or a different device is picked. True today; say it.
+  - Windows-default-device recommendation: the README's advice to set your
+    mic as Windows default becomes wrong if backlog.txt's MIC HANDLING entry
+    ever ships. Same gate.
 
-
-------------------------------------------------------------------------------
-NEW FEATURES
-------------------------------------------------------------------------------
-
-Every entry here builds its plan first -- encapsulate only what that entry
-calls for, as a reusable API, and cross-check the other new-feature plans
-before sizing the extraction. Not extra process: it avoids rebuilding one
-shared piece narrower-then-wider, one feature at a time.
 
 ==============================================================================
 P2. AUTOMATED CHECKS
 ==============================================================================
-All four at zero:
+All three at zero:
 
     python -m ruff check .
     python -m pyright
-    python -m vulture voice-dictation tools\vulture_whitelist.py --min-confidence 60
     python tools\check_docstrings.py
-
-False positives live in tools\vulture_whitelist.py.
 
 
 ==============================================================================
@@ -153,10 +153,6 @@ No placeholder media -- images\demo.gif.
 
 Every image in images\ matches the current UI.
 
-Help links (PROJECT_URL, used in the About dialog, Help menu, and startup
-header) point to github.com/msromike/voice_dictation and 404 until this
-push completes -- no action needed, just confirm they resolve once the
-repo is public.
 
 ==============================================================================
 P5. BATCH FILES -- GREP, THEN ACTUALLY RUN THEM
@@ -176,13 +172,15 @@ CHANGELOG.md entries describing past releases are exempt -- historical
 record, not live documentation.
 
 THEN RUN EVERY BATCH FILE FOR REAL -- Mike runs, reports:
-  vdict_install.bat and startup_folder_install.bat -- already covered by
-    P8's clean-clone install, not duplicated here.
-  vdict_run.bat -- already covered by P7's smoke test, not duplicated here.
-  startup_folder_uninstall.bat -- NO coverage anywhere else in this
-    checklist. Run it, then confirm the VoiceDictation.lnk shortcut is
-    actually gone from the Startup folder afterward -- not just that the
-    script exited without an error.
+  vdict_install.bat and startup_folder_install.bat -- covered by P8's
+    clean-clone install.
+  vdict_run.bat -- covered by P7's smoke test.
+  startup_folder_uninstall.bat -- NO coverage anywhere else. Run it, then
+    confirm the VoiceDictation.lnk shortcut is actually gone from the
+    Startup folder afterward -- not just that the script exited without an
+    error.
+  create_usb_stick.bat and the stick's install.bat -- backlog.txt's PENDING
+    entry is the test: a real stick, a second local account, Wi-Fi off.
 
 Found the hard way: a batch of renames left stale text references scattered
 across the tree, including a call to a batch file that no longer existed. The
@@ -195,31 +193,27 @@ script for real catches it.
 P6. REPO HYGIENE
 ==============================================================================
 Nothing staged carrying an absolute local path or personal information.
-
-The private GitHub repo msromike/voice_dictation carries everything except
-userdata/ and *.flac: .docs, the docs branch, .reference, .vscode, .agents.
-userdata/ is per machine since 2026-10-25; it was tracked 2026-10-24 to
-2026-10-25. The pre-push hook that blocked refs/heads/docs is deleted. Going
-public is a FRESH repo from a cleaned copy, never this one: its history holds
-the dictation database and config. Restore the ignores and the docs-branch
-hook there.
+The SHIPS / STAYS HERE list at the top of this file is the authority; grep
+the cleaned copy for "msromike", "C:\\bin", "C:\\Users" before the first
+push.
 
 
 ==============================================================================
 P7. SMOKE TEST IN THE WORKING TREE
 ==============================================================================
-Launch vdict_run.bat, which runs from venv and not a global Python.
+Launch vdict_run.bat. It runs the global Python; there is no venv.
 
 
 ==============================================================================
 P8. CLEAN-CLONE INSTALL
 ==============================================================================
-Must be a CLONE, not the working tree. vdict_install.bat run in place reuses
-the existing venv and proves nothing about a fresh install.
+Must be a CLONE, not the working tree. vdict_install.bat run in place proves
+nothing about a fresh install.
 
 Clone to an empty folder. Run vdict_install.bat, then startup_folder_install.bat.
 
-Verify both shortcuts carry the icon. Launch from the Desktop shortcut
+Verify both shortcuts carry the icon. Launch from the Desktop shortcut.
+
 
 ==============================================================================
 P9. DEV-ONLY CAPTURE FLAGS OFF
@@ -229,9 +223,7 @@ file is absent, not by memory:
 
   dev-flags.toml: capture_corpus -- PTT-mode utterance capture for the
     voice-ID corpus.
-  dev-flags.toml (once built): ambient-mode's equivalent, for
-    building/validating the diarization pipeline against real corpora.
 
-Neither is a Settings-exposed choice -- a shipped user never captures
-audio for this purpose, on purpose. On for dev/corpus work, off before
-any push. This file does not ship.
+Not a Settings-exposed choice -- a shipped user never captures audio for
+this purpose, on purpose. On for dev/corpus work, off before any push.
+This file is gitignored and does not ship.

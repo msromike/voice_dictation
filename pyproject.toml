@@ -2,9 +2,8 @@
 
 [tool.ruff]
 line-length = 100
-# vulture_whitelist.py is bare names by design -- it is vulture input, not code.
 # .reference/ and .agents/ are tracked but not ours to lint.
-exclude = ["venv", "images", "tools/vulture_whitelist.py", ".reference", ".agents"]
+exclude = ["venv", "images", ".reference", ".agents"]
 
 # LOAD-BEARING. Must track the floor declared in README.md and vdict_install.bat, NOT
 # the installed interpreter. This is what catches syntax newer than we promise
@@ -17,6 +16,4 @@ target-version = "py310"
 # B   bugbear         -- loop-variable binding, silent traps
 # RUF100              -- noqa directives that are no longer needed, so a
 #                        suppression expires instead of calcifying
-# Complexity (C901, PLR) is a REPORT printed by commit-per-protocol, never
-# a gate: CLAUDE.md says report the number, never restructure to pass.
 select = ["F", "E", "B", "RUF100"]

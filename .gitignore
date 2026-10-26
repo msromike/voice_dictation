@@ -11,5 +11,9 @@ __pycache__/
 userdata/
 *.flac
 
+# Junction to .agents/skills, which is tracked. Git stores no junctions; each
+# machine makes it once -- see the sync skill's New machine section.
+.claude/skills
+
 # Secrets
 .env

@@ -7,8 +7,7 @@
         "tools"
     ],
     "exclude": [
-        "**/__pycache__",
-        "tools/vulture_whitelist.py"
+        "**/__pycache__"
     ],
     "typeCheckingMode": "basic"
 }

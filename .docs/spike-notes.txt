@@ -113,9 +113,6 @@ reported physical screen dimensions (measured 168 vs 167.876). Reading DPI
 from Tk instead of ctypes would shift every scaled dimension by a pixel or
 two, and would make vdict/tray/dpi.py depend on a live Tk root.
 
-This whole finding expires with the Qt port, which deletes dpi.py -- Qt 6 has
-high DPI on by default and cannot disable it.
-
 
 AUDIO PLAYBACK (sounddevice/WASAPI)
 
@@ -162,9 +159,8 @@ The second is audible only on a high-resolution chain with well-damped
 drivers; ordinary speakers mask it. A no-click result on cheap equipment is
 not evidence.
 
-A cosine fade over the final 1ms removes it, and a QAudioSink built per tone is
-then clean. The WAV assets and the persistent OutputStream are workarounds for
-that cause, which is why neither survives the port.
+A cosine fade over the final 1ms removes it. The WAV assets and the persistent
+OutputStream are workarounds for that cause, not a preference.
 
 
 DICTATION CAPTURE RATE
@@ -227,16 +223,6 @@ round 3's transcripts, rows 40783-40792, which were all correct:
   Upload it to the cloud.
 
 
-QT NATIVE EVENT FILTER RECEIVES WM_HOTKEY
-
-RegisterHotKey(None, ...) on the main thread posts WM_HOTKEY to the thread
-queue, and a QAbstractNativeEventFilter installed on the application
-receives it: 6-8ms from synthetic key press to filter, four of four runs,
-under QCoreApplication and QApplication alike. Read the message with
-MSG.from_address(int(message)). hotkey.py needs no thread and no pump of
-its own under Qt.
-
-
 WHISPERMODEL SWAP RELEASES CUDA MEMORY
 
 Four cycles of load small/float16, transcribe, del, gc: each load +808 MiB,
@@ -259,46 +245,8 @@ covers ROCm only. Only the driver comes from the machine.
 MODEL LOCATION
 
 Loading by name puts the model in the profile cache, outside the tree.
-The portable folder ships the model directory and loads it by path.
-
-
-FILE-CENTRIC AUDIO: STREAM QAUDIOSOURCE INTO SOUNDFILE, NOT QMEDIARECORDER
-
-QMediaRecorder records real FLAC and shares the mic with a raw
-QAudioSource and with the live daemon at once, but it has no sample-format
-setter. The default FFmpeg backend writes 24-bit at every quality setting
-and its constant-bitrate mode writes a file nothing can open.
-QT_MEDIA_BACKEND=windows writes 8-bit at 44.1kHz and ~270 bytes for 1.5s:
-broken in this Qt build. QAudioSource Int16 frames written into a
-soundfile FLAC as they arrive: 16-bit, 27KB for 3s against ~92KB from the
-recorder. Hard-killed with the file still open, PyAV decoded 2.82 of 3.00s;
-only the encoder's last buffer is lost, and faster-whisper reads the path
-directly. One capture path serves PTT and ambient.
-
-
-QMEDIADEVICES SEES HOTPLUG; THE ENDPOINT ID SURVIVES REPLUG AND REBOOT
-
-audioInputsChanged fired on every plug and unplug across four cycles of a
-USB microphone, the device left audioInputs() on unplug and returned on
-replug, and QAudioDevice.id() was byte-identical every time, and again
-after a reboot with the device left plugged in. Plug fires twice with the
-same list. The test device is "Microphone (USB Audio Device)"; the PDP
-device stays enumerated whether or not anything is attached to it, so it
-cannot test hotplug.
-
-
-UNPLUG MID-STREAM: QAUDIOSOURCE STOPS WITH IOERROR AND DOES NOT RESUME
-
-A QAudioSource reading Int16 at 16kHz from a USB microphone, unplugged
-mid-stream: within the same second the state went StoppedState, error()
-went IOError, delivery stopped, and audioInputsChanged fired with the
-device gone. Replugged six seconds later: audioInputsChanged fired with
-the device back, the source stayed StoppedState/IOError and delivered
-nothing. Recovery is the app's job: treat IOError as the end of that
-capture with an error outcome, and on audioInputsChanged with the
-configured device present, build a new QAudioSource. QAudioSource's
-stateChanged signal cannot be connected from Python in PySide6 6.11.1
-("QAudio::State cannot be converted"); poll state() and error() instead.
+create_usb_stick.bat copies every cached snapshot as real files, so a machine
+installed from the stick never downloads one.
 
 
 PUNCTUATION RESTORATION (B13)
@@ -366,104 +314,43 @@ Over the corpus as of the B28 entry: median capture 7.3 seconds, 85
 percent under fifteen. Utterances, not documents.
 
 
-AUDIO SPIKES -- measured, input "Microphone (USB Audio Device)", output "Speakers (USB Audio CODEC )", app left running on the PDP mic. Scripts under scratchpad/spikes2/.
+MICROPHONE DEVICES (sounddevice/PortAudio/WASAPI, from the retired input-device plan)
 
-1 QAudioSink push mode. Three sink formats tried: 16 kHz mono Float (numpy resample), preferred 48 kHz stereo Float, 192 kHz mono Int16 (WAV bytes untouched). bufferSize 16000 / 96000 / 96000 B, all exactly 250 ms; bytesFree before write = bufferSize. high (80 ms) and low (90 ms): one write() took everything, 0.01-0.97 ms, IdleState at 81-100 ms after write. low_double (330 ms) exceeds the buffer: first write took only bufferSize, 8 top-ups, IdleState at 331-340 ms. NoError throughout. Design: one write is fire-and-forget for high and low; low_double needs setBufferSize(>= its bytes) before start() or a bytesFree top-up loop; "done" = ActiveState then IdleState, 7-10 ms after nominal length.
+Read from PortAudio's and sounddevice's source (.reference/), then confirmed
+on real hardware: PDP mic, a Behringer mixer input, a webcam mic, all
+exercised through vdict/daemon/portaudio_io.py.
 
-2 Format support. defaultAudioOutput preferred 48000 Float 2ch, min/max rate 8000-192000, formats UInt8/Int16/Int32/Float. isFormatSupported(192000 mono Float)=True, (192000 mono Int16)=True, 12/12 True across 16k/48k x mono/stereo x Float/Int16. Input USB Audio Device preferred 48000 Float 2ch; 192k/48k/16k mono Int16 all True. Design: hand the 192 kHz WAVs to QAudioSink as-is; Qt's Windows backend converts.
-
-3 start() to first readyRead, 16 kHz mono Int16, five processes. cold: start() blocked 34.2-36.9 ms, first readyRead at 56.3-58.0 ms. warm: start() blocked 21.0-22.3 ms, first readyRead at 45.8-47.5 ms. First chunk 258 B (129 samples, ~8 ms). bufferSize 8000 B (250 ms at Int16). Design: press to first audio ~57 ms cold / ~47 ms warm; keeping a source warm buys ~11 ms.
-
-4 Tail after stop(). Default 8000 B buffer, last 300 ms unread before stop: bytesAvailable before stop 8000 (1600 B already dropped by overrun); readAll() after stop() returned 8000 B immediately, after processEvents, after 300 ms; io.isOpen() True; StoppedState NoError; QAudioSource.bytesAvailable() reads 0 after stop while the QIODevice still reports the tail. setBufferSize(64000): tail 9600 B before and after stop, total 63298 B vs 63296 expected, zero loss. Design: read the tail through the QIODevice after stop(); the loss mechanism is any read gap longer than bufferSize.
-
-5 Who resamples. Simultaneous 16 kHz mono Float and 48 kHz mono Float captures of played white noise. qt16k minus pref48k per band: 200-1k +0.2 dB, 1-3k -0.1, 3-5k -0.1, 5-6k -0.1, 6-7k -0.1, 7-7.5k -0.3, 7.5-8k -5.0 dB. Reference: brick-wall lowpass at 7.6k then decimate gives -6.2 dB in 7.5-8k; naive [::3] decimation gives +9.6 to +22.8 dB. The 48k capture had content above 8 kHz 27 dB below its 3-5k band, and Qt did not fold it. Design: Qt's 16 kHz capture path is a proper lowpass resampler; capture at 16 kHz directly, no numpy resampling.
-
-6 Main-thread stall, 16 kHz Int16, 3 s wall, 48000 expected. No stall: 47649 samples, shortfall 21.9 ms (startup). 0.5 s sleep at t=1 s, buffer 8000: 43649 samples, 250.0 ms lost = exactly bufferSize; after the stall error()=NoError, state IdleState, bytesAvailable pinned at 8000. setBufferSize(64000): no loss. Design: overrun is silent, no error(); size the buffer for the worst stall (1-2 s = 32-64 KB) or read from a thread that never blocks.
-
-7 Is error() synchronous. Null QAudioDevice(): start() returned a QIODevice in 37 ms, NoError/IdleState at every check, and it captured real audio (30338 B in 1 s, rms 3.7e-3): Qt silently fell back to the default input. Real device: NoError/IdleState, ActiveState once reads begin. Unsupported formats (9 ch, 0 Hz, Unknown, 1 MHz): isFormatSupported False; start() returned None in 0.03 ms; error()=OpenError, StoppedState immediately. Design: format failures are synchronous; a null or missing device never errors, it records from the default mic, so check isNull / membership in audioInputs() before start().
-
-8 QAudioSource in a QThread (worker QObject moved to the thread). Case A, slot blocks in time.sleep(2) after start(): readyRead fired 0 times during the block; after it, 8000 of 64000 B (1.75 s lost, NoError, IdleState); capture then resumed on its own, 101 readyRead / 31680 B in the next second, all on the worker thread. Case B, thread runs exec() with no block: 197 readyRead, 62978 B in 2 s, ~320 B every ~10 ms, all on the worker thread. Design: readyRead is delivered through the owning thread's event loop and the buffer is bufferSize deep, so the audio owner must spin its event loop and never block. Resolves ledger disagreement 2: a blocking run() gets nothing; the capture worker is event-driven.
-
-
-THREAD AND GUI SPIKES -- measured, Windows 11 10.0.26300, PySide6 6.11.1, display scale 175%. Scripts under scratchpad/spikes2/.
-
-1 queryKeyboardModifiers from a worker thread, Shift held via keybd_event: returns ShiftModifier from a plain thread and from the GUI thread; the cached keyboardModifiers() returns NoModifier because no key event reached a Qt window. Design: queryKeyboardModifiers() is a live read, correct from any thread; keyboardModifiers() is unusable for a hotkey daemon.
-
-2 QClipboard from a worker thread. Main blocked in join/wait: both a threading.Thread and a QThread DEADLOCK inside setText()/text(). Main pumping exec(): setText from a worker returns with no exception, a qWarning "OleSetClipboard: CoInitialize has not been called", and the text is NOT set; text() reads the main thread's value; when the worker called setText right after main had set the clipboard, both then read empty, 3 of 3 runs: the failed call WIPED the clipboard. pythoncom.CoInitialize() in the worker changes nothing. Design: clipboard writes must be marshaled to the GUI thread; off-thread writes fail silently at best, deadlock or wipe at worst. Closes ledger disagreement 3.
-
-3 Exceptions in QThread.run(). RuntimeError: sys.excepthook IS called, the thread finishes, the process survives, exit 0. SystemExit(1): no hook is called, the process does NOT exit, the thread never ends (isRunning True at 4.65 s; it sits in threading._shutdown blocking on the main thread); a later sys.exit(0) from main dies with 0xC0000409. Design: a worker that wants the process to stop must signal the GUI thread to quit; SystemExit off-thread hangs the thread and turns shutdown into a crash. Closes ledger disagreement 1.
-
-4 Hotkey foreground. Notepad focused; WM_HOTKEY arrived at the native filter as a thread message (hwnd 0). show()+raise_()+activateWindow(): GetForegroundWindow == winId after 500 ms, isActiveWindow True. Same with win32gui.SetForegroundWindow. Design: on WM_HOTKEY the receiving process has foreground rights; activateWindow() is enough, no AttachThreadInput trick. hotkey.py's SetForegroundWindow can go.
-
-5 DPI. GetDpiForSystem 168 = 1.75. SetProcessDpiAwareness(1) before QApplication: awareness stays 1 (system-aware, Qt cannot raise it); dpr 1.75, logical 96, screen 2194x1234, window frame 400x330. Qt default: awareness becomes 2 (per-monitor); every Qt number identical. Design: the SetProcessDpiAwareness line in vdict_tray.py buys nothing on one screen and pins the process to system-aware, silently blocking per-monitor mode. Delete it; leave DPI to Qt. Mixed-scale monitors remain a first-launch check on the son's laptop.
-
-6 restoreGeometry off-screen. move(20000,20000) was clamped by Windows to (18731,18724); the saved blob restored to (1793,885), fully inside availableGeometry, restoreGeometry returned True. Design: Qt pulls an off-screen saved position back onto the primary screen; no hand-written clamp. Closes ledger disagreement 4 and the UNVERIFIED in the Pos and _clamp_to_desktop rows.
-
-7 QPlainTextEdit read-only context menu: no selection: Copy disabled, Select All enabled, nothing else present. With a selection: both enabled. Design: the stock read-only menu already matches today's right-click menu plus Select All; no custom menu.
-
-8 QComboBox().model(): QStandardItemModel, isinstance True, parent is the combo. Using the model after the combo is garbage-collected raises "Internal C++ object already deleted". Design: usable for per-item enabling; keep the combo referenced.
-
-9 Tray icon: QIcon(vdict.ico) availableSizes 16, 32, 48, 256; actualSize(16)=16x16, (32)=32x32. QSystemTrayIcon geometry after show: 32x48 logical at dpr 1.75. Design: the .ico's frames serve the tray at 175%; no PNG set.
-
-10 Minimize then hide. hide() called directly inside changeEvent is IGNORED: 1 s later the window is visible, iconic, a taskbar entry. hide() deferred via QTimer.singleShot(0): hidden, IsWindowVisible False, windowState still WindowMinimized. Design: minimize-to-tray defers hide() one event-loop turn, and restore must clear the minimized state, not just show().
+  - Pa_Initialize's WASAPI backend does a fresh IMMDeviceEnumerator query
+    every call -- reinit sees whatever is connected now, not a cached
+    answer. CONFIRMED: the mixer appeared and disappeared correctly across
+    enable/disable cycles. reinit latency 0.02-0.03 s over 5 runs.
+  - A failed stream never says why. Sixteen WASAPI failure paths collapse
+    into one generic thread-death signal; PortAudio's real-time callback
+    contract forbids the slow work needed to preserve which one occurred.
+    CONFIRMED: stream.active goes False on its own when the device
+    disappears mid-stream, no exception, no status flag. That flag is the
+    only detection signal there is.
+  - A failed open or start always raises PortAudioError, whatever the
+    cause, including another app holding the device in WASAPI exclusive
+    mode. Traced through sounddevice's single _check() and CONFIRMED with
+    a real exclusive-mode hog process.
+  - Pa_Initialize/Pa_Terminate must be called from the same thread (COM
+    apartment affinity; get it wrong and cleanup silently leaks). sounddevice
+    auto-initializes on import, on whatever thread imports it first.
+    SOURCE-ONLY, never tested: no tooling here isolates a silent leak.
+  - Three devices enabled at once each resolved to the right index by
+    name, no cross-matching.
+  - Windows' default input does not reflect user intent: the webcam
+    promoted itself to Default Device unprompted, twice. The "default
+    disappears, does Windows auto-promote" test was dropped as moot once
+    the design stopped reading the default at all.
 
 
-SLEEP AND WAKE: audioInputsChanged FIRES ON RESUME, LIST ALREADY WHOLE
+LIBRARY GAPS
 
-Windows logged sleep at 10:56:39 and resume at 10:56:51. QMediaDevices
-fired audioInputsChanged at 10:56:50, :51 and :52; all three USB mics were
-present with identical endpoint ids on every fire, never absent. Design:
-the daemon's 5 x 1 s startup retry for post-wake re-enumeration goes; the
-list is complete by the time the first post-resume signal arrives.
+Hand-rolled because a library did not do it; the code says why at the
+site. Read before "simplifying" either.
 
-
-CONFIGURED MIC ABSENT AT START: QT RECORDS FROM THE DEFAULT, NO ERROR
-
-With "Microphone (USB Audio Device)" unplugged and named as the device,
-QAudioSource on the resulting null QAudioDevice started (IdleState,
-NoError) and delivered 1.98 s of audio, rms 0.0013, from the Windows
-default input, the PDP mic. Same result as the synthetic null-device test,
-now on the real case. Design: before every start, the device must be
-found in audioInputs() by id or name; a miss is a mic fault, never a
-start. Nothing in Qt will say so.
-
-
-LIVE DISPLAY-SCALE CHANGE: QT RE-LAYS OUT, TEXT STAYS CRISP
-
-A QMainWindow with a label and a button open while Windows Scale went
-175% -> 150% -> 175%. Qt fired geometryChanged and physicalDpiChanged on
-each step; devicePixelRatio 1.75 -> 1.5 -> 1.75; the window kept its
-logical size (327x100, then 327x99, one pixel of rounding) so it shrank
-and grew physically with the scale; font metrics unchanged in logical
-units; text crisp by eye at both scales. No SetProcessDpiAwareness, no
-code of ours. Mixed-scale monitors (laptop docked) still untested here.
-
-
-TWO VISUAL CHECKS, BY EYE
-
-QMessageBox.about with the app's About text renders the two blank lines
-between paragraphs. A read-only QPlainTextEdit styled with
-selection-background-color keeps its selection highlighted after focus
-moves to another window; a click inside the text clears it, as a click
-places the cursor. Tk's inactiveselectbackground workaround has no Qt
-counterpart to port.
-
-
-TOOLKIT GAPS
-
-Hand-rolled because a library did not do it. One line each: what was
-hand-rolled, which library gap forced it, and why a package was not used.
-Read when a plan is converted to a build sheet.
-
-  - hotkey.py register/unregister/_claim/_release: Qt has no system-wide
-    hotkey API (grepped every PySide6 stub); RegisterHotKey via pywin32,
-    received through QAbstractNativeEventFilter. No package wraps it better
-    than the four win32 calls.
-  - hotkey_capture.py _state_to_mods: Qt.KeyboardModifier has no map to
-    RegisterHotKey's MOD_* flags; six lines, no package.
-  - app.py _raise_window: whether QWidget.activateWindow() is granted the
-    foreground after WM_HOTKEY is unverified; SetForegroundWindow stays
-    until the spike says otherwise.
   - settings.py _has_cuda and stt.py PATH prepend: ctranslate2's own
     add_dll_directory covers ROCm only, not the nvidia pip wheels; the
     PATH prepend is the fix, done ONCE at import by the module that loads
