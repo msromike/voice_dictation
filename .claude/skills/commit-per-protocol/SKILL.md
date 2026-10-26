@@ -31,9 +31,11 @@ fix changes behavior. A tool missing: say so, never pass silently.
 
 Authorized, no approval round:
 
-- User-visible behavior changed -> CHANGELOG.md entry under [Unreleased].
+- User-visible behavior changed -> one plain line in CHANGELOG.md under the
+  next version's heading (add the heading if there isn't one). What changed,
+  not why.
 - UI text changed -> fix the README sections that quote it.
-- A doc in .docs/ now states something false -> correct it.
+- A doc now states something false -> correct it.
 
 ## 4. Commit and push
 

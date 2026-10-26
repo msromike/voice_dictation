@@ -2,8 +2,7 @@
 
 [tool.ruff]
 line-length = 100
-# .agents/ is tracked but not ours to lint.
-exclude = ["venv", "images", ".agents"]
+exclude = ["venv", "images"]
 
 # LOAD-BEARING. Must track the floor declared in README.md and vdict_install.bat, NOT
 # the installed interpreter. This is what catches syntax newer than we promise

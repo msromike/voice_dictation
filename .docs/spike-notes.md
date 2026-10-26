@@ -125,9 +125,9 @@ backlog.md.
 ## SQLITE-VEC LOADS
 
 sqlite3.enable_load_extension is present and sqlite-vec loads under this
-machine's Python 3.12.10 with SQLite 3.49.1. Not checked under the private
-Python the stick installs; a build without extension loading needs a
-different mechanism for search by meaning. At the measured capture rate,
+machine's Python 3.12.10 with SQLite 3.49.1. A Python build without
+extension loading would need a different mechanism for search by meaning;
+check before relying on it under any other Python. At the measured capture rate,
 two years is well under half a million vectors, small enough that scanning
 every one beats indexing.
 

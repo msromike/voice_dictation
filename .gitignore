@@ -1,5 +1,4 @@
-# Everything else is tracked: aorus and the laptop sync through the private
-# GitHub repo. Going public needs a fresh repo -- see pre-push.md.
+# The private repo. The public repo is built by tools/publish.py, never pushed from here.
 
 # Python Cache
 __pycache__/
@@ -10,10 +9,6 @@ __pycache__/
 # vocabulary, recordings. A missing vocabulary.txt reseeds from templates/.
 userdata/
 *.flac
-
-# Junction to .agents/skills, which is tracked. Git stores no junctions; each
-# machine makes it once -- see the sync skill's New machine section.
-.claude/skills
 
 # Secrets
 .env

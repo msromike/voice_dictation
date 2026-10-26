@@ -1,4 +1,5 @@
 @echo off
+:: Hand-made shortcuts point at this file by name. Do not rename or move it.
 cd /d "%~dp0"
 echo Starting Voice Dictation...
 :: No venv. Runs on the global Python (pythonw next to whatever `python` resolves to).

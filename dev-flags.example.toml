@@ -1,0 +1,3 @@
+# Rename this file to dev-flags.toml to keep every dictation's audio (FLAC) and a
+# history database in userdata. Delete dev-flags.toml to turn it off again.
+capture_corpus = true

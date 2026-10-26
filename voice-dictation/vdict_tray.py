@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Voice Dictation entry point. Its path is pinned by vdict_run.bat,
-vdict_install.bat and startup_folder_install.bat -- it must stay here."""
+"""Voice Dictation entry point. Its path is pinned by vdict_run.bat and the
+shortcuts vdict_install.bat creates -- it must stay here."""
 import sys
 
 # Must precede the imports below -- win32event raises ImportError elsewhere.

@@ -2,9 +2,24 @@
 
 Things that might get built someday, grouped by what they are for and
 ordered by how much they would matter to someone dictating every day.
-Unfinished work is not here; it is in todo.md.
 
-## A. PICKING DEVICES AND ENGINES
+## A. INSTALLING
+
+### A PRIVATE PYTHON WITH UV
+  vdict_install.bat installs a normal Python for the whole account when none
+  is found: it goes on PATH, shows in Add/Remove Programs, and is shared with
+  anything else on the machine. Instead, fetch a pinned uv.exe with curl
+  (built into Windows 10 and 11) and have uv put Python 3.12 and the packages
+  inside the app folder. uv's Python includes Tkinter, which the smaller
+  "embeddable" Python lacks. Nothing on PATH or in the registry; uninstalling
+  is deleting the folder, and uv installs packages much faster than pip.
+  vdict_run.bat and both shortcuts then point at the private pythonw. Open
+  questions: whether uv needs a virtual environment inside the app folder to
+  install packages, and how vdict_run.bat chooses between the private Python
+  and a developer's own. While it's in there, the installer could also
+  download the default speech model, so a fresh install works offline.
+
+## B. PICKING DEVICES AND ENGINES
 Settings knowing about the hardware it is running on. The mic fault is the
 one failure a novice hits, and today it quits the app.
 
@@ -31,7 +46,7 @@ one failure a novice hits, and today it quits the app.
   question is the axis: the user is choosing how good and how fast their
   English is, not a VRAM budget. spike-notes.md WHISPER MODEL LADDER.
 
-## B. TRANSCRIPT ACCURACY
+## C. TRANSCRIPT ACCURACY
 The words came out wrong or incomplete. Each of these is a post-process or
 a better hint, and each should be counted in the captures table before it
 is built: the table exists and the query is cheap.
@@ -60,7 +75,7 @@ is built: the table exists and the query is cheap.
   prompt limit, since only the last 223 tokens reach the model and the
   rest are dropped silently. spike-notes.md VOCABULARY.
 
-## C. SHELL PREFERENCES
+## D. SHELL PREFERENCES
 The shell already explains itself: X asks before exiting, first run opens
 Settings and Save refuses to close until a PTT button is bound, the README
 covers the rest. These are preferences about how it behaves. The one real
@@ -89,7 +104,7 @@ gap is the silent dropped press, under tones.
   output-window hotkey, then Settings opens. Only matters if a copy ever
   reaches someone with no one in the room to tell them.
 
-## D. WHAT THE APP KEEPS
+## E. WHAT THE APP KEEPS
 The user's control over their own recorded words. Three files hold them:
 the transcript log, the dictation database and the FLAC recordings. One
 Settings area, one switch and one budget serve dictation and ambient mode
@@ -115,7 +130,7 @@ alike.
   touched. Nobody has measured how much audio voice-ID needs, and you can
   delete later but not undelete. spike-notes.md DICTATION CAPTURE RATE.
 
-## E. BEYOND DICTATION
+## F. BEYOND DICTATION
 Modes that change what the product is. All but one need a local LLM or a
 corpus that does not exist yet. The captures table already carries a mode
 column and a speaker column for them.

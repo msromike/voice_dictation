@@ -1,29 +1,55 @@
 @echo off
+setlocal
 cd /d "%~dp0"
 
-:: Check for Python installation
-where python >nul 2>nul
-if %errorlevel% neq 0 (
-    echo =======================================================
-    echo [FATAL ERROR] Python was not found on this system!
-    echo =======================================================
-    echo Please install Python 3.10+ from https://python.org
-    echo IMPORTANT: Make sure to check the box that says
-    echo "Add python.exe to PATH" at the bottom of the installer!
-    echo.
-    pause
-    exit /b 1
-)
+:: A fresh Windows has a "python" that only opens the Microsoft Store, so test by running it.
+set "PY="
+python -c "import sys; sys.exit(sys.version_info < (3, 10))" >nul 2>nul && set "PY=python"
+if not defined PY call :install_python || goto :fail
+"%PY%" -c "import sys; print(sys.executable)" > "%TEMP%\vdict_py.txt" || goto :fail
+set /p PY=<"%TEMP%\vdict_py.txt"
+for %%P in ("%PY%") do set "PYW=%%~dpPpythonw.exe"
+echo Using %PY%
 
-:: No venv. Packages go into the global Python that `python` resolves to.
-echo Installing dependencies into the global Python...
-echo NOTE: This will download ~1.4GB of NVIDIA CUDA binaries so you don't have to install the toolkit manually. This may take a few minutes depending on your internet speed.
-python -m pip install -r requirements.txt
+:: No venv. Packages go into that Python.
+echo.
+echo Installing packages, about 1.4 GB the first time: the NVIDIA CUDA libraries
+echo come with them, so nothing else needs installing. This takes a while.
+"%PY%" -m pip install -r requirements.txt || goto :fail
+
+:: No trailing backslash: inside the shortcut's quoted strings it would escape the quote.
+set "TARGET=%~dp0"
+set "TARGET=%TARGET:~0,-1%"
+set "TRAY=%TARGET%\voice-dictation\vdict_tray.py"
+
+echo.
 echo Creating Desktop and Startup shortcuts...
-call startup_folder_install.bat
-for /f "delims=" %%P in ('where python') do (set "PYTHONW_PATH=%%~dpPpythonw.exe" & goto :found)
-:found
-set "VDICT_TRAY=%~dp0voice-dictation\vdict_tray.py"
-powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut(\"$HOME\Desktop\Voice Dictation.lnk\"); $Shortcut.TargetPath = '%PYTHONW_PATH%'; $Shortcut.Arguments = '\"%VDICT_TRAY%\"'; $Shortcut.WorkingDirectory = \"%~dp0\"; $Shortcut.IconLocation = \"%~dp0images\vdict.ico\"; $Shortcut.Save()"
-echo Setup complete! You can now run the app from your Desktop or using vdict_run.bat
+call :shortcut Desktop "Voice Dictation.lnk" || goto :fail
+call :shortcut Startup "VoiceDictation.lnk" || goto :fail
+
+echo.
+echo Setup complete. Launch Voice Dictation from the Desktop shortcut or vdict_run.bat.
+echo It also starts on login; startup_folder_uninstall.bat turns that off.
 pause
+exit /b 0
+
+:install_python
+:: For this user only, so no admin prompt. PATH is set for new windows, not this one,
+:: which is why PY is the full path.
+echo Python 3.10 or newer was not found. Installing Python 3.12 for this user...
+curl.exe -L --fail -o "%TEMP%\python-3.12.10-amd64.exe" https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe || exit /b 1
+"%TEMP%\python-3.12.10-amd64.exe" /quiet InstallAllUsers=0 PrependPath=1 Include_launcher=0 Include_test=0 || exit /b 1
+set "PY=%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
+if not exist "%PY%" exit /b 1
+exit /b 0
+
+:shortcut
+:: %1 is a special folder name (Desktop, Startup); %2 the shortcut's file name.
+powershell -NoProfile -Command "$s = (New-Object -ComObject WScript.Shell).CreateShortcut([Environment]::GetFolderPath('%~1') + '\%~2'); $s.TargetPath = '%PYW%'; $s.Arguments = '\"%TRAY%\"'; $s.WorkingDirectory = '%TARGET%'; $s.IconLocation = '%TARGET%\images\vdict.ico'; $s.Save()"
+exit /b %errorlevel%
+
+:fail
+echo.
+echo [ERROR] That step failed. Fix what it says above and run vdict_install.bat again.
+pause
+exit /b 1
