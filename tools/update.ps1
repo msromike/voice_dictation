@@ -1,11 +1,23 @@
-# Updates this copy of Voice Dictation from GitHub, keeping userdata and dev-flags.toml.
-# Run through update.bat, which runs a copy of this file from userdata\updates.
-param([Parameter(Mandatory)][string]$App)
+# Finishes an update that update.bat downloaded. Runs only from the unpacked download in
+# userdata\updates, and takes the app folder from that location, never as an argument.
 $ErrorActionPreference = 'Stop'
-$updates = Join-Path $App 'userdata\updates'
+$source = Split-Path $PSScriptRoot -Parent
+$extract = Split-Path $source -Parent
+$updates = Split-Path $extract -Parent
+$userdata = Split-Path $updates -Parent
+
+function Stop-WithError($message) {
+    Write-Host ""
+    Write-Host "[ERROR] $message" -ForegroundColor Red
+    Read-Host "Press Enter to close"
+    exit 1
+}
+
+if ($extract -notlike '*\userdata\updates\extract') {
+    Stop-WithError "Run update.bat in the Voice Dictation folder, not this file."
+}
+$App = Split-Path $userdata -Parent
 $zip = Join-Path $updates 'main.zip'
-$extract = Join-Path $updates 'extract'
-$source = Join-Path $extract 'voice_dictation-main'
 $appCode = Join-Path $App 'voice-dictation'
 
 function Get-AppProcesses {
@@ -18,14 +30,7 @@ function Get-AppProcesses {
         }
 }
 
-function Stop-WithError($message) {
-    Write-Host ""
-    Write-Host "[ERROR] $message" -ForegroundColor Red
-    Write-Host "Downloads, if any, are in $updates"
-    Read-Host "Press Enter to close"
-    exit 1
-}
-
+Write-Host ""
 Write-Host "== Checking whether Voice Dictation is running"
 $running = @(Get-AppProcesses)
 if ($running) {
@@ -40,19 +45,10 @@ if ($running) {
 }
 
 Write-Host ""
-Write-Host "== Downloading the latest version from GitHub"
-& curl.exe -L --fail -o $zip 'https://github.com/msromike/voice_dictation/archive/refs/heads/main.zip'
-if ($LASTEXITCODE) { Stop-WithError "Download failed (curl exit code $LASTEXITCODE)." }
-if (Test-Path $extract) { Remove-Item $extract -Recurse -Force }
-Expand-Archive -Path $zip -DestinationPath $extract
-if (-not (Test-Path (Join-Path $source 'vdict_install.bat'))) { Stop-WithError "The download does not look like Voice Dictation." }
-
-Write-Host ""
 Write-Host "== Replacing the app files. userdata and dev-flags.toml are kept."
 # Files removed upstream are removed here too. robocopy: 0-7 is success, 8 and up is failure.
 & robocopy $source $App /MIR /XD userdata /XF dev-flags.toml /NFL /NDL /NJH /NJS /NP
 if ($LASTEXITCODE -ge 8) { Stop-WithError "Copying the new files failed (robocopy exit code $LASTEXITCODE)." }
-Remove-Item $extract -Recurse -Force
 Remove-Item $zip -Force
 
 Write-Host ""
