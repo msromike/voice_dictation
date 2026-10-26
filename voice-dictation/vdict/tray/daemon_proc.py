@@ -83,6 +83,8 @@ def start(on_started):
     on_started(_process.pid)
 
     _set_loading(False)
+    # The engine prints nothing while its libraries load; show that it is working.
+    log("loading", "Starting speech engine")
 
     # Start thread to read output
     _reader_thread = threading.Thread(

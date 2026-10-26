@@ -31,6 +31,17 @@ echo == Packages: about 1.4 GB the first time, mostly NVIDIA CUDA libraries.
 echo    This takes a while. Full log: %LOGS%\pip.log
 "%PY%" -m pip install -r requirements.txt --log "%LOGS%\pip.log" || goto :fail
 
+:: The first load of fresh libraries is slow (Windows scans each one); do it here, not on first launch.
+echo.
+echo == First start of the speech engine: loads it once and downloads the base.en model.
+echo    A minute or two the first time, quick after that.
+set "HF_HUB_DISABLE_TELEMETRY=1"
+set "HF_HUB_DISABLE_SYMLINKS_WARNING=1"
+pushd "%~dp0voice-dictation"
+"%PY%" -c "import vdict_daemon; from faster_whisper import WhisperModel; WhisperModel('base.en', device='cpu', compute_type='float32'); print('Speech engine ready.')"
+if errorlevel 1 (popd & goto :fail)
+popd
+
 :: No trailing backslash: inside the shortcut's quoted strings it would escape the quote.
 set "TARGET=%~dp0"
 set "TARGET=%TARGET:~0,-1%"

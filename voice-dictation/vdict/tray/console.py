@@ -44,6 +44,7 @@ class Console:
         self.handlers = handlers
         self.font_size = FONT_DEFAULT
         self._loading = False
+        self._dots_job = None
 
         # Monospace is not negotiable: the daemon prints aligned [n] counters and
         # a loading animation whose dots need a consistent advance width.
@@ -163,13 +164,15 @@ class Console:
         self._loading = loading
 
     def _animate_dots(self):
-        """Append gray dots to the console while loading"""
+        """Append gray dots to the console while loading. One timer at a time."""
         if self._loading:
             self.text.config(state=tk.NORMAL)
             self.text.insert(tk.END, ".", "sys_dim")
             self.text.see(tk.END)
             self.text.config(state=tk.DISABLED)
-            self.root.after(1000, self._animate_dots)
+            self._dots_job = self.root.after(1000, self._animate_dots)
+        else:
+            self._dots_job = None
 
     def drain(self):
         """One pass over whatever's currently queued -- dispatch each item by
@@ -188,10 +191,14 @@ class Console:
                         self._loading = False
 
                 if category == "loading":
+                    # A second loading line ends the first's dots and reuses its timer.
+                    if self._loading:
+                        self.text.insert(tk.END, "\n")
                     if category not in swallow:
                         self.text.insert(tk.END, text, *tags)
+                    if self._dots_job is None:
+                        self._dots_job = self.root.after(1000, self._animate_dots)
                     self._loading = True
-                    self.root.after(1000, self._animate_dots)
                 elif category not in swallow:
                     if spec and spec.marker:
                         body = f"[{spec.marker}]" + (f" {text}" if text else "")
