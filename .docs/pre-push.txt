@@ -174,8 +174,8 @@ THEN RUN EVERY BATCH FILE FOR REAL -- Mike runs, reports:
     confirm the VoiceDictation.lnk shortcut is actually gone from the
     Startup folder afterward -- not just that the script exited without an
     error.
-  create_usb_stick.bat and the stick's install.bat -- backlog.txt's PENDING
-    entry is the test: a real stick, a second local account, Wi-Fi off.
+  create_usb_stick.bat and the stick's install.bat -- todo.txt has the
+    test: a real stick, a second local account, Wi-Fi off.
 
 Found the hard way: a batch of renames left stale text references scattered
 across the tree, including a call to a batch file that no longer existed. The

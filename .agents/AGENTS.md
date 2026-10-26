@@ -18,7 +18,7 @@ Windows push-to-talk dictation: tray (vdict_tray.py) and engine
 - Docstrings and comment blocks: two lines max (tools/check_docstrings.py).
 
 ## Docs
-- .docs/ is four files: backlog.txt (ideas, no order; its PENDING entry is
-  the only work in progress), spike-notes.txt (measurements), pre-push.txt
-  (going public), vector-analysis-investigation.txt (outside write-up).
+- .docs/: todo.txt (started, not finished; deleted when empty), backlog.txt
+  (ideas by class), spike-notes.txt (measurements), pre-push.txt (going
+  public), vector-analysis-investigation.txt (outside write-up).
 - Git is the archive. A deleted doc is named in the commit that deleted it.
