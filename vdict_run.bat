@@ -7,4 +7,4 @@ for /f "delims=" %%P in ('where python') do (set "PYTHONW=%%~dpPpythonw.exe" & g
 echo [ERROR] python not found on PATH.
 exit /b 1
 :found
-start "" "%PYTHONW%" voice-dictation\vdict_tray.py
+start "" "%PYTHONW%" "%~dp0voice-dictation\vdict_tray.py"

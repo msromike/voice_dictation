@@ -8,11 +8,12 @@ NOTHING LEAVES YOUR MACHINE. Once your speech model has downloaded, internet acc
 
 1. On this page, click **Code > Download ZIP**.
 2. Unzip it. You get a folder named `voice_dictation-main`; that's the app.
-   To update, copy everything inside the new `voice_dictation-main` over your
-   existing app folder: your settings and history are in `userdata`, which
-   are not contained in the zip.
 3. Double-click `vdict_install.bat`. If Windows says "Windows protected your
    PC", click **More info**, then **Run anyway**.
+
+To update, double-click `update.bat` in the app folder. If the app is running,
+it asks before closing it. It downloads the latest version, keeps your
+settings and history in `userdata`, runs the installer, and starts the app.
 
 The installer installs Python 3.12 if you don't have Python
 3.10 or newer already installed, then about 1.4 GB of packages, most of which are NVIDIA libraries. The installer creates a **Voice Dictation** shortcut on the Desktop and starts the app at login. Run `startup_folder_uninstall.bat` if you don't want it to automatically run. You can also start the app with `vdict_run.bat`.
