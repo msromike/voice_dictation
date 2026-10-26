@@ -12,7 +12,8 @@ Windows push-to-talk dictation: tray (vdict_tray.py) and engine
 - Existing guards are not a pattern to copy.
 
 ## Repo
-- This repo is public. userdata/ and dev-flags.toml are never tracked.
+- This repo is meant to be public. userdata/ and dev-flags.toml are never
+  tracked.
 - The history before 2026-10-26 held userdata; it was removed from every
   commit. The uncleaned history is the bundle in C:\bin\archive, never pushed.
 
