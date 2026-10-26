@@ -18,8 +18,6 @@ typing.
   integrating with specific programs.
 - **You pick the button.** Any key or mouse button, set by pressing it.
 
-![Holding the push-to-talk button and speaking, with the transcribed text appearing at the cursor](images/demo.gif)
-
 ## Installing
 
 You need Windows 10 or 11 and [Python 3.10 or newer](https://python.org). When
@@ -78,9 +76,6 @@ That is the whole daily loop. Everything below is optional.
 Look for the microphone near the clock. Double-click it to open the output
 window, or right-click it for the menu.
 
-<a href="images/tray.png"><img src="images/tray.png" width="370"
-alt="The system tray menu, with Show Output, Settings, and Exit"></a>
-
 | Tray menu | What it does |
 |---|---|
 | Show Output | Opens the output window |
@@ -134,9 +129,6 @@ Right-clicking in the log also gives you Copy.
 The window's size, position, and text size are remembered between runs.
 
 ### Settings
-
-<a href="images/settings.png"><img src="images/settings.png" width="300"
-alt="The Settings window in four boxes: Recording, Speech engine, Shortcuts, and Sounds and startup"></a>
 
 | Box | Setting | Options |
 |---|---|---|

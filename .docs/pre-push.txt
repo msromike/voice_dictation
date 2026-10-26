@@ -24,15 +24,14 @@ release file at 2 GB; the folder with one model is right around that.
 ==============================================================================
 P1. README, MEDIA AND DISCOVERABILITY
 ==============================================================================
-SCREENSHOTS -- DONE
-  images/tray.png and images/settings.png, wired into README.md as clickable
-  HTML thumbnails in the "Using it" section. Re-check both against the
-  current UI; Settings changed on 2026-10-25.
+SCREENSHOTS -- NONE
+  The tray and Settings screenshots were deleted 2026-10-25; the README
+  stands on its tables. If one comes back, it goes under "### Settings" as
+  a clickable thumbnail with alt text naming the four boxes.
 
 DEMO CLIP -- OUTSTANDING
-  images/demo.gif is still the orange placeholder, referenced right after
-  the "Why you might want it" bullets -- currently visible to anyone
-  reading the file.
+  The placeholder demo.gif and its README line were deleted 2026-10-25.
+  The clip goes back right after the "Why you might want it" bullets.
 
   What to capture: roughly 5 seconds -- hold the button, speak a sentence,
   text lands at the cursor. Something recognizable (VS Code, a browser
@@ -43,12 +42,9 @@ DEMO CLIP -- OUTSTANDING
   that works: push the repo, drag the MP4 into a GitHub issue comment box
   (do not submit the issue), GitHub hands back a
   github.com/user-attachments/assets/... URL, paste that into README.md.
-  Requires the repo to already be pushed. The demo.gif reference gets
-  REPLACED by that URL, not filled in -- the placeholder file can be
-  deleted at that point.
+  Requires the repo to already be pushed.
 
-  Keep it short, large media is slow on mobile. Image files live in
-  images/ at the repo root, which is tracked -- not .docs.
+  Keep it short, large media is slow on mobile.
 
 "WHAT THIS RECORDS" SECTION -- OUTSTANDING, WRITE THIS ONE
   A named section in README.md, not a general instruction to make the README
@@ -149,9 +145,8 @@ P4. README AND MEDIA
 No stale menu labels or button text. Grep the README for any string the code
 no longer uses.
 
-No placeholder media -- images\demo.gif.
-
-Every image in images\ matches the current UI.
+images\ holds the icon and its source only. Any screenshot added since
+matches the current UI.
 
 
 ==============================================================================
