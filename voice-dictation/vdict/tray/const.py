@@ -3,14 +3,14 @@ Leaf -- imports no vdict.tray module."""
 
 from pathlib import Path
 
-# Repo root. FOUR .parent steps from vdict/tray/ -- three lands in
+# The installed app's folder. FOUR .parent steps from vdict/tray/ -- three lands in
 # voice-dictation/. A wrong MIC_FAULT_FLAG_PATH fails silently, not loudly.
-_ROOT = Path(__file__).parent.parent.parent.parent
+INSTALL_DIR = Path(__file__).parent.parent.parent.parent
 
 # Shared by the tray, the Desktop shortcut and the Startup shortcut.
-ICON_PATH = _ROOT / "images" / "vdict.ico"
+ICON_PATH = INSTALL_DIR / "images" / "vdict.ico"
 
-MIC_FAULT_FLAG_PATH = _ROOT / "userdata" / "mic_fault.flag"
+MIC_FAULT_FLAG_PATH = INSTALL_DIR / "userdata" / "mic_fault.flag"
 
 # Single source for the project URL -- it appears in the console banner, the
 # About box, and the Help menu.

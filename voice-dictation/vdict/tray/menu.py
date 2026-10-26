@@ -10,7 +10,7 @@ from vdict import __version__
 from vdict.common import output
 from vdict.common.config import (
     VOCABULARY_PATH, VOCABULARY_RESET_MESSAGE, reseed_vocabulary_if_missing)
-from vdict.tray.const import PROJECT_URL
+from vdict.tray.const import INSTALL_DIR, PROJECT_URL
 from vdict.tray import events
 from vdict.tray.log import log
 
@@ -74,6 +74,8 @@ def build(root, cb):
                           command=cb["save_log_as"])
     file_menu.add_command(label="Vocabulary...", underline=0,
                           command=_open_vocabulary)
+    file_menu.add_command(label="Open Install Folder", underline=0,
+                          command=lambda: os.startfile(INSTALL_DIR))
     file_menu.add_separator()
     file_menu.add_command(label="Settings...", underline=0,
                           command=cb["open_settings"])
