@@ -1,4 +1,4 @@
-VOICE DICTATION - PRE-PUSH CHECKLIST
+# Pre-Push Checklist
 
 Run in order before the repo goes public, and again before any release tag.
 
@@ -20,10 +20,7 @@ or Python. LATER, NOT NOW: publish the stick folder as a zip on the repo's
 Releases page so nobody needs a working install first. GitHub caps a
 release file at 2 GB; the folder with one model is right around that.
 
-
-==============================================================================
-P1. README, MEDIA AND DISCOVERABILITY
-==============================================================================
+## P1. README, MEDIA AND DISCOVERABILITY
 SCREENSHOTS -- NONE
   The tray and Settings screenshots were deleted 2026-10-25; the README
   stands on its tables. If one comes back, it goes under "### Settings" as
@@ -117,41 +114,29 @@ ACCURACY CATCHALL
     app holding the mic in WASAPI exclusive mode blocks dictation until
     released or a different device is picked. True today; say it.
   - Windows-default-device recommendation: the README's advice to set your
-    mic as Windows default becomes wrong if backlog.txt's MIC HANDLING entry
+    mic as Windows default becomes wrong if backlog.md's MIC HANDLING entry
     ever ships. Same gate.
 
-
-==============================================================================
-P2. AUTOMATED CHECKS
-==============================================================================
+## P2. AUTOMATED CHECKS
 All three at zero:
 
     python -m ruff check .
     python -m pyright
     python tools\check_docstrings.py
 
-
-==============================================================================
-P3. VERSION AND CHANGELOG
-==============================================================================
+## P3. VERSION AND CHANGELOG
 __version__ bumped in vdict/__init__.py and vdict_daemon.py. Grep the tree
 for other declarations before bumping; every one must match.
 CHANGELOG.md [Unreleased] promoted to a dated version matching it.
 
-
-==============================================================================
-P4. README AND MEDIA
-==============================================================================
+## P4. README AND MEDIA
 No stale menu labels or button text. Grep the README for any string the code
 no longer uses.
 
 images\ holds the icon and its source only. Any screenshot added since
 matches the current UI.
 
-
-==============================================================================
-P5. BATCH FILES -- GREP, THEN ACTUALLY RUN THEM
-==============================================================================
+## P5. BATCH FILES -- GREP, THEN ACTUALLY RUN THEM
 A passing grep proves the filenames are spelled right. It does not prove
 the scripts work -- a shortcut created with a syntax or quoting bug still
 "succeeds" with no error and points at nothing useful. Both checks matter,
@@ -160,7 +145,7 @@ neither one alone is enough.
 STATIC FIRST -- cheap, catches obvious naming staleness fast:
 
     grep -rn "\.bat" --include="*.md" --include="*.bat" --include="*.py" \
-        --include="*.toml" --include="*.txt" .
+        --include="*.toml" --include="*.md" .
 
 Cross-check every hit's filename against what's actually in the repo root.
 CHANGELOG.md entries describing past releases are exempt -- historical
@@ -174,7 +159,7 @@ THEN RUN EVERY BATCH FILE FOR REAL -- Mike runs, reports:
     confirm the VoiceDictation.lnk shortcut is actually gone from the
     Startup folder afterward -- not just that the script exited without an
     error.
-  create_usb_stick.bat and the stick's install.bat -- todo.txt has the
+  create_usb_stick.bat and the stick's install.bat -- todo.md has the
     test: a real stick, a second local account, Wi-Fi off.
 
 Found the hard way: a batch of renames left stale text references scattered
@@ -183,25 +168,16 @@ grep above would have caught every one of them. None of those were the "runs
 fine, does the wrong thing" kind, but that category exists and only running the
 script for real catches it.
 
-
-==============================================================================
-P6. REPO HYGIENE
-==============================================================================
+## P6. REPO HYGIENE
 Nothing staged carrying an absolute local path or personal information.
 The SHIPS / STAYS HERE list at the top of this file is the authority; grep
 the cleaned copy for "msromike", "C:\\bin", "C:\\Users" before the first
 push.
 
-
-==============================================================================
-P7. SMOKE TEST IN THE WORKING TREE
-==============================================================================
+## P7. SMOKE TEST IN THE WORKING TREE
 Launch vdict_run.bat. It runs the global Python; there is no venv.
 
-
-==============================================================================
-P8. CLEAN-CLONE INSTALL
-==============================================================================
+## P8. CLEAN-CLONE INSTALL
 Must be a CLONE, not the working tree. vdict_install.bat run in place proves
 nothing about a fresh install.
 
@@ -209,10 +185,7 @@ Clone to an empty folder. Run vdict_install.bat, then startup_folder_install.bat
 
 Verify both shortcuts carry the icon. Launch from the Desktop shortcut.
 
-
-==============================================================================
-P9. DEV-ONLY CAPTURE FLAGS OFF
-==============================================================================
+## P9. DEV-ONLY CAPTURE FLAGS OFF
 Dev flags default off in the shipped code, verify by confirming the flag
 file is absent, not by memory:
 

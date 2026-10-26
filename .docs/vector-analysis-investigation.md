@@ -1,9 +1,9 @@
-VOICE DICTATION - INVESTIGATION: AMBIENT RAG & LOCAL LLM
+# Investigation: Ambient RAG & Local LLM
 
 PROVENANCE. Outside work, produced by Gemini Pro, kept deliberately out of
 the working session's context. NOTHING BELOW WAS MEASURED HERE. The hardware
 figures in particular -- the 12GB VRAM floor, the embedding model's footprint
-and speed -- are assertions, not results, and spike-notes.txt already records
+and speed -- are assertions, not results, and spike-notes.md already records
 that per-process VRAM cannot be read at all on Windows consumer cards, so the
 obvious way to check the first one does not exist. Read it as a considered
 opinion. It sits beside measured documents and has not earned their weight.
@@ -11,9 +11,7 @@ opinion. It sits beside measured documents and has not earned their weight.
 Backlog entry: SEARCH BY MEANING. Corrections made against this repo are marked LOCAL
 CORRECTION and are the authority where they contradict the text.
 
- ==============================================================================
- GOAL & MARKET VIABILITY
- ==============================================================================
+## GOAL & MARKET VIABILITY
  The vision: Integrate a local LLM (Ollama) to search back through a year or two
  of ambient dictation transcripts.
  
@@ -25,9 +23,7 @@ CORRECTION and are the authority where they contradict the text.
  installer as the core app, it is a killer app.
  
  
- ==============================================================================
- THE HARDWARE REALITY & SCALABILITY
- ==============================================================================
+## THE HARDWARE REALITY & SCALABILITY
  Running Faster-Whisper, an embedding model, and an 8B generative LLM concurrently
  demands a minimum of 12GB VRAM (or a Mac with 16GB+ unified memory). A standard 
  8GB VRAM consumer laptop will choke if forced to run all three simultaneously.
@@ -44,9 +40,7 @@ CORRECTION and are the authority where they contradict the text.
  for the heavy LLM.
  
  
- ==============================================================================
- SQLITE SCHEMA & VECTORIZATION
- ==============================================================================
+## SQLITE SCHEMA & VECTORIZATION
  SQLite remains the only database required. Using an extension like `sqlite-vec`,
  vectors are stored natively alongside the data. No external vector DB is needed.
  
@@ -65,7 +59,7 @@ CORRECTION and are the authority where they contradict the text.
  derivations -- names embeddings specifically as a thing kept out of captures, which is the
  same split this section describes, reached independently.
 
- LOCAL CORRECTION -- SCALE, MEASURED. At the capture rate in spike-notes.txt
+ LOCAL CORRECTION -- SCALE, MEASURED. At the capture rate in spike-notes.md
  under DICTATION CAPTURE RATE, two years is well under half a million vectors.
  That is small enough that scanning every one of them beats indexing: the
  class of problem vector databases exist to solve does not arise here.
@@ -73,7 +67,7 @@ CORRECTION and are the authority where they contradict the text.
  LOCAL CORRECTION -- THE EXTENSION LOADS, HALF-PROVEN. sqlite-vec needs
  sqlite3.enable_load_extension, which not every Python build enables. Verified
  present and working in this venv: Python 3.12.10, SQLite 3.49.1. NOT checked
- under the embeddable Python build that portable-folder-build-sheet.txt puts
+ under the embeddable Python build that portable-folder-build-sheet.md puts
  in the tree -- that is a different binary, and if it cannot load extensions
  this design needs a different mechanism entirely. Check it before committing
  to sqlite-vec, not after.
@@ -86,9 +80,7 @@ CORRECTION and are the authority where they contradict the text.
  the dictation hot-path never blocks on vector math.
  
  
- ==============================================================================
- THE OLLAMA HANDOFF (INTERACTIVE CHAT)
- ==============================================================================
+## THE OLLAMA HANDOFF (INTERACTIVE CHAT)
  Ollama does not query the database. The vector search is pure math executed by
  SQLite, completely independent of the generative LLM.
  

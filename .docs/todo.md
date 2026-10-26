@@ -1,12 +1,9 @@
-VOICE DICTATION - TODO
+# To do
 
 Started and not finished. Each item says what done looks like. Delete the
 item when it is done; delete this file when it is empty.
 
-
-==============================================================================
-USB STICK INSTALL -- BUILT 2026-10-25, NOT RUN END TO END
-==============================================================================
+## USB STICK INSTALL -- BUILT 2026-10-25, NOT RUN END TO END
 create_usb_stick.bat writes <drive>:\VoiceDictation\ with install.bat, the
 app, this machine's Python, 48 pinned wheels and every cached Whisper model.
 install.bat on the stick installs or updates into

@@ -1,5 +1,5 @@
 # Everything else is tracked: aorus and the laptop sync through the private
-# GitHub repo. Going public needs a fresh repo -- see pre-push.txt P6.
+# GitHub repo. Going public needs a fresh repo -- see pre-push.md P6.
 
 # Python Cache
 __pycache__/
