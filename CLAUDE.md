@@ -11,13 +11,12 @@ Windows push-to-talk dictation: tray (vdict_tray.py) and engine
 - Code rules: CONTRIBUTING.md. Change a rule there, never here.
 - Existing guards are not a pattern to copy.
 
-## Repos
-- This is the private repo, voice_dictation-dev. Its history holds personal
-  data, so it is never made public.
-- The public repo, voice_dictation, is built by tools/publish.py from an
-  allowlist. Never push this repo's history there.
+## Repo
+- This repo is public. userdata/ and dev-flags.toml are never tracked.
+- The history before 2026-10-26 held userdata; it was removed from every
+  commit. The uncleaned history is the bundle in C:\bin\archive, never pushed.
 
 ## Docs
-- .docs/ is Markdown: backlog.md (ideas by class) and spike-notes.md
-  (measurements). Both ship to the public repo under docs/.
+- docs/ is Markdown: backlog.md (ideas by class) and spike-notes.md
+  (measurements).
 - Git is the archive. A deleted doc is named in the commit that deleted it.

@@ -1,5 +1,3 @@
-# The private repo. The public repo is built by tools/publish.py, never pushed from here.
-
 # Python Cache
 __pycache__/
 *.pyc
@@ -9,6 +7,16 @@ __pycache__/
 # vocabulary, recordings. A missing vocabulary.txt reseeds from templates/.
 userdata/
 *.flac
+
+# Turns on audio and history capture; dev-flags.example.toml is the shipped copy.
+dev-flags.toml
+
+# Personal editor and Claude settings.
+.vscode/
+*.code-workspace
+.rgignore
+.claude/settings.json
+.claude/settings.local.json
 
 # Secrets
 .env
