@@ -1,15 +1,16 @@
 VOICE DICTATION - BACKLOG
 
-Things that might get built someday, grouped by what they are for. The stick
-test at the top is the only thing actually in progress.
+Things that might get built someday, grouped by what they are for and
+ordered by how much they would matter to someone dictating every day. The
+stick test at the top is the only thing actually in progress.
 
 
 ==============================================================================
 PENDING -- USB STICK INSTALL, BUILT 2026-10-25, NOT RUN END TO END
 ==============================================================================
-The only item in progress. create_usb_stick.bat writes <drive>:\VoiceDictation\
-with install.bat, the app, this machine's Python, 48 pinned wheels and every
-cached Whisper model. install.bat on the stick installs or updates into
+create_usb_stick.bat writes <drive>:\VoiceDictation\ with install.bat, the
+app, this machine's Python, 48 pinned wheels and every cached Whisper model.
+install.bat on the stick installs or updates into
 %LOCALAPPDATA%\Programs\VoiceDictation with a private Python, keeps settings
 across an update, makes Desktop and Startup shortcuts, and starts the app.
 Tested in scratch only: fresh install 47 s, update kept settings, base.en
@@ -32,44 +33,41 @@ or a stick made from a working install. Nothing else.
 
 
 ==============================================================================
-A. THE SHELL EXPLAINING ITSELF
+A. PICKING DEVICES AND ENGINES
 ==============================================================================
-The app does something and the user cannot tell what or why. Mostly it
-already explains itself: X asks before exiting, first run opens Settings
-and Save refuses to close until a PTT button is bound, the README covers
-the rest. What is left is small.
+Settings knowing about the hardware it is running on. The mic fault is the
+one failure a novice hits, and today it quits the app.
 
-TONES THAT SAY WHAT HAPPENED
-  Two outcomes are silent: a press dropped because the engine was still
-  transcribing or pasting (the engine drops it; the user hears nothing),
-  and a transcript captured but never pasted (no text field focused,
-  elevated window). The existing high, low and double-low tones can cover
-  both; no new sound, no new slider.
+MIC HANDLING WITHOUT A RESTART
+  A missing or unopenable mic exits the engine and shows a modal that
+  quits; the next launch reads a flag file and opens Settings. Instead:
+  the engine never exits on a mic fault, the modal opens Settings, the
+  user picks a device and the open is attempted right there, and a
+  failure says so inline. The dropdown refreshes every time it opens, so
+  plugging in a mic is the whole hot-swap story. No "System Default"
+  entry, because Windows' default does not reflect intent (a webcam
+  promoted itself, twice). One module owns every audio-device call; the
+  primitives exist unwired in vdict/daemon/portaudio_io.py.
+  spike-notes.txt MICROPHONE DEVICES.
 
-X HIDES, MINIMIZE MINIMIZES
-  Today minimize goes to the tray and X exits after a confirm. Convention
-  is minimize to taskbar, X to tray, Exit in the menu. A Settings box
-  "Close button exits the app" for anyone who wants the old way.
+MIC TEST BUTTON WITH A LEVEL METER
+  A Test button next to the mic dropdown: click, speak, watch a bar. The
+  convention every voice app uses. For the device that opens fine but is
+  routed wrong, which today shows up as dictating and seeing nothing.
 
-SETTINGS AND THE OUTPUT WINDOW OPEN TOGETHER
-  Settings can be open with no output window showing, so a dictation made
-  while adjusting Settings gives no visible feedback. Opening Settings
-  shows the window first; hiding the window closes Settings.
-
-WELCOME DIALOG ON FIRST RUN
-  First run opens Settings and explains nothing. One dialog, not a chain
-  of message boxes: pick a mic, bind a PTT button, maybe bind the
-  output-window hotkey, then Settings opens. Only matters if a copy ever
-  reaches someone with no one in the room to tell them.
+MODEL DROPDOWN THAT KNOWS THE DEVICE
+  Five hardcoded models. CPU and GPU users want different lists, turbo
+  fits no tier, and a "show all" option would expose the rest. The real
+  question is the axis: the user is choosing how good and how fast their
+  English is, not a VRAM budget. spike-notes.txt WHISPER MODEL LADDER.
 
 
 ==============================================================================
 B. TRANSCRIPT ACCURACY
 ==============================================================================
-The words came out wrong or incomplete, and a post-process or a better
-hint would fix them. Each needs the captures table to say how often it
-actually happens before it is worth building; the table exists and the
-query is cheap.
+The words came out wrong or incomplete. Each of these is a post-process or
+a better hint, and each should be counted in the captures table before it
+is built: the table exists and the query is cheap.
 
 PUNCTUATION RESTORATION FOR RUN-ONS
   Rising intonation reads to Whisper as "not finished", so some speakers
@@ -97,33 +95,35 @@ LIVE VOCABULARY
 
 
 ==============================================================================
-C. PICKING DEVICES AND ENGINES
+C. SHELL PREFERENCES
 ==============================================================================
-The Settings dialog knowing about the hardware it is running on, instead
-of trusting the user to.
+The shell already explains itself: X asks before exiting, first run opens
+Settings and Save refuses to close until a PTT button is bound, the README
+covers the rest. These are preferences about how it behaves. The one real
+gap is the silent dropped press, under tones.
 
-MIC HANDLING WITHOUT A RESTART
-  A missing or unopenable mic exits the engine and shows a modal that
-  quits; the next launch reads a flag file and opens Settings. Instead:
-  the engine never exits on a mic fault, the modal opens Settings, the
-  user picks a device and the open is attempted right there, and a
-  failure says so inline. The dropdown refreshes every time it opens, so
-  plugging in a mic is the whole hot-swap story. No "System Default"
-  entry, because Windows' default does not reflect intent (a webcam
-  promoted itself, twice). One module owns every audio-device call; the
-  primitives exist unwired in vdict/daemon/portaudio_io.py.
-  spike-notes.txt MICROPHONE DEVICES.
+TONES THAT SAY WHAT HAPPENED
+  Two outcomes are silent: a press dropped because the engine was still
+  transcribing or pasting (the engine drops it; the user hears nothing),
+  and a transcript captured but never pasted (no text field focused,
+  elevated window). The existing high, low and double-low tones can cover
+  both; no new sound, no new slider.
 
-MIC TEST BUTTON WITH A LEVEL METER
-  A Test button next to the mic dropdown: click, speak, watch a bar. The
-  convention every voice app uses. For the device that opens fine but is
-  routed wrong, which today shows up as dictating and seeing nothing.
+X HIDES, MINIMIZE MINIMIZES
+  Today minimize goes to the tray and X exits after a confirm. Convention
+  is minimize to taskbar, X to tray, Exit in the menu. A Settings box
+  "Close button exits the app" for anyone who wants the old way.
 
-MODEL DROPDOWN THAT KNOWS THE DEVICE
-  Five hardcoded models. CPU and GPU users want different lists, turbo
-  fits no tier, and a "show all" option would expose the rest. The real
-  question is the axis: the user is choosing how good and how fast their
-  English is, not a VRAM budget. spike-notes.txt WHISPER MODEL LADDER.
+SETTINGS AND THE OUTPUT WINDOW OPEN TOGETHER
+  Settings can be open with no output window showing, so a dictation made
+  while adjusting Settings gives no visible feedback. Opening Settings
+  shows the window first; hiding the window closes Settings.
+
+WELCOME DIALOG ON FIRST RUN
+  First run opens Settings and explains nothing. One dialog, not a chain
+  of message boxes: pick a mic, bind a PTT button, maybe bind the
+  output-window hotkey, then Settings opens. Only matters if a copy ever
+  reaches someone with no one in the room to tell them.
 
 
 ==============================================================================
@@ -191,4 +191,3 @@ SEARCH BY MEANING
   reading the matches. The hard part is not storage but the retrievable
   unit: a seven-second utterance means nothing alone. Outside design in
   vector-analysis-investigation.txt, unmeasured here.
-
