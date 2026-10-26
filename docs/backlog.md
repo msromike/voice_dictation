@@ -88,6 +88,15 @@ gap is the silent dropped press, under tones.
   elevated window). The existing high, low and double-low tones can cover
   both; no new sound, no new slider.
 
+### MODEL DOWNLOAD PROGRESS
+  A model download shows one line, "Initiating download: <model>", then
+  nothing until it's done; the Windows notification fires only when the
+  output window is hidden (console.py drain's root.state() gate). Found on a
+  fresh VM, where first run leaves the window open, so nothing showed for
+  140 MB. Cheap fix: always notify for "download". Proper fix: a live
+  "base.en 45% of 140 MB" line, fed from huggingface_hub's progress reports
+  the way the loading dots are.
+
 ### X HIDES, MINIMIZE MINIMIZES
   Today minimize goes to the tray and X exits after a confirm. Convention
   is minimize to taskbar, X to tray, Exit in the menu. A Settings box

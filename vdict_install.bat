@@ -16,6 +16,8 @@ if not defined PY call :install_python || goto :fail
 "%PY%" -c "import sys; print(sys.executable)" > "%LOGS%\python-path.txt" || goto :fail
 set /p PY=<"%LOGS%\python-path.txt"
 for %%P in ("%PY%") do set "PYW=%%~dpPpythonw.exe"
+:: A new Python puts Scripts on PATH for windows opened later, not this one; pip checks this one.
+for %%P in ("%PY%") do set "PATH=%%~dpPScripts;%PATH%"
 echo Using %PY%
 
 :: The speech engine needs MSVCP140.dll. Python ships the rest of the C++ runtime, not this.
