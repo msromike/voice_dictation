@@ -21,9 +21,20 @@ from vdict.common.output import log
 # we pump messages, so that wait would only delay the restore.
 pyautogui.PAUSE = 0
 
-_user32 = ctypes.windll.user32
+# Private instances: the types declared here stay out of other modules' ctypes.windll.
+# Undeclared, ctypes returns a 32-bit int and cuts a 64-bit handle in half.
+_user32 = ctypes.WinDLL("user32", use_last_error=True)
 _user32.SetClipboardData.restype = ctypes.c_void_p
 _user32.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
+_kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+_kernel32.GlobalAlloc.restype = ctypes.c_void_p
+_kernel32.GlobalAlloc.argtypes = [ctypes.c_uint, ctypes.c_size_t]
+_kernel32.GlobalLock.restype = ctypes.c_void_p
+_kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
+_kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+_kernel32.GlobalFree.restype = ctypes.c_void_p
+_kernel32.GlobalFree.argtypes = [ctypes.c_void_p]
+GMEM_MOVEABLE = 0x0002
 
 # Windows' clipboard-history monitor asks for the text the instant it is announced,
 # which would fire the receipt before any paste. MEASURED: this flag stops it.
@@ -231,6 +242,38 @@ def _dropfiles(paths):
     return header + ("".join(p + "\0" for p in paths) + "\0").encode("utf-16-le")
 
 
+def _payload(fmt, data):
+    """GetClipboardData's return -> the bytes Windows stores. pywin32 decodes the
+    text formats and drops their terminator; every other format comes back raw."""
+    if fmt == win32con.CF_UNICODETEXT:
+        return data.encode("utf-16-le", "surrogatepass") + b"\0\0"
+    if fmt in (win32con.CF_TEXT, win32con.CF_OEMTEXT):
+        return data + b"\0"
+    if fmt == win32con.CF_HDROP:
+        return _dropfiles(data)
+    return data
+
+
+def _set_global(fmt, blob):
+    """SetClipboardData with our own copy of blob. pywin32's version reads digit-only
+    data as a handle and the heap kills the process (crash dumps, 2026-10-26)."""
+    handle = _kernel32.GlobalAlloc(GMEM_MOVEABLE, max(len(blob), 1))
+    if not handle:
+        raise ctypes.WinError(ctypes.get_last_error())
+    ptr = _kernel32.GlobalLock(handle)
+    if not ptr:
+        error = ctypes.WinError(ctypes.get_last_error())
+        _kernel32.GlobalFree(handle)
+        raise error
+    ctypes.memmove(ptr, blob, len(blob))
+    _kernel32.GlobalUnlock(handle)
+    # Success hands the block to Windows, which frees it at the next EmptyClipboard.
+    if not _user32.SetClipboardData(fmt, handle):
+        error = ctypes.WinError(ctypes.get_last_error())
+        _kernel32.GlobalFree(handle)
+        raise error
+
+
 class KeyboardInjector:
     """Text injection at the cursor via the clipboard, with the clipboard put back.
     Every clipboard call runs on this object's own thread; callers queue pastes."""
@@ -320,9 +363,13 @@ class KeyboardInjector:
             while fmt:
                 if fmt not in _SKIP_FORMATS:
                     try:
-                        items.append((fmt, win32clipboard.GetClipboardData(fmt)))
+                        data = win32clipboard.GetClipboardData(fmt)
                     except Exception:
-                        pass  # a format that will not read is one we cannot restore
+                        data = None  # a format that will not read is one we cannot restore
+                    # None is no memory behind it. Restoring it would promise the format,
+                    # and _wndproc would answer that promise with dictation text.
+                    if data is not None:
+                        items.append((fmt, data))
                 fmt = win32clipboard.EnumClipboardFormats(fmt)
         finally:
             win32clipboard.CloseClipboard()
@@ -334,17 +381,12 @@ class KeyboardInjector:
             log("note", "Clipboard busy -- it was not restored this time.")
             return
         try:
-            # Seen once, unreproduced: text formats refused with "handle is invalid".
-            # The note carries what the next occurrence needs to be explained.
-            owner = "ours" if win32clipboard.GetClipboardOwner() == self._hwnd else "not ours"
             win32clipboard.EmptyClipboard()
             for fmt, data in items:
                 try:
-                    win32clipboard.SetClipboardData(
-                        fmt, _dropfiles(data) if fmt == win32con.CF_HDROP else data)
-                except Exception as e:
-                    log("note", f"Clipboard format {fmt} not restored: {e} "
-                                f"({type(data).__name__} of {len(data)}, owner {owner})")
+                    _set_global(fmt, _payload(fmt, data))
+                except OSError as e:
+                    log("note", f"Clipboard format {fmt} not restored: {e}")
         finally:
             win32clipboard.CloseClipboard()
 
@@ -356,7 +398,7 @@ class KeyboardInjector:
         try:
             win32clipboard.EmptyClipboard()
             _user32.SetClipboardData(win32con.CF_UNICODETEXT, None)
-            win32clipboard.SetClipboardData(_EXCLUDE_FORMAT, b"\0\0\0\0")
+            _set_global(_EXCLUDE_FORMAT, b"\0\0\0\0")
         finally:
             win32clipboard.CloseClipboard()
         return True

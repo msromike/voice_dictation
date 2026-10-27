@@ -150,12 +150,23 @@ Every line here is a constant or a design choice in keyboard.py.
 
 Formats. Text, rich text (HTML Format, Rich Text Format) and image formats
 (CF_DIB, CF_DIBV5, DataObject, Ole Private Data, System.Drawing.Bitmap) all
-round-trip byte-identical through win32clipboard when written back in
+round-trip byte-identical when read with win32clipboard and written back in
 EnumClipboardFormats order. The GDI-handle formats cannot be written back
 and are _SKIP_FORMATS; CF_BITMAP among them costs nothing, because Windows
 re-synthesizes it from the restored CF_DIB. CF_HDROP reads back as a tuple
 of paths and must be rebuilt as a DROPFILES struct (20-byte header, paths
 UTF-16LE null-terminated, one more null), which _dropfiles does.
+
+Never pywin32's SetClipboardData. It decides whether its argument is a
+handle by trying int() on it, and int() accepts "531815", b"531815" and
+" 7_000 ". The digits go to Windows as a memory handle and the process dies
+with 0xC0000374 (heap corruption). Three engine crashes on 2026-10-26, each
+right after a paste over a clipboard holding a bare number, read from the
+Windows crash dumps; reproduced and fixed the same day. The same bug,
+landing on an unmapped address instead, is the "handle is invalid" note
+seen once earlier. Upstream: github.com/mhammond/pywin32/issues/2132, open
+since 2023. _set_global allocates the block itself with ctypes, as Ditto
+and AutoHotkey do. SetClipboardText is safe with digits (tested).
 
 History exclusion. Writing the ExcludeClipboardContentFromMonitorProcessing
 format with four zero bytes keeps the dictation out of Win+V. It matters
