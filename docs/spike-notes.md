@@ -157,16 +157,12 @@ re-synthesizes it from the restored CF_DIB. CF_HDROP reads back as a tuple
 of paths and must be rebuilt as a DROPFILES struct (20-byte header, paths
 UTF-16LE null-terminated, one more null), which _dropfiles does.
 
-Never pywin32's SetClipboardData. It decides whether its argument is a
-handle by trying int() on it, and int() accepts "531815", b"531815" and
-" 7_000 ". The digits go to Windows as a memory handle and the process dies
-with 0xC0000374 (heap corruption). Three engine crashes on 2026-10-26, each
-right after a paste over a clipboard holding a bare number, read from the
-Windows crash dumps; reproduced and fixed the same day. The same bug,
-landing on an unmapped address instead, is the "handle is invalid" note
-seen once earlier. Upstream: github.com/mhammond/pywin32/issues/2132, open
-since 2023. _set_global allocates the block itself with ctypes, as Ditto
-and AutoHotkey do. SetClipboardText is safe with digits (tested).
+Never pywin32's SetClipboardData. It tries int() on its data to decide
+whether that is a handle, and int() accepts "531815", b"531815" and
+" 7_000 ". A clipboard holding a bare number goes to Windows as a memory
+handle, and the process dies with 0xC0000374 (heap corruption) or gets
+"handle is invalid". _set_global allocates the block itself with ctypes.
+SetClipboardText is safe with digits. Upstream: pywin32 issue 2132.
 
 History exclusion. Writing the ExcludeClipboardContentFromMonitorProcessing
 format with four zero bytes keeps the dictation out of Win+V. It matters
