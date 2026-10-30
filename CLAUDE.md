@@ -15,7 +15,7 @@ Windows push-to-talk dictation: tray (vdict_tray.py) and engine
 - This repo is meant to be public. userdata/ and dev-flags.toml are never
   tracked.
 - The history before 2026-10-26 held userdata; it was removed from every
-  commit. The uncleaned history is the bundle in C:\bin\archive, never pushed.
+  commit.
 
 ## Docs
 - docs/ is Markdown: backlog.md (ideas by class) and spike-notes.md

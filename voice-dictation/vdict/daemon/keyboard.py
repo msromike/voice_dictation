@@ -5,6 +5,7 @@ import queue
 import struct
 import threading
 import time
+from datetime import datetime
 
 import pyautogui
 import pywintypes
@@ -48,6 +49,10 @@ _SKIP_FORMATS = frozenset({2, 3, 9, 14, 0x80, 0x82, 0x83, 0x8E})
 # Nothing asked for the text: no text field focused, or an elevated window that
 # ignores synthetic keys. A backstop, not a tuning constant -- the receipt ends the wait.
 _RECEIPT_TIMEOUT = 1.0
+
+# Chrome reads the text, then re-checks the clipboard and drops the paste if it changed.
+# 100 ms is the "feels instant" limit -- raise it only if Chrome drops a paste.
+_RESTORE_GRACE = 0.1
 
 # A budget, not a condition -- Windows has no event for the clipboard lock being
 # released. WinForms Clipboard.SetDataObject's defaults: 10 tries, 100 ms apart.
@@ -136,8 +141,12 @@ def _send_ctrl_v():
             pyautogui.keyDown(name)
 
 
-def _key_vk(name):
-    """config.json key name -> the virtual-key code the low-level hook reports."""
+def _key_vk(bind):
+    """config.json key binding -> the virtual-key code the low-level hook reports.
+    "vk:166" is a key with no pynput name and no character of its own."""
+    if bind.startswith("vk:"):
+        return int(bind[len("vk:"):])
+    name = bind[len("key:"):]
     key = getattr(keyboard.Key, name, None)
     if key is not None:
         return key.value.vk
@@ -153,24 +162,31 @@ def _mouse_name(name, what):
     return BUTTON_MAP[name].name
 
 
+def _bind(name, what):
+    """config.json binding -> (vk, mouse name). Exactly one is set."""
+    if name.startswith(("key:", "vk:")):
+        return _key_vk(name), None
+    return None, _mouse_name(name, what)
+
+
 class PTTListener:
     """Push-to-talk trigger listener (configurable mouse button or keyboard key)"""
 
-    def __init__(self, button="middle", *, enter_button=None, on_enter, inbox):
-        """Swallow the PTT trigger and the optional Enter mouse button. on_enter(hwnd)
+    def __init__(self, button="middle", *, enter_button=None, on_enter, inbox, trace=None):
+        """Swallow the PTT trigger and the optional Enter key or button. on_enter(hwnd)
         fires on every unmodified Enter; "press", "release" and "enter" go on inbox."""
         self.pressed = False
+        # A held Enter key auto-repeats; only its first down is an Enter.
+        self.enter_down = False
         self.on_enter = on_enter
         self.inbox = inbox
+        # trace_ptt in dev-flags.toml: a queue that gets every raw PTT and Enter
+        # event, injected ones too. None when the flag is off.
+        self.trace = trace
 
-        self.ptt_vk = None
-        self.ptt_mouse = None
-        if button.startswith("key:"):
-            self.ptt_vk = _key_vk(button[len("key:"):])
-        else:
-            self.ptt_mouse = _mouse_name(button, "PTT button")
-        self.enter_mouse = (None if enter_button is None
-                            else _mouse_name(enter_button, "Enter button"))
+        self.ptt_vk, self.ptt_mouse = _bind(button, "PTT button")
+        self.enter_vk, self.enter_mouse = (
+            (None, None) if enter_button is None else _bind(enter_button, "Enter button"))
 
         # Always on, whatever the PTT is -- Enter closes a dictation block.
         self.key_listener = keyboard.Listener(
@@ -191,16 +207,35 @@ class PTTListener:
         self.pressed = pressed
         self.inbox.put("press" if pressed else "release")
 
+    def _trace(self, source, down, data, scan):
+        """Hook thread. One raw event onto the trace queue, read before the state
+        changes, so a down while already down is marked as a repeat."""
+        assert self.trace is not None
+        held = self.pressed if source == "ptt" else self.enter_down
+        self.trace.put((datetime.now().isoformat(), data.time, source,
+                        "down" if down else "up", int(down and held), data.flags,
+                        scan, data.dwExtraInfo))
+
     def _key_filter(self, msg, data):
-        """Inside Windows' keyboard hook. Takes the PTT key; every other key, and
-        every key this app sends itself, passes through untouched."""
+        """Inside Windows' keyboard hook. Takes the PTT and Enter keys; every other key,
+        and every key this app sends itself, passes through untouched."""
+        down = msg in (win32con.WM_KEYDOWN, win32con.WM_SYSKEYDOWN)
+        source = ("ptt" if data.vkCode == self.ptt_vk
+                  else "enter" if data.vkCode == self.enter_vk else None)
+        if source and self.trace is not None:
+            self._trace(source, down, data, data.scanCode)
         if data.flags & LLKHF_INJECTED:
             return True
         if data.vkCode in _MODIFIER_NAMES:
             _track_modifier(msg, data.vkCode)
-        if data.vkCode != self.ptt_vk:
+        if source == "ptt":
+            self._set_pressed(down)
+        elif source == "enter":
+            if down and not self.enter_down:
+                self.inbox.put("enter")
+            self.enter_down = down
+        else:
             return True
-        self._set_pressed(msg in (win32con.WM_KEYDOWN, win32con.WM_SYSKEYDOWN))
         if data.vkCode not in _MODIFIER_VKS:
             # Raises; the hook returns 1 and no program sees the key (win32.py:306).
             self.key_listener.suppress_event()  # pyright: ignore[reportAttributeAccessIssue]
@@ -209,11 +244,17 @@ class PTTListener:
     def _mouse_filter(self, msg, data):
         """Inside Windows' mouse hook. Takes the PTT and Enter buttons, press and
         release both, so the program under the cursor never sees either."""
-        if msg not in _MOUSE_MESSAGES or data.flags & LLMHF_INJECTED:
+        if msg not in _MOUSE_MESSAGES:
             return True
         name, pressed = _MOUSE_MESSAGES[msg]
         if name is None:
             name = "x1" if data.mouseData >> 16 == 1 else "x2"
+        source = ("ptt" if name == self.ptt_mouse
+                  else "enter" if name == self.enter_mouse else None)
+        if source and self.trace is not None:
+            self._trace(source, pressed, data, None)
+        if data.flags & LLMHF_INJECTED:
+            return True
         if name == self.ptt_mouse:
             self._set_pressed(pressed)
         elif name == self.enter_mouse:
@@ -416,9 +457,19 @@ class KeyboardInjector:
             if rc == win32event.WAIT_OBJECT_0:
                 win32gui.PumpWaitingMessages()
 
+    def _pump_for(self, seconds):
+        """Answers Windows for the given time. The clipboard owner must keep pumping
+        while it waits, or every other app's copy stalls."""
+        deadline = time.monotonic() + seconds
+        while (remaining_ms := int((deadline - time.monotonic()) * 1000)) > 0:
+            rc = win32event.MsgWaitForMultipleObjects(
+                [], False, remaining_ms, win32con.QS_ALLINPUT)
+            if rc == win32event.WAIT_OBJECT_0:
+                win32gui.PumpWaitingMessages()
+
     def _paste(self, text):
         """Clipboard thread. Pastes text at the cursor, then restores the clipboard
-        the moment the target takes it -- or after the backstop, if nothing ever asks."""
+        a grace after the target takes it -- or after the backstop, if nothing asks."""
         items = self._snapshot()
         self._text = text + " "
         self._served.clear()
@@ -428,6 +479,8 @@ class KeyboardInjector:
 
         _send_ctrl_v()
         self._await_receipt()
+        if self._served.is_set():
+            self._pump_for(_RESTORE_GRACE)
 
         if items is not None:
             self._restore(items)
@@ -447,5 +500,5 @@ class KeyboardInjector:
         self._submit(text, None)
 
     def press_enter(self):
-        """A real Enter keystroke, for the Enter mouse button."""
+        """A real Enter keystroke, for the Enter key or button."""
         pyautogui.press("enter")

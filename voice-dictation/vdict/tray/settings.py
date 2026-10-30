@@ -150,9 +150,9 @@ def _build_ptt_rows(root, recording, shortcuts, config):
         textvariable=enter_display_var,
         command=lambda: PTTCapture(
             root, enter_var, enter_display_var, enter_btn,
-            taken=button_var, mouse_only=True).start()
+            taken=button_var).start()
     )
-    row = _row(shortcuts, "Mouse button for Enter:", enter_btn)
+    row = _row(shortcuts, "Key or button for Enter:", enter_btn)
 
     def clear_enter():
         enter_var.set("")

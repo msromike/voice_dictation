@@ -19,6 +19,17 @@ ordered by how much they would matter to someone dictating every day.
   and a developer's own. While it's in there, the installer could also
   download the default speech model, so a fresh install works offline.
 
+### PLAIN SETCLIPBOARDDATA ONCE PYWIN32 313 SHIPS
+  keyboard.py restores the saved clipboard through ctypes (GlobalAlloc, copy,
+  user32.SetClipboardData with pointer-sized declarations) because pywin32
+  312's SetClipboardData parses digit-only text as a memory handle and
+  crashes the engine (mhammond/pywin32#2132). The fix is in PR #2819
+  (2026-10-28), due in build 313. When 313 is released: raise the pywin32
+  requirement in requirements.txt to 313 or later, replace the ctypes block
+  with win32clipboard.SetClipboardData, drop the private DLL declarations it
+  needed, retire the "never pywin32's SetClipboardData" rule in
+  spike-notes.md, and re-test a paste with a number on the clipboard.
+
 ## B. PICKING DEVICES AND ENGINES
 Settings knowing about the hardware it is running on. The mic fault is the
 one failure a novice hits, and today it quits the app.

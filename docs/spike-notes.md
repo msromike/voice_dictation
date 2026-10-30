@@ -178,6 +178,18 @@ wrong about it delays a restore and cannot cause a wrong paste. pyautogui
 PAUSE must be 0 or its default 0.1 s delays the message pump and the
 receipt reads 100 ms.
 
+The receipt is the read, not the insert. Chrome records the clipboard
+sequence number when a paste starts, reads the text, then checks the number
+again before inserting and silently returns if it moved (Chromium
+third_party/blink/renderer/core/editing/commands/clipboard_commands.cc; the
+paste snapshot in core/clipboard/system_clipboard.cc caches the text but
+never the number). Restoring ~1 ms after the receipt moves the number, so
+Chrome drops the paste: in a busy Chrome profile the YouTube search box got
+nothing or the old clipboard every time; a fresh profile won the same race
+by luck (2026-10-27). Restoring 500 ms after the receipt kept the paste.
+_RESTORE_GRACE holds the text 100 ms after the receipt, Nielsen's "feels
+instant" limit; raise it only if Chrome drops a paste.
+
 The owner must pump. After a restore the hidden window owns the clipboard,
 and if its thread is not pumping messages, the next copy in any app stalls
 that app 5 s while Windows waits for WM_DESTROYCLIPBOARD. The owner idles

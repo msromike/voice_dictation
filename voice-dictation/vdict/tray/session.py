@@ -46,9 +46,11 @@ def _model_size_on_disk(model_name):
 
 def format_bind(val):
     """Turn a config.json ptt.button value into a display name.
-    "key:f13" -> "F13", "x2" -> "Mouse Side (X2)", "" -> "Not set"."""
+    "key:f13" -> "F13", "vk:166" -> "Key 166", "x2" -> "Mouse Side (X2)", "" -> "Not set"."""
     if not val:
         return "Not set"
+    if val.startswith("vk:"):
+        return f"Key {val[3:]}"
     if val.startswith("key:"):
         return val[4:].replace('_', ' ').title()
     if val in ["left", "right", "middle"]:

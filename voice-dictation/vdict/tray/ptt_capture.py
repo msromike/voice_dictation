@@ -4,7 +4,15 @@ Leaf -- imports no vdict.tray module beyond log."""
 import traceback
 from tkinter import messagebox
 
+import win32api
+
 from vdict.tray.log import error_log, log
+
+
+def _char_vk(char):
+    """The virtual-key code the engine will resolve char to, or None."""
+    scan = win32api.VkKeyScan(char)
+    return None if scan == -1 else scan & 0xFF
 
 
 def _same_button(a, b):
@@ -16,7 +24,7 @@ class PTTCapture:
     """One push-to-talk rebind. Every exit routes through end(), the only place
     the button is re-enabled and the global hooks are dropped."""
 
-    def __init__(self, root, btn_var, disp_var, tk_btn, *, taken, mouse_only=False):
+    def __init__(self, root, btn_var, disp_var, tk_btn, *, taken):
         """Hold the widgets the capture writes back into, and the face to restore.
         taken is the other row's binding, which this one may not duplicate."""
         self.root = root
@@ -24,7 +32,6 @@ class PTTCapture:
         self.disp_var = disp_var
         self.tk_btn = tk_btn
         self.taken = taken
-        self.mouse_only = mouse_only
         self.previous = disp_var.get()
         self.listeners = []
         self.done = False
@@ -89,12 +96,16 @@ class PTTCapture:
                 # Cancels. Settings closes on Escape too, from its own binding.
                 self.root.after(0, lambda: self.end(self.previous))
                 return False
-            if self.mouse_only:
-                return None  # a keyboard already has an Enter key
-            if name is None:
+            if name is not None:
+                val, disp = f"key:{name}", name.replace("_", " ").title()
+            elif (key.char and key.char.isprintable() and key.vk is not None
+                  and _char_vk(key.char) == key.vk):
                 val, disp = f"key:{key.char}", key.char.upper()
             else:
-                val, disp = f"key:{name}", name.replace("_", " ").title()
+                # No name, and its character is not what the key reads back as:
+                # numpad digits, browser and OEM keys. The code is what the hook sees.
+                assert key.vk is not None
+                val, disp = f"vk:{key.vk}", f"Key {key.vk}"
             self.root.after(0, lambda: self.accept(val, disp))
         except Exception:
             # Format now, inside the except block -- sys.exc_info() is gone

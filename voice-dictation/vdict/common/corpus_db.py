@@ -52,6 +52,21 @@ def init_db():
                 block_id INTEGER
             )
         """)
+        # trace_ptt in dev-flags.toml: one row per raw PTT or Enter down/up. tick is
+        # Windows' own millisecond clock; scan is NULL for a mouse button.
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS ptt_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                wall_time TEXT,
+                tick INTEGER,
+                source TEXT,
+                kind TEXT,
+                repeat INTEGER,
+                flags INTEGER,
+                scan INTEGER,
+                extra INTEGER
+            )
+        """)
         conn.commit()
     finally:
         conn.close()

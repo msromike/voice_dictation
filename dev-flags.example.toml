@@ -1,3 +1,8 @@
 # Rename this file to dev-flags.toml to keep every dictation's audio (FLAC) and a
 # history database in userdata. Delete dev-flags.toml to turn it off again.
 capture_corpus = true
+
+# Every raw down and up of the PTT and Enter keys or buttons goes to the ptt_events
+# table in the same database, with Windows' own millisecond tick. For a trigger that
+# misbehaves; leave it off otherwise.
+trace_ptt = false

@@ -116,16 +116,43 @@ def _record_corpus_row(row):
         write_error_log("Database write failed", traceback.format_exc())
 
 
+def _write_ptt_events(events):
+    """Own thread, only with trace_ptt on. Rows from the hook's queue into ptt_events,
+    a batch per wake. Never raises -- a database fault must not end a session."""
+    from vdict.common.corpus_db import get_corpus_connection
+    while True:
+        rows = [events.get()]
+        while True:
+            try:
+                rows.append(events.get_nowait())
+            except queue.Empty:
+                break
+        try:
+            conn = get_corpus_connection()
+            try:
+                conn.executemany("""
+                    INSERT INTO ptt_events (
+                        wall_time, tick, source, kind, repeat, flags, scan, extra
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, rows)
+                conn.commit()
+            finally:
+                conn.close()
+        except Exception as db_e:
+            log("error", f"Failed to record trigger events to database: {db_e}")
+            write_error_log("Database write failed", traceback.format_exc())
+
+
 # 0.4 seconds at 16kHz. Shorter recordings are treated as accidental clicks.
 MIN_RECORDING_SAMPLES = 6400
 
 _dev_flags_path = Path(__file__).parent.parent / "dev-flags.toml"
+_dev_flags = {}
 if _dev_flags_path.exists():
     with open(_dev_flags_path, "rb") as _f:
         _dev_flags = tomllib.load(_f)
-        FLAC_CORPUS_CAPTURE_ENABLED = _dev_flags.get("capture_corpus", False)
-else:
-    FLAC_CORPUS_CAPTURE_ENABLED = False
+FLAC_CORPUS_CAPTURE_ENABLED = _dev_flags.get("capture_corpus", False)
+PTT_TRACE_ENABLED = _dev_flags.get("trace_ptt", False)
 
 FLAC_CORPUS_DIR = Path(__file__).parent.parent / "userdata" / "voice_recordings_PRIVATE"
 
@@ -246,6 +273,11 @@ class CaptureSession:
         # Every wait in the engine is a get on this. The session owns it because
         # the listener is rebuilt on reload and the inbox must outlive it.
         self.inbox = queue.Queue()
+        # trace_ptt: raw trigger events, kept here for the same reason as the inbox.
+        self.trace = None
+        if PTT_TRACE_ENABLED:
+            self.trace = queue.Queue()
+            threading.Thread(target=_write_ptt_events, args=(self.trace,), daemon=True).start()
         # Enter and reload that arrived mid-dictation, handled once its paste lands.
         self.deferred = []
         self.ptt = self._make_listener(config)
@@ -257,7 +289,7 @@ class CaptureSession:
         """The trigger listener for this config. Built at start and on every reload."""
         return PTTListener(
             button=config.ptt.button, enter_button=config.ptt.enter_button,
-            on_enter=self.blocks.close, inbox=self.inbox)
+            on_enter=self.blocks.close, inbox=self.inbox, trace=self.trace)
 
     def _reload(self):
         """Between captures only. A save that leaves the model alone lands here
@@ -403,7 +435,7 @@ def main():
     """Main daemon loop"""
     config = load_config()
 
-    if FLAC_CORPUS_CAPTURE_ENABLED:
+    if FLAC_CORPUS_CAPTURE_ENABLED or PTT_TRACE_ENABLED:
         from vdict.common.corpus_db import init_db
         try:
             init_db()
